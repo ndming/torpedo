@@ -12,13 +12,11 @@ namespace tpd {
         DeviceBuilder& deviceExtensions(std::vector<const char*>&& extensions) noexcept;
 
         DeviceBuilder& deviceFeatures(const vk::PhysicalDeviceFeatures2& features);
-        DeviceBuilder& deviceFeatures(const VkPhysicalDeviceFeatures2& features);
 
-        DeviceBuilder& queueFamilies(std::initializer_list<uint32_t> families);
-        DeviceBuilder& queueFamilies(const std::set<uint32_t>& families);
-        DeviceBuilder& queueFamilies(std::set<uint32_t>&& families) noexcept;
+        DeviceBuilder& queueFamilyIndices(std::initializer_list<uint32_t> families);
+        DeviceBuilder& queueFamilyIndices(const std::set<uint32_t>& families);
+        DeviceBuilder& queueFamilyIndices(std::set<uint32_t>&& families) noexcept;
 
-        [[nodiscard]] VkDevice build(const VkPhysicalDevice& physicalDevice) const;
         [[nodiscard]] vk::Device build(const vk::PhysicalDevice& physicalDevice) const;
 
     private:
@@ -55,21 +53,16 @@ inline tpd::DeviceBuilder& tpd::DeviceBuilder::deviceFeatures(const vk::Physical
     return *this;
 }
 
-inline tpd::DeviceBuilder& tpd::DeviceBuilder::deviceFeatures(const VkPhysicalDeviceFeatures2& features) {
-    _features = features;
-    return *this;
+inline tpd::DeviceBuilder& tpd::DeviceBuilder::queueFamilyIndices(const std::initializer_list<uint32_t> families) {
+    return queueFamilyIndices(std::set(families.begin(), families.end()));
 }
 
-inline tpd::DeviceBuilder& tpd::DeviceBuilder::queueFamilies(const std::initializer_list<uint32_t> families) {
-    return queueFamilies(std::set(families.begin(), families.end()));
-}
-
-inline tpd::DeviceBuilder& tpd::DeviceBuilder::queueFamilies(const std::set<uint32_t>& families) {
+inline tpd::DeviceBuilder& tpd::DeviceBuilder::queueFamilyIndices(const std::set<uint32_t>& families) {
     _queueFamilies = families;
     return *this;
 }
 
-inline tpd::DeviceBuilder&tpd::DeviceBuilder::queueFamilies(std::set<uint32_t>&& families) noexcept {
+inline tpd::DeviceBuilder&tpd::DeviceBuilder::queueFamilyIndices(std::set<uint32_t>&& families) noexcept {
     _queueFamilies = std::move(families);
     return *this;
 }

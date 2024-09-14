@@ -58,6 +58,7 @@ int main() {
     auto requiredExtensions = std::vector(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
     auto instanceCreateFlags = vk::InstanceCreateFlags{};
+
 #ifdef __APPLE__
     // Beginning with the 1.3.216 Vulkan SDK, the VK_KHR_PORTABILITY_subset extension is mandatory
     // for macOS with the latest MoltenVK SDK
@@ -78,7 +79,7 @@ int main() {
     // Set up a debug messenger
     auto debugMessenger = vk::DebugUtilsMessengerEXT{};
     if (tpd::core::createDebugUtilsMessenger(instance, &debugInfo, &debugMessenger) == vk::Result::eErrorExtensionNotPresent) {
-        throw std::runtime_error("Failed to set up debug messenger!");
+        throw std::runtime_error("Failed to set up a debug messenger!");
     }
 
     // Create a surface
@@ -99,7 +100,7 @@ int main() {
 
     const auto device = tpd::DeviceBuilder()
         .deviceExtensions(DEVICE_EXTENSIONS.data(), DEVICE_EXTENSIONS.size())
-        .queueFamilies({ graphicsFamily, presentFamily })
+        .queueFamilyIndices({ graphicsFamily, presentFamily })
         .build(physicalDevice);
 
     while (!glfwWindowShouldClose(window)) {

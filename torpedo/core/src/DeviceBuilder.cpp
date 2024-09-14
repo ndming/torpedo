@@ -2,10 +2,6 @@
 
 #include <ranges>
 
-VkDevice tpd::DeviceBuilder::build(const VkPhysicalDevice& physicalDevice) const {
-    return build(static_cast<vk::PhysicalDevice>(physicalDevice));
-}
-
 vk::Device tpd::DeviceBuilder::build(const vk::PhysicalDevice& physicalDevice) const {
     using namespace std::views;
     constexpr auto priority = 1.0f;
@@ -15,7 +11,7 @@ vk::Device tpd::DeviceBuilder::build(const vk::PhysicalDevice& physicalDevice) c
     auto deviceCreateInfo = vk::DeviceCreateInfo{};
     deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
     deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-    deviceCreateInfo.pEnabledFeatures = nullptr;  // we're using vk::PhysicalDeviceFeatures2 specified in the pNext ptr
+    deviceCreateInfo.pEnabledFeatures = nullptr;  // we're using vk::PhysicalDeviceFeatures2, specified in the pNext ptr
     deviceCreateInfo.pNext = &_features;
     deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(_extensions.size());
     deviceCreateInfo.ppEnabledExtensionNames = _extensions.data();

@@ -3,10 +3,6 @@
 #include <ranges>
 #include <unordered_set>
 
-tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::select(const VkInstance& instance) {
-    return select(static_cast<vk::Instance>(instance));
-}
-
 tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::select(const vk::Instance& instance) {
     const auto devices = instance.enumeratePhysicalDevices();
 

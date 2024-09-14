@@ -3,10 +3,6 @@
 #include <ranges>
 #include <unordered_set>
 
-VkInstance tpd::InstanceBuilder::build(const VkInstanceCreateFlags flags) {
-    return build(static_cast<vk::InstanceCreateFlags>(flags));
-}
-
 vk::Instance tpd::InstanceBuilder::build(const vk::InstanceCreateFlags flags) {
     // Check if all required layers are available, throw if any of them is not supported
     if (!allLayersAvailable()) {
@@ -77,20 +73,6 @@ vk::Result tpd::core::createDebugUtilsMessenger(
     return vk::Result::eErrorExtensionNotPresent;
 }
 
-VkResult tpd::core::createDebugUtilsMessenger(
-    VkInstance instance,
-    const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-    VkDebugUtilsMessengerEXT* pDebugMessenger,
-    const VkAllocationCallbacks *pAllocator)
-{
-    static constexpr auto createFunc = "vkCreateDebugUtilsMessengerEXT";
-    if (const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, createFunc));
-        func != nullptr) {
-        return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-    }
-    return VK_ERROR_EXTENSION_NOT_PRESENT;
-}
-
 void tpd::core::destroyDebugUtilsMessenger(
     const vk::Instance& instance,
     const vk::DebugUtilsMessengerEXT debugMessenger,
@@ -100,17 +82,5 @@ void tpd::core::destroyDebugUtilsMessenger(
     if (const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, destroyFunc));
         func != nullptr) {
         func(instance, debugMessenger, reinterpret_cast<const VkAllocationCallbacks*>(pAllocator));
-    }
-}
-
-void tpd::core::destroyDebugUtilsMessenger(
-    VkInstance instance,
-    VkDebugUtilsMessengerEXT debugMessenger,
-    const VkAllocationCallbacks* pAllocator)
-{
-    static constexpr auto destroyFunc = "vkDestroyDebugUtilsMessengerEXT";
-    if (const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, destroyFunc));
-        func != nullptr) {
-        func(instance, debugMessenger, pAllocator);
     }
 }

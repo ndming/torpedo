@@ -9,7 +9,6 @@ namespace tpd {
         InstanceBuilder& applicationInfo(const VkApplicationInfo& info);
 
         InstanceBuilder& debugInfo(const vk::DebugUtilsMessengerCreateInfoEXT& info);
-        InstanceBuilder& debugInfo(const VkDebugUtilsMessengerCreateInfoEXT& info);
 
         InstanceBuilder& extensions(const char* const* extensions, std::size_t count);
         InstanceBuilder& extensions(const std::vector<const char*>& extensions);
@@ -19,7 +18,6 @@ namespace tpd {
         InstanceBuilder& layers(const std::vector<const char*>& layers);
         InstanceBuilder& layers(std::vector<const char*>&& layers) noexcept;
 
-        [[nodiscard]] VkInstance build(VkInstanceCreateFlags flags);
         [[nodiscard]] vk::Instance build(vk::InstanceCreateFlags flags = {});
 
     private:
@@ -42,20 +40,11 @@ namespace tpd {
             const vk::DebugUtilsMessengerCreateInfoEXT* pCreateInfo,
             vk::DebugUtilsMessengerEXT* pDebugMessenger,
             const vk::AllocationCallbacks* pAllocator = nullptr);
-        VkResult createDebugUtilsMessenger(
-            VkInstance instance,
-            const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-            VkDebugUtilsMessengerEXT* pDebugMessenger,
-            const VkAllocationCallbacks* pAllocator = nullptr);
 
         void destroyDebugUtilsMessenger(
             const vk::Instance& instance,
             vk::DebugUtilsMessengerEXT debugMessenger,
             const vk::AllocationCallbacks* pAllocator = nullptr);
-        void destroyDebugUtilsMessenger(
-            VkInstance instance,
-            VkDebugUtilsMessengerEXT debugMessenger,
-            const VkAllocationCallbacks* pAllocator = nullptr);
     }
 }
 
@@ -74,11 +63,6 @@ inline tpd::InstanceBuilder&tpd::InstanceBuilder::applicationInfo(const VkApplic
 }
 
 inline tpd::InstanceBuilder&tpd::InstanceBuilder::debugInfo(const vk::DebugUtilsMessengerCreateInfoEXT& info) {
-    _debugInfo = info;
-    return *this;
-}
-
-inline tpd::InstanceBuilder&tpd::InstanceBuilder::debugInfo(const VkDebugUtilsMessengerCreateInfoEXT& info) {
     _debugInfo = info;
     return *this;
 }

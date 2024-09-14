@@ -12,53 +12,27 @@ namespace tpd {
         PhysicalDeviceSelector& deviceExtensions(std::vector<const char*>&& extensions) noexcept;
 
         PhysicalDeviceSelector& requestGraphicsQueueFamily();
-
         PhysicalDeviceSelector& requestPresentQueueFamily(const vk::SurfaceKHR& surface);
-        PhysicalDeviceSelector& requestPresentQueueFamily(const VkSurfaceKHR& surface);
-
         PhysicalDeviceSelector& requestComputeQueueFamily(bool distinct = false);
 
         PhysicalDeviceSelector& features(const vk::PhysicalDeviceFeatures& features);
-        PhysicalDeviceSelector& features(const VkPhysicalDeviceFeatures& features);
 
         PhysicalDeviceSelector& featuresExtendedDynamicState(const vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT& features);
-        PhysicalDeviceSelector& featuresExtendedDynamicState(const VkPhysicalDeviceExtendedDynamicStateFeaturesEXT& features);
-
         PhysicalDeviceSelector& featuresExtendedDynamicState2(const vk::PhysicalDeviceExtendedDynamicState2FeaturesEXT& features);
-        PhysicalDeviceSelector& featuresExtendedDynamicState2(const VkPhysicalDeviceExtendedDynamicState2FeaturesEXT& features);
-
         PhysicalDeviceSelector& featuresExtendedDynamicState3(const vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT& features);
-        PhysicalDeviceSelector& featuresExtendedDynamicState3(const VkPhysicalDeviceExtendedDynamicState3FeaturesEXT& features);
 
         PhysicalDeviceSelector& featuresVulkan11(const vk::PhysicalDeviceVulkan11Features& features);
-        PhysicalDeviceSelector& featuresVulkan11(const VkPhysicalDeviceVulkan11Features& features);
-
         PhysicalDeviceSelector& featuresVulkan12(const vk::PhysicalDeviceVulkan12Features& features);
-        PhysicalDeviceSelector& featuresVulkan12(const VkPhysicalDeviceVulkan12Features& features);
-
         PhysicalDeviceSelector& featuresVulkan13(const vk::PhysicalDeviceVulkan13Features& features);
-        PhysicalDeviceSelector& featuresVulkan13(const VkPhysicalDeviceVulkan13Features& features);
 
         PhysicalDeviceSelector& featuresDescriptorIndexing(const vk::PhysicalDeviceDescriptorIndexingFeatures& features);
-        PhysicalDeviceSelector& featuresDescriptorIndexing(const VkPhysicalDeviceDescriptorIndexingFeatures& features);
-
         PhysicalDeviceSelector& featuresDynamicRendering(const vk::PhysicalDeviceDynamicRenderingFeatures& features);
-        PhysicalDeviceSelector& featuresDynamicRendering(const VkPhysicalDeviceDynamicRenderingFeatures& features);
-
         PhysicalDeviceSelector& featuresSynchronization2(const vk::PhysicalDeviceSynchronization2Features& features);
-        PhysicalDeviceSelector& featuresSynchronization2(const VkPhysicalDeviceSynchronization2Features& features);
-
         PhysicalDeviceSelector& featuresTimelineSemaphore(const vk::PhysicalDeviceTimelineSemaphoreFeatures& features);
-        PhysicalDeviceSelector& featuresTimelineSemaphore(const VkPhysicalDeviceTimelineSemaphoreFeatures& features);
-
         PhysicalDeviceSelector& featuresConditionalRendering(const vk::PhysicalDeviceConditionalRenderingFeaturesEXT& features);
-        PhysicalDeviceSelector& featuresConditionalRendering(const VkPhysicalDeviceConditionalRenderingFeaturesEXT& features);
-
         PhysicalDeviceSelector& featuresVertexInputDynamicState(const vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT& features);
-        PhysicalDeviceSelector& featuresVertexInputDynamicState(const VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT& features);
 
         [[nodiscard]] PhysicalDeviceSelector& select(const vk::Instance& instance);
-        [[nodiscard]] PhysicalDeviceSelector& select(const VkInstance& instance);
 
         [[nodiscard]] vk::PhysicalDevice getPhysicalDevice() const;
         [[nodiscard]] uint32_t getGraphicsQueueFamily() const;
@@ -149,12 +123,6 @@ inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::requestPresentQ
     return *this;
 }
 
-inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::requestPresentQueueFamily(const VkSurfaceKHR& surface) {
-    _surface = surface;
-    _requestPresentQueueFamily = true;
-    return *this;
-}
-
 inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::requestComputeQueueFamily(const bool distinct) {
     _requestComputeQueueFamily = true;
     _distinctComputeQueueFamily = distinct;
@@ -166,19 +134,8 @@ inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::features(const 
     return *this;
 }
 
-inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::features(const VkPhysicalDeviceFeatures& features) {
-    _features = features;
-    return *this;
-}
-
 inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresExtendedDynamicState(
     const vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT& features) {
-    _extendedDynamicState1Features = features;
-    return *this;
-}
-
-inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresExtendedDynamicState(
-    const VkPhysicalDeviceExtendedDynamicStateFeaturesEXT& features) {
     _extendedDynamicState1Features = features;
     return *this;
 }
@@ -189,20 +146,8 @@ inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresExtende
     return *this;
 }
 
-inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresExtendedDynamicState2(
-    const VkPhysicalDeviceExtendedDynamicState2FeaturesEXT& features) {
-    _extendedDynamicState2Features = features;
-    return *this;
-}
-
 inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresExtendedDynamicState3(
     const vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT& features) {
-    _extendedDynamicState3Features = features;
-    return *this;
-}
-
-inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresExtendedDynamicState3(
-    const VkPhysicalDeviceExtendedDynamicState3FeaturesEXT& features) {
     _extendedDynamicState3Features = features;
     return *this;
 }
@@ -213,20 +158,8 @@ inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresVulkan1
     return *this;
 }
 
-inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresVulkan11(
-    const VkPhysicalDeviceVulkan11Features& features) {
-    _vulkan11Features = features;
-    return *this;
-}
-
 inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresVulkan12(
     const vk::PhysicalDeviceVulkan12Features& features) {
-    _vulkan12Features = features;
-    return *this;
-}
-
-inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresVulkan12(
-    const VkPhysicalDeviceVulkan12Features& features) {
     _vulkan12Features = features;
     return *this;
 }
@@ -237,32 +170,14 @@ inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresVulkan1
     return *this;
 }
 
-inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresVulkan13(
-    const VkPhysicalDeviceVulkan13Features& features) {
-    _vulkan13Features = features;
-    return *this;
-}
-
 inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresConditionalRendering(
     const vk::PhysicalDeviceConditionalRenderingFeaturesEXT& features) {
     _conditionalRenderingFeatures = features;
     return *this;
 }
 
-inline tpd::PhysicalDeviceSelector & tpd::PhysicalDeviceSelector::featuresConditionalRendering(
-    const VkPhysicalDeviceConditionalRenderingFeaturesEXT& features) {
-    _conditionalRenderingFeatures = features;
-    return *this;
-}
-
 inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresVertexInputDynamicState(
     const vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT& features) {
-    _vertexInputDynamicStateFeatures = features;
-    return *this;
-}
-
-inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresVertexInputDynamicState(
-    const VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT& features) {
     _vertexInputDynamicStateFeatures = features;
     return *this;
 }
