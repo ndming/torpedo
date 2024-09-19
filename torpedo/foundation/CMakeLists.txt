@@ -2,8 +2,11 @@
 # LIBARY SOURCE FILES
 # ======================================================================================================================
 set(TORPEDO_FOUNDATION_SOURCES
-        src/VmaUsage.cpp
+        src/Buffer.cpp
+        src/PipelineInstance.cpp
+        src/PipelineShader.cpp
         src/ResourceAllocator.cpp
+        src/VmaUsage.cpp
 )
 
 # ======================================================================================================================
@@ -18,7 +21,6 @@ target_sources(${TARGET} PRIVATE ${TORPEDO_FOUNDATION_SOURCES})
 # Where to look for header files
 target_include_directories(${TARGET} PUBLIC include)
 target_include_directories(${TARGET} PUBLIC ${Vulkan_INCLUDE_DIRS})
-target_include_directories(${TARGET} PRIVATE src)
 
 # Dependencies
 target_link_libraries(${TARGET} PUBLIC ${Vulkan_LIBRARIES})
