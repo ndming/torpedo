@@ -1,5 +1,6 @@
 #pragma once
 
+#include <torpedo/foundation/PipelineShader.h>
 #include <torpedo/foundation/ResourceAllocator.h>
 
 #include <vulkan/vulkan.hpp>
@@ -9,7 +10,10 @@ class TordemoApplication {
 public:
     void run();
 
-    virtual ~TordemoApplication() = default;
+    explicit TordemoApplication(const uint32_t maxFramesInFlight = 2) : _maxFramesInFlight(maxFramesInFlight) {
+    }
+
+    virtual ~TordemoApplication();
 
     TordemoApplication(const TordemoApplication&) = delete;
     TordemoApplication& operator=(const TordemoApplication&) = delete;
@@ -19,9 +23,6 @@ private:
     void initWindow();
     void initVulkan();
     void loop();
-    void cleanup() const noexcept;
-
-    static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
 protected:
     // Bite-sized overrides
@@ -33,6 +34,9 @@ protected:
 
     virtual void createSyncObjects();
     virtual void destroySyncObjects() const noexcept;
+
+    virtual void createPipelineResources();
+    virtual void destroyPipelineResources() noexcept;
 
     virtual void drawFrame();
 
@@ -127,6 +131,12 @@ protected:
     vk::CommandPool _drawingCommandPool{};
     virtual void createDrawingCommandPool();
 
+    // Transfer command pool
+    vk::CommandPool _transferCommandPool{};
+    void createTransferCommandPool();
+
+    const uint32_t _maxFramesInFlight;
+
     // Drawing command buffers
     std::vector<vk::CommandBuffer> _drawingCommandBuffers{};
     virtual void createCommandBuffers();
@@ -137,7 +147,20 @@ protected:
     std::vector<vk::Fence> _drawingInFlightFences{};
     void createDrawingSyncObjects();
 
-    // Frame drawings
+    // Graphics pipeline
+    std::unique_ptr<tpd::PipelineShader> _graphicsPipelineShader{};
+    virtual void createGraphicsPipelineShader();
+    [[nodiscard]] virtual std::vector<vk::DynamicState> getGraphicsPipelineDynamicStates() const;
+    [[nodiscard]] virtual vk::PipelineViewportStateCreateInfo getGraphicsPipelineViewportState() const;
+    [[nodiscard]] virtual vk::PipelineInputAssemblyStateCreateInfo getGraphicsPipelineInputAssemblyState() const;
+    [[nodiscard]] virtual vk::PipelineVertexInputStateCreateInfo getGraphicsPipelineVertexInputState() const;
+    [[nodiscard]] virtual vk::PipelineRasterizationStateCreateInfo getGraphicsPipelineRasterizationState() const;
+    [[nodiscard]] virtual vk::PipelineMultisampleStateCreateInfo getGraphicsPipelineMultisampleState() const;
+    [[nodiscard]] virtual vk::PipelineDepthStencilStateCreateInfo getGraphicsPipelineDepthStencilState() const;
+    [[nodiscard]] virtual vk::PipelineColorBlendAttachmentState getGraphicsPipelineColorBlendAttachmentState() const;
+    [[nodiscard]] virtual std::unique_ptr<tpd::PipelineShader> buildPipelineShader(vk::GraphicsPipelineCreateInfo* pipelineInfo) const;
+
+    // Drawing frames
     uint32_t _currentFrame{ 0 };
     virtual bool beginFrame(uint32_t* imageIndex);
     virtual void onFrameReady(uint32_t frameIndex);
@@ -146,5 +169,9 @@ protected:
     // Rendering
     virtual void beginRenderPass(uint32_t imageIndex);
     [[nodiscard]] virtual std::vector<vk::ClearValue> getClearValues() const;
-    virtual void render();
+    virtual void render(vk::CommandBuffer buffer);
+
+    // Transfer operations
+    [[nodiscard]] vk::CommandBuffer beginSingleTimeTransferCommands() const;
+    void endSingleTimeTransferCommands(vk::CommandBuffer commandBuffer) const;
 };

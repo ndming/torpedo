@@ -13,12 +13,12 @@ void TordemoApplication::run() {
     initWindow();
     initVulkan();
     loop();
-    cleanup();
 }
 
 // =====================================================================================================================
 // APPLICATION STAGES
 // =====================================================================================================================
+
 void TordemoApplication::initWindow() {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -45,6 +45,7 @@ void TordemoApplication::initVulkan() {
     createCommandPools();
     createCommandBuffers();
     createSyncObjects();
+    createPipelineResources();
 }
 
 void TordemoApplication::loop() {
@@ -55,25 +56,10 @@ void TordemoApplication::loop() {
     _device.waitIdle();
 }
 
-void TordemoApplication::cleanup() const noexcept {
-    destroySyncObjects();
-    destroyCommandPools();
-    _device.destroyRenderPass(_renderPass);
-    cleanupSwapChain();
-    _device.destroy();
-    _instance.destroySurfaceKHR(_surface);
-#ifndef NDEBUG
-    tpd::core::destroyDebugUtilsMessenger(_instance, _debugMessenger);
-#endif
-    _instance.destroy();
-
-    glfwDestroyWindow(_window);
-    glfwTerminate();
-}
-
 // =====================================================================================================================
 // BYTE-SIZED OVERRIDES
 // =====================================================================================================================
+
 void TordemoApplication::createFramebufferResources() {
     createFramebufferColorResources();
     createFramebufferDepthResources();
@@ -88,10 +74,12 @@ void TordemoApplication::destroyFramebufferResources() const noexcept {
 
 void TordemoApplication::createCommandPools() {
     createDrawingCommandPool();
+    createTransferCommandPool();
 }
 
 void TordemoApplication::destroyCommandPools() const noexcept {
     _device.destroyCommandPool(_drawingCommandPool);
+    _device.destroyCommandPool(_transferCommandPool);
 }
 
 void TordemoApplication::createSyncObjects() {
@@ -105,6 +93,14 @@ void TordemoApplication::destroySyncObjects() const noexcept {
     for_each(_imageAvailableSemaphores, [this](const auto& it) { _device.destroySemaphore(it); });
 }
 
+void TordemoApplication::createPipelineResources() {
+    createGraphicsPipelineShader();
+}
+
+void TordemoApplication::destroyPipelineResources() noexcept {
+    _graphicsPipelineShader->destroy(_device);
+}
+
 void TordemoApplication::drawFrame() {
     uint32_t imageIndex;
     if (!beginFrame(&imageIndex)) return;
@@ -113,28 +109,19 @@ void TordemoApplication::drawFrame() {
     _drawingCommandBuffers[_currentFrame].begin(vk::CommandBufferBeginInfo{});
 
     beginRenderPass(imageIndex);
-    render();
+    render(_drawingCommandBuffers[_currentFrame]);
     _drawingCommandBuffers[_currentFrame].endRenderPass();
 
     _drawingCommandBuffers[_currentFrame].end();
     endFrame(imageIndex);
 
-    _currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-}
-
-void TordemoApplication::render() {
-}
-
-std::vector<vk::ClearValue> TordemoApplication::getClearValues() const {
-    return {
-        vk::ClearColorValue{ 0.0f, 0.0f, 0.0f, 1.0f },                    // for the multi-sampled color attachment
-        vk::ClearDepthStencilValue{ /* depth */ 1.0f, /* stencil */ 0 },  // for the depth/stencil attachment
-    };
+    _currentFrame = (_currentFrame + 1) % _maxFramesInFlight;
 }
 
 // =====================================================================================================================
 // WINDOW
 // =====================================================================================================================
+
 std::string TordemoApplication::getWindowTitle() const {
     return "Hello, Tordemo!";
 }
@@ -148,6 +135,7 @@ void TordemoApplication::framebufferResizeCallback(GLFWwindow* window, [[maybe_u
 // =====================================================================================================================
 // DEBUG MESSENGER
 // =====================================================================================================================
+
 VKAPI_ATTR vk::Bool32 VKAPI_CALL defaultDebugCallback(
     const VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     [[maybe_unused]] const VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -181,6 +169,7 @@ void TordemoApplication::createDebugMessenger() {
 // =====================================================================================================================
 // VULKAN INSTANCE
 // =====================================================================================================================
+
 void TordemoApplication::createInstance() {
     auto instanceCreateFlags = vk::InstanceCreateFlags{};
 
@@ -191,11 +180,10 @@ void TordemoApplication::createInstance() {
     instanceCreateFlags |= vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR;
 #endif
 
-    const auto debugInfo = tpd::core::createDebugInfo(defaultDebugCallback);
     _instance = tpd::InstanceBuilder()
         .applicationInfo(getApplicationInfo())
 #ifndef NDEBUG
-        .debugInfo(debugInfo)
+        .debugInfo(tpd::core::createDebugInfo(defaultDebugCallback))
         .layers({ "VK_LAYER_KHRONOS_validation" })
 #endif
         .extensions(getRequiredExtensions())
@@ -215,6 +203,7 @@ vk::ApplicationInfo TordemoApplication::getApplicationInfo() const {
 // =====================================================================================================================
 // VULKAN SURFACE
 // =====================================================================================================================
+
 void TordemoApplication::createSurface() {
     if (glfwCreateWindowSurface(_instance, _window, nullptr, reinterpret_cast<VkSurfaceKHR*>(&_surface)) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create a window surface!");
@@ -224,6 +213,7 @@ void TordemoApplication::createSurface() {
 // =====================================================================================================================
 // PHYSICAL DEVICE AND QUEUE FAMILY INDICES
 // =====================================================================================================================
+
 void TordemoApplication::pickPhysicalDevice() {
     const auto selector = tpd::PhysicalDeviceSelector()
         .deviceExtensions(getDeviceExtensions())
@@ -257,6 +247,7 @@ std::vector<const char*> TordemoApplication::getDeviceExtensions() const {
 // =====================================================================================================================
 // DEVICE AND QUEUES
 // =====================================================================================================================
+
 void TordemoApplication::createDevice() {
     _device = tpd::DeviceBuilder()
         .deviceExtensions(getDeviceExtensions())
@@ -276,6 +267,7 @@ vk::PhysicalDeviceFeatures2 TordemoApplication::getDeviceFeatures() const {
 // =====================================================================================================================
 // RESOURCE ALLOCATOR
 // =====================================================================================================================
+
 void TordemoApplication::initResourceAllocator() {
     _resourceAllocator = tpd::ResourceAllocator::Builder()
         .flags(VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT | VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT)
@@ -287,6 +279,7 @@ void TordemoApplication::initResourceAllocator() {
 // =====================================================================================================================
 // SWAP CHAIN UTILITIES
 // =====================================================================================================================
+
 void TordemoApplication::recreateSwapChain() {
     // We won't recreate while the window is being minimized
     int width = 0, height = 0;
@@ -352,6 +345,7 @@ void TordemoApplication::presentSwapChainImage(uint32_t imageIndex, const vk::Se
 // =====================================================================================================================
 // SWAP CHAIN INFRASTRUCTURE
 // =====================================================================================================================
+
 void TordemoApplication::createSwapChain() {
     const auto surfaceFormat = chooseSwapSurfaceFormat();
     const auto presentMode = chooseSwapPresentMode();
@@ -465,6 +459,10 @@ void TordemoApplication::createSwapChainImageViews() {
     _swapChainImageViews = _swapChainImages | views::transform(toImageView) | to<std::vector>();
 }
 
+// =====================================================================================================================
+// FRAMEBUFFER COLOR RESOURCES
+// =====================================================================================================================
+
 void TordemoApplication::createFramebufferColorResources() {
     using Usage = vk::ImageUsageFlagBits;
     constexpr auto mipLevels = 1;
@@ -508,6 +506,10 @@ vk::SampleCountFlagBits TordemoApplication::getFramebufferColorImageSampleCount(
 uint32_t TordemoApplication::getFramebufferColorImageMipLevels() const {
     return 1;
 }
+
+// =====================================================================================================================
+// FRAMEBUFFER DEPTH RESOURCES
+// =====================================================================================================================
 
 void TordemoApplication::createFramebufferDepthResources() {
     const auto formatCandidates = std::vector{
@@ -577,6 +579,10 @@ vk::Format TordemoApplication::findFramebufferDepthImageFormat(
 vk::SampleCountFlagBits TordemoApplication::getFramebufferDepthImageSampleCount() const {
     return vk::SampleCountFlagBits::e4;
 }
+
+// =====================================================================================================================
+// RENDER PASS
+// =====================================================================================================================
 
 void TordemoApplication::createRenderPass() {
     const auto colorAttachment = vk::AttachmentDescription{
@@ -658,6 +664,10 @@ void TordemoApplication::createRenderPass() {
     _renderPass = _device.createRenderPass(renderPassInfo);
 }
 
+// =====================================================================================================================
+// FRAMEBUFFERS
+// =====================================================================================================================
+
 void TordemoApplication::createFramebuffers() {
     const auto toFramebuffer = [this](const auto& swapChainImageView) {
         // Specify the image views that should be bound to the respective attachment descriptions in the render pass
@@ -679,6 +689,10 @@ void TordemoApplication::createFramebuffers() {
     _framebuffers = _swapChainImageViews | std::ranges::views::transform(toFramebuffer) | std::ranges::to<std::vector>();
 }
 
+// =====================================================================================================================
+// COMMAND POOLS AND COMMAND BUFFERS
+// =====================================================================================================================
+
 void TordemoApplication::createDrawingCommandPool() {
     auto poolInfo = vk::CommandPoolCreateInfo{};
     poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
@@ -687,26 +701,159 @@ void TordemoApplication::createDrawingCommandPool() {
     _drawingCommandPool = _device.createCommandPool(poolInfo);
 }
 
+void TordemoApplication::createTransferCommandPool() {
+    const auto transferPoolInfo = vk::CommandPoolCreateInfo{ vk::CommandPoolCreateFlagBits::eTransient, _graphicsQueueFamily };
+    _transferCommandPool = _device.createCommandPool(transferPoolInfo);
+}
+
 void TordemoApplication::createCommandBuffers() {
     // Allocate a drawing command buffer for each in-flight frame
     auto allocInfo = vk::CommandBufferAllocateInfo{};
     allocInfo.commandPool = _drawingCommandPool;
     allocInfo.level = vk::CommandBufferLevel::ePrimary;
-    allocInfo.commandBufferCount = MAX_FRAMES_IN_FLIGHT;
+    allocInfo.commandBufferCount = _maxFramesInFlight;
     _drawingCommandBuffers = _device.allocateCommandBuffers(allocInfo);
 }
 
-void TordemoApplication::createDrawingSyncObjects() {
-    _imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    _renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    _drawingInFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+// =====================================================================================================================
+// SYNC OBJECTS
+// =====================================================================================================================
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+void TordemoApplication::createDrawingSyncObjects() {
+    _imageAvailableSemaphores.resize(_maxFramesInFlight);
+    _renderFinishedSemaphores.resize(_maxFramesInFlight);
+    _drawingInFlightFences.resize(_maxFramesInFlight);
+
+    for (size_t i = 0; i < _maxFramesInFlight; i++) {
         _imageAvailableSemaphores[i] = _device.createSemaphore({});
         _renderFinishedSemaphores[i] = _device.createSemaphore({});
         _drawingInFlightFences[i] = _device.createFence({ vk::FenceCreateFlagBits::eSignaled });
     }
 }
+
+// =====================================================================================================================
+// GRAPHICS PIPELINE
+// =====================================================================================================================
+
+void TordemoApplication::createGraphicsPipelineShader() {
+    // Specify which properties will be able to change at runtime
+    const auto dynamicStates = getGraphicsPipelineDynamicStates();
+    auto dynamicStateInfo = vk::PipelineDynamicStateCreateInfo{};
+    dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+    dynamicStateInfo.pDynamicStates = dynamicStates.data();
+
+    // Default viewport state
+    const auto viewportState = getGraphicsPipelineViewportState();
+    // Describe what kind of geometry will be drawn from the vertices and if primitive restart should be enabled
+    const auto inputAssembly = getGraphicsPipelineInputAssemblyState();
+    // Input vertex binding and attribute descriptions
+    const auto vertexInputState = getGraphicsPipelineVertexInputState();
+    // Rasterizer options
+    const auto rasterizer = getGraphicsPipelineRasterizationState();
+    // MSAA
+    const auto multisampling = getGraphicsPipelineMultisampleState();
+    // Depth stencil options
+    const auto depthStencil = getGraphicsPipelineDepthStencilState();
+    // How the newly computed fragment colors are combined with the color that is already in the framebuffer
+    const auto colorBlendAttachment = getGraphicsPipelineColorBlendAttachmentState();
+    // Configure global color blending
+    const auto colorBlending = vk::PipelineColorBlendStateCreateInfo{ {}, vk::False, {}, 1, &colorBlendAttachment };
+
+    // Construct the pipeline
+    auto pipelineInfo = vk::GraphicsPipelineCreateInfo{};
+    // Fixed and dynamic states
+    pipelineInfo.pVertexInputState = &vertexInputState;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+    pipelineInfo.pDepthStencilState = &depthStencil;
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.pDynamicState = &dynamicStateInfo;
+    // Reference to the render pass and the index of the subpass where this graphics pipeline will be used.
+    // It is also possible to use other render passes with this pipeline instead of this specific instance,
+    // but they have to be compatible with this very specific renderPass
+    pipelineInfo.renderPass = _renderPass;
+    pipelineInfo.subpass = 0;
+    pipelineInfo.basePipelineHandle = nullptr;
+    pipelineInfo.basePipelineIndex = -1;
+
+    _graphicsPipelineShader = buildPipelineShader(&pipelineInfo);
+}
+
+std::vector<vk::DynamicState> TordemoApplication::getGraphicsPipelineDynamicStates() const {
+    return { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+}
+
+vk::PipelineViewportStateCreateInfo TordemoApplication::getGraphicsPipelineViewportState() const {
+    return vk::PipelineViewportStateCreateInfo{ {}, 1, {}, 1, {} };
+}
+
+vk::PipelineInputAssemblyStateCreateInfo TordemoApplication::getGraphicsPipelineInputAssemblyState() const {
+    return vk::PipelineInputAssemblyStateCreateInfo{ {}, vk::PrimitiveTopology::eTriangleList, vk::False };
+}
+
+vk::PipelineVertexInputStateCreateInfo TordemoApplication::getGraphicsPipelineVertexInputState() const {
+    return vk::PipelineVertexInputStateCreateInfo{ {}, 0, nullptr, 0, nullptr };
+}
+
+vk::PipelineRasterizationStateCreateInfo TordemoApplication::getGraphicsPipelineRasterizationState() const {
+    auto rasterizer = vk::PipelineRasterizationStateCreateInfo{};
+    rasterizer.depthBiasEnable = vk::False;
+    rasterizer.rasterizerDiscardEnable = vk::False;
+    rasterizer.polygonMode = vk::PolygonMode::eFill;
+    rasterizer.cullMode = vk::CullModeFlagBits::eBack;
+    rasterizer.frontFace = vk::FrontFace::eCounterClockwise;
+    rasterizer.depthBiasEnable = vk::False;
+    rasterizer.lineWidth = 1.0f;
+    return rasterizer;
+}
+
+vk::PipelineMultisampleStateCreateInfo TordemoApplication::getGraphicsPipelineMultisampleState() const {
+    auto multisampling = vk::PipelineMultisampleStateCreateInfo{};
+    multisampling.rasterizationSamples = getFramebufferColorImageSampleCount();
+    multisampling.sampleShadingEnable = vk::False;
+    multisampling.alphaToCoverageEnable = vk::False;
+    multisampling.alphaToOneEnable = vk::False;
+    return multisampling;
+}
+
+vk::PipelineDepthStencilStateCreateInfo TordemoApplication::getGraphicsPipelineDepthStencilState() const {
+    auto depthStencil = vk::PipelineDepthStencilStateCreateInfo{};
+    depthStencil.depthTestEnable = vk::True;
+    depthStencil.depthWriteEnable = vk::True;
+    depthStencil.depthCompareOp = vk::CompareOp::eLess;
+    // Optional depth bound test
+    depthStencil.depthBoundsTestEnable = vk::False;
+    depthStencil.minDepthBounds = 0.0f;
+    depthStencil.maxDepthBounds = 1.0f;
+    // Optional stencil test
+    depthStencil.stencilTestEnable = vk::False;
+    depthStencil.front = vk::StencilOp::eZero;
+    depthStencil.back = vk::StencilOp::eZero;
+    return depthStencil;
+}
+
+vk::PipelineColorBlendAttachmentState TordemoApplication::getGraphicsPipelineColorBlendAttachmentState() const {
+    auto colorBlendAttachment = vk::PipelineColorBlendAttachmentState{};
+    colorBlendAttachment.blendEnable = vk::False;
+    colorBlendAttachment.colorWriteMask = vk::ColorComponentFlagBits::eR |
+                                          vk::ColorComponentFlagBits::eG |
+                                          vk::ColorComponentFlagBits::eB |
+                                          vk::ColorComponentFlagBits::eA;
+    return colorBlendAttachment;
+}
+
+std::unique_ptr<tpd::PipelineShader> TordemoApplication::buildPipelineShader(vk::GraphicsPipelineCreateInfo* pipelineInfo) const {
+    return tpd::PipelineShader::Builder()
+        .shader("assets/shaders/blank.vert.spv", vk::ShaderStageFlagBits::eVertex)
+        .shader("assets/shaders/blank.frag.spv", vk::ShaderStageFlagBits::eFragment)
+        .build(pipelineInfo, _physicalDevice, _device);
+}
+
+// =====================================================================================================================
+// DRAWINGS
+// =====================================================================================================================
 
 bool TordemoApplication::beginFrame(uint32_t* imageIndex) {
     using limits = std::numeric_limits<uint64_t>;
@@ -754,4 +901,68 @@ void TordemoApplication::beginRenderPass(const uint32_t imageIndex) {
     renderPassBeginInfo.pClearValues = clearValues.data();
 
     _drawingCommandBuffers[_currentFrame].beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
+}
+
+std::vector<vk::ClearValue> TordemoApplication::getClearValues() const {
+    return {
+        vk::ClearColorValue{ 0.0f, 0.0f, 0.0f, 1.0f },                    // for the multi-sampled color attachment
+        vk::ClearDepthStencilValue{ /* depth */ 1.0f, /* stencil */ 0 },  // for the depth/stencil attachment
+    };
+}
+
+void TordemoApplication::render(const vk::CommandBuffer buffer) {
+    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _graphicsPipelineShader->getPipeline());
+
+    // Set viewport and scissor states
+    auto viewport = vk::Viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(_swapChainImageExtent.width);
+    viewport.height = static_cast<float>(_swapChainImageExtent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    buffer.setViewport(0, viewport);
+    buffer.setScissor(0, vk::Rect2D{ { 0, 0 }, _swapChainImageExtent });
+
+    // Override to issue draw calls
+}
+
+// =====================================================================================================================
+// TRANSFER OPERATIONS
+// =====================================================================================================================
+
+vk::CommandBuffer TordemoApplication::beginSingleTimeTransferCommands() const {
+    const auto allocInfo = vk::CommandBufferAllocateInfo{ _transferCommandPool, vk::CommandBufferLevel::ePrimary, 1 };
+    const auto commandBuffer = _device.allocateCommandBuffers(allocInfo)[0];
+
+    // Use the command buffer once and wait with returning from the function until the copy operation has finished
+    constexpr auto beginInfo = vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit };
+    commandBuffer.begin(beginInfo);
+
+    return commandBuffer;
+}
+
+void TordemoApplication::endSingleTimeTransferCommands(const vk::CommandBuffer commandBuffer) const {
+    commandBuffer.end();
+    _graphicsQueue.submit(vk::SubmitInfo{ {}, {}, {}, 1, &commandBuffer });
+    _graphicsQueue.waitIdle();
+    _device.freeCommandBuffers(_transferCommandPool, 1, &commandBuffer);
+}
+
+TordemoApplication::~TordemoApplication() {
+    TordemoApplication::destroyPipelineResources();
+    TordemoApplication::destroySyncObjects();
+    TordemoApplication::destroyCommandPools();
+    _device.destroyRenderPass(_renderPass);
+    cleanupSwapChain();
+    _resourceAllocator.reset();
+    _device.destroy();
+    _instance.destroySurfaceKHR(_surface);
+#ifndef NDEBUG
+    tpd::core::destroyDebugUtilsMessenger(_instance, _debugMessenger);
+#endif
+    _instance.destroy();
+
+    glfwDestroyWindow(_window);
+    glfwTerminate();
 }
