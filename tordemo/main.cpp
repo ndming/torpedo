@@ -1,3 +1,4 @@
+#include <HelloTriangle.h>
 #include <TordemoApplication.h>
 
 #include <plog/Init.h>
@@ -14,9 +15,10 @@ int main() {
 #endif
 
     try {
-        const auto app = std::make_unique<TordemoApplication>();
+        const auto app = std::make_unique<HelloTriangle>();
         app->run();
     } catch (const std::exception& e) {
         PLOGE << e.what();
+        return 1;
     }
 }
