@@ -1,7 +1,7 @@
 # ======================================================================================================================
 # LIBARY SOURCE FILES
 # ======================================================================================================================
-set(TORPEDO_CORE_SOURCES
+set(TORPEDO_BOOTSTRAP_SOURCES
         src/DeviceBuilder.cpp
         src/InstanceBuilder.cpp
         src/PhysicalDeviceSelector.cpp
@@ -9,13 +9,13 @@ set(TORPEDO_CORE_SOURCES
 
 
 # ======================================================================================================================
-# TORPEDO CORE LIBARY
+# TORPEDO BOOTSTRAP LIBARY
 # ======================================================================================================================
-set(TARGET torpedo_core)
+set(TARGET torpedo_bootstrap)
 add_library(${TARGET} STATIC)
-add_library(torpedo::core ALIAS ${TARGET})
+add_library(torpedo::bootstrap ALIAS ${TARGET})
 set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS OFF COMPILE_WARNING_AS_ERROR ON)
-target_sources(${TARGET} PRIVATE ${TORPEDO_CORE_SOURCES})
+target_sources(${TARGET} PRIVATE ${TORPEDO_BOOTSTRAP_SOURCES})
 
 # Where to look for header files
 target_include_directories(${TARGET} PUBLIC include)

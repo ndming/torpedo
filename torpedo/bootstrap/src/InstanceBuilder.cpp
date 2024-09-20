@@ -1,4 +1,4 @@
-#include "torpedo/core/InstanceBuilder.h"
+#include "torpedo/bootstrap/InstanceBuilder.h"
 
 #include <ranges>
 #include <unordered_set>

@@ -1,4 +1,4 @@
-#include "torpedo/core/DeviceBuilder.h"
+#include "torpedo/bootstrap/DeviceBuilder.h"
 
 #include <ranges>
 

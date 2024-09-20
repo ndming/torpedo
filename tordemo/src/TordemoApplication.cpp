@@ -2,9 +2,9 @@
 
 #include <plog/Log.h>
 
-#include <torpedo/core/InstanceBuilder.h>
-#include <torpedo/core/PhysicalDeviceSelector.h>
-#include <torpedo/core/DeviceBuilder.h>
+#include <torpedo/bootstrap/InstanceBuilder.h>
+#include <torpedo/bootstrap/PhysicalDeviceSelector.h>
+#include <torpedo/bootstrap/DeviceBuilder.h>
 
 #include <limits>
 #include <ranges>

@@ -29,7 +29,7 @@ target_include_directories(tordemo PRIVATE src)
 set_target_properties(tordemo PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS OFF COMPILE_WARNING_AS_ERROR ON)
 
 # Dependencies
-target_link_libraries(tordemo PRIVATE torpedo::core)
+target_link_libraries(tordemo PRIVATE torpedo::bootstrap)
 target_link_libraries(tordemo PRIVATE torpedo::foundation)
 target_link_libraries(tordemo PRIVATE glfw)
 target_link_libraries(tordemo PRIVATE glm::glm)

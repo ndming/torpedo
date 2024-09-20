@@ -47,6 +47,6 @@ endfunction()
 # SUB-PROJECT MODULES
 # ======================================================================================================================
 set(TORPEDO_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-add_subdirectory(${TORPEDO_SOURCE_DIR}/core)
+add_subdirectory(${TORPEDO_SOURCE_DIR}/bootstrap)
 add_subdirectory(${TORPEDO_SOURCE_DIR}/foundation)
 add_subdirectory(${TORPEDO_SOURCE_DIR}/graphics)

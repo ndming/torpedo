@@ -1,4 +1,4 @@
-#include "torpedo/core/PhysicalDeviceSelector.h"
+#include "torpedo/bootstrap/PhysicalDeviceSelector.h"
 
 #include <ranges>
 #include <unordered_set>
