@@ -73,10 +73,10 @@ std::unique_ptr<tpd::PipelineShader> HelloTriangle::buildPipelineShader(vk::Grap
 void HelloTriangle::render(const vk::CommandBuffer buffer) {
     TordemoApplication::render(buffer);
 
-    const auto vertexBuffers = std::vector(_vertexBuffer->getBufferCount(), static_cast<vk::Buffer>(*_vertexBuffer));
+    const auto vertexBuffers = std::vector(_vertexBuffer->getBufferCount(), _vertexBuffer->getBuffer());
     buffer.bindVertexBuffers(0, vertexBuffers, _vertexBuffer->getOffsets());
 
-    buffer.bindIndexBuffer(static_cast<vk::Buffer>(*_indexBuffer), 0, vk::IndexType::eUint16);
+    buffer.bindIndexBuffer(_indexBuffer->getBuffer(), 0, vk::IndexType::eUint16);
 
     buffer.drawIndexed(
         /* index count    */ 3,

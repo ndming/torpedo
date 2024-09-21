@@ -32,7 +32,7 @@ namespace tpd {
         Buffer(const Buffer&) = delete;
         Buffer& operator=(const Buffer&) = delete;
 
-        explicit operator vk::Buffer() const noexcept { return _buffer; }
+        [[nodiscard]] vk::Buffer getBuffer() const { return _buffer; }
         [[nodiscard]] const std::vector<vk::DeviceSize>& getOffsets() const noexcept { return _offsets; }
         [[nodiscard]] uint32_t getBufferCount() const noexcept { return _sizes.size(); }
 
