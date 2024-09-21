@@ -14,7 +14,7 @@ namespace tpd {
         public:
             Builder& bufferCount(uint32_t count);
             Builder& usage(vk::BufferUsageFlags usage);
-            Builder& buffer(uint32_t index, std::size_t size);
+            Builder& buffer(uint32_t index, std::size_t byteSize, std::size_t alignment = 0);
 
             [[nodiscard]] std::shared_ptr<Buffer> buildDedicated(const std::unique_ptr<ResourceAllocator>& allocator);
 
@@ -70,8 +70,10 @@ inline tpd::Buffer::Builder& tpd::Buffer::Builder::usage(const vk::BufferUsageFl
     return *this;
 }
 
-inline tpd::Buffer::Builder& tpd::Buffer::Builder::buffer(const uint32_t index, const std::size_t size) {
-    _sizes[index] = size;
+inline tpd::Buffer::Builder& tpd::Buffer::Builder::buffer(const uint32_t index, const std::size_t byteSize, const std::size_t alignment) {
+    std::size_t multiple = 0;
+    if (alignment > 0 ) while (multiple * alignment < byteSize) ++multiple;
+    _sizes[index] = alignment > 0 ? multiple * alignment : byteSize;
     return *this;
 }
 
