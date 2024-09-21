@@ -1,7 +1,9 @@
 #include "torpedo/foundation/PipelineShader.h"
+#include "torpedo/foundation/PipelineInstance.h"
 
 #include <fstream>
 #include <ranges>
+#include <unordered_map>
 #include <unordered_set>
 
 std::unique_ptr<tpd::PipelineShader> tpd::PipelineShader::Builder::build(
@@ -9,12 +11,11 @@ std::unique_ptr<tpd::PipelineShader> tpd::PipelineShader::Builder::build(
     const vk::PhysicalDevice physicalDevice,
     const vk::Device device)
 {
-    // Descriptor layouts and pipeline layout
+    // Descriptor layouts, one for each descriptor set
     checkPushConstants(physicalDevice);
-    auto bindingFlagInfo = vk::DescriptorSetLayoutBindingFlagsCreateInfo{};
-    bindingFlagInfo.bindingCount = static_cast<uint32_t>(_descriptorBindingFlags.size());
-    bindingFlagInfo.pBindingFlags = _descriptorBindingFlags.data();
     auto descriptorSetLayouts = createDescriptorSetLayouts(device);
+
+    // Pipeline layout
     auto pipelineLayoutInfo = vk::PipelineLayoutCreateInfo{};
     pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
     pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
@@ -133,6 +134,42 @@ void tpd::PipelineShader::Builder::checkPushConstants(const vk::PhysicalDevice p
         }
         seenFlags.insert(range.stageFlags);
     }
+}
+
+std::unique_ptr<tpd::PipelineInstance> tpd::PipelineShader::createInstance(
+    const vk::Device device,
+    const uint32_t instanceCount,
+    const vk::DescriptorPoolCreateFlags flags) const
+{
+    // Count how many descriptors of each type in this pipeline
+    auto descriptorTypeNumbers = std::unordered_map<vk::DescriptorType, uint32_t>{};
+    for (const auto binding : _descriptorSetLayoutBindings) {
+        descriptorTypeNumbers[binding.descriptorType] += binding.descriptorCount;
+    }
+
+    // Compute the pool size
+    auto poolSizes = std::vector<vk::DescriptorPoolSize>{};
+    for (const auto& [descriptorType, descriptorCount] : descriptorTypeNumbers) {
+        poolSizes.emplace_back(descriptorType, instanceCount * descriptorCount);
+    }
+
+    // Create a descriptor pool
+    auto poolInfo = vk::DescriptorPoolCreateInfo{};
+    poolInfo.flags = flags;
+    poolInfo.maxSets = instanceCount;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
+    const auto descriptorPool = device.createDescriptorPool(poolInfo);
+
+    // Allocate a descriptor set for each instance
+    const auto layouts =  std::views::repeat(_descriptorSetLayouts, instanceCount) | std::views::join | std::ranges::to<std::vector>();
+    auto allocInfo = vk::DescriptorSetAllocateInfo{};
+    allocInfo.descriptorPool = descriptorPool;
+    allocInfo.descriptorSetCount = static_cast<uint32_t>(layouts.size());
+    allocInfo.pSetLayouts = layouts.data();
+
+    const auto perInstanceSetCount = static_cast<uint32_t>(_descriptorSetLayouts.size());
+    return std::make_unique<PipelineInstance>(perInstanceSetCount, descriptorPool, device.allocateDescriptorSets(allocInfo));
 }
 
 void tpd::PipelineShader::destroy(const vk::Device device) noexcept {

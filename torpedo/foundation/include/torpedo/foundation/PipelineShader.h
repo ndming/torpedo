@@ -6,36 +6,31 @@
 #include <memory>
 
 namespace tpd {
+    class PipelineInstance;
+
     class PipelineShader final {
     public:
         class Builder {
         public:
-            Builder() {
-                // Default to a single descriptor set
-                _descriptorSetBindingLists.resize(1);
-            }
+            explicit Builder(uint32_t descriptorSetCount = 0, uint32_t descriptorBindingCount = 0);
 
-            Builder& shader(const std::filesystem::path& path, vk::ShaderStageFlagBits stage, std::string entryPoint = "main");
-
-            Builder& descriptorSetCount(uint32_t count);
-            Builder& descriptorBindingCount(uint32_t count);
+            Builder& shader(
+                const std::filesystem::path& path,
+                vk::ShaderStageFlagBits stage,
+                std::string entryPoint = "main");
 
             Builder& descriptor(
+                uint32_t set,
                 uint32_t binding,
                 vk::DescriptorType type,
                 uint32_t elementCount,
                 vk::ShaderStageFlags shaderStages,
-                uint32_t set = 0,
                 vk::DescriptorBindingFlags flags = {});
 
             Builder& pushConstantRange(vk::ShaderStageFlags shaderStages, uint32_t byteOffset, uint32_t byteSize);
 
             [[nodiscard]] std::unique_ptr<PipelineShader> build(
                 vk::GraphicsPipelineCreateInfo* pipelineInfo,
-                vk::PhysicalDevice physicalDevice, vk::Device device);
-
-            [[nodiscard]] std::unique_ptr<PipelineShader> build(
-                const vk::ComputePipelineCreateInfo& pipelineInfo,
                 vk::PhysicalDevice physicalDevice, vk::Device device);
 
         private:
@@ -67,7 +62,13 @@ namespace tpd {
         PipelineShader(const PipelineShader&) = delete;
         PipelineShader& operator=(const PipelineShader&) = delete;
 
+        [[nodiscard]] std::unique_ptr<PipelineInstance> createInstance(
+            vk::Device device,
+            uint32_t instanceCount = 1,
+            vk::DescriptorPoolCreateFlags flags = {}) const;
+
         [[nodiscard]] vk::Pipeline getPipeline() const;
+        [[nodiscard]] vk::PipelineLayout getPipelineLayout() const;
 
         void destroy(vk::Device device) noexcept;
 
@@ -84,6 +85,12 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS
 // =====================================================================================================================
 
+inline tpd::PipelineShader::Builder::Builder(const uint32_t descriptorSetCount, const uint32_t descriptorBindingCount) {
+    _descriptorSetBindingLists.resize(descriptorSetCount);
+    _descriptorSetLayoutBindings.resize(descriptorBindingCount);
+    _descriptorBindingFlags.resize(descriptorBindingCount);
+}
+
 inline tpd::PipelineShader::Builder& tpd::PipelineShader::Builder::shader(
     const std::filesystem::path& path,
     const vk::ShaderStageFlagBits stage,
@@ -95,23 +102,12 @@ inline tpd::PipelineShader::Builder& tpd::PipelineShader::Builder::shader(
     return *this;
 }
 
-inline tpd::PipelineShader::Builder &tpd::PipelineShader::Builder::descriptorSetCount(const uint32_t count) {
-    _descriptorSetBindingLists.resize(count);
-    return *this;
-}
-
-inline tpd::PipelineShader::Builder& tpd::PipelineShader::Builder::descriptorBindingCount(const uint32_t count) {
-    _descriptorSetLayoutBindings.resize(count);
-    _descriptorBindingFlags.resize(count);
-    return *this;
-}
-
 inline tpd::PipelineShader::Builder& tpd::PipelineShader::Builder::descriptor(
+    const uint32_t set,
     const uint32_t binding,
     const vk::DescriptorType type,
     const uint32_t elementCount,
     const vk::ShaderStageFlags shaderStages,
-    const uint32_t set,
     const vk::DescriptorBindingFlags flags)
 {
     _descriptorSetBindingLists[set].push_back(binding);
@@ -149,4 +145,8 @@ _descriptorSetLayoutBindings{ std::move(descriptorBindings) } {
 
 inline vk::Pipeline tpd::PipelineShader::getPipeline() const {
     return _pipeline;
+}
+
+inline vk::PipelineLayout tpd::PipelineShader::getPipelineLayout() const {
+    return _pipelineLayout;
 }
