@@ -105,14 +105,9 @@ void TordemoApplication::drawFrame() {
     uint32_t imageIndex;
     if (!beginFrame(&imageIndex)) return;
 
-    _drawingCommandBuffers[_currentFrame].reset();
-    _drawingCommandBuffers[_currentFrame].begin(vk::CommandBufferBeginInfo{});
-
+    onFrameReady();
     beginRenderPass(imageIndex);
     render(_drawingCommandBuffers[_currentFrame]);
-    _drawingCommandBuffers[_currentFrame].endRenderPass();
-
-    _drawingCommandBuffers[_currentFrame].end();
     endFrame(imageIndex);
 
     _currentFrame = (_currentFrame + 1) % _maxFramesInFlight;
@@ -864,15 +859,19 @@ bool TordemoApplication::beginFrame(uint32_t* imageIndex) {
     }
 
     _device.resetFences(_drawingInFlightFences[_currentFrame]);
-    onFrameReady(_currentFrame);
 
     return true;
 }
 
-void TordemoApplication::onFrameReady(const uint32_t frameIndex) {
+void TordemoApplication::onFrameReady() {
+    _drawingCommandBuffers[_currentFrame].reset();
+    _drawingCommandBuffers[_currentFrame].begin(vk::CommandBufferBeginInfo{});
 }
 
 void TordemoApplication::endFrame(const uint32_t imageIndex) {
+    _drawingCommandBuffers[_currentFrame].endRenderPass();
+    _drawingCommandBuffers[_currentFrame].end();
+
     const auto waitSemaphores = std::array{ _imageAvailableSemaphores[_currentFrame] };
     constexpr vk::PipelineStageFlags waitStages[]{ vk::PipelineStageFlagBits::eColorAttachmentOutput };
 

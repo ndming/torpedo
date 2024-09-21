@@ -163,7 +163,7 @@ protected:
     // Drawing frames
     uint32_t _currentFrame{ 0 };
     virtual bool beginFrame(uint32_t* imageIndex);
-    virtual void onFrameReady(uint32_t frameIndex);
+    virtual void onFrameReady();
     virtual void endFrame(uint32_t imageIndex);
 
     // Rendering
