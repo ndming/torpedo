@@ -1,5 +1,4 @@
-#include <HelloTriangle.h>
-#include <TordemoApplication.h>
+#include "main.h"
 
 #include <plog/Init.h>
 #include <plog/Log.h>
@@ -15,7 +14,7 @@ int main() {
 #endif
 
     try {
-        const auto app = std::make_unique<HelloTriangle>();
+        const auto app = std::make_unique<TexturedCube>();
         app->run();
     } catch (const std::exception& e) {
         PLOGE << e.what();
