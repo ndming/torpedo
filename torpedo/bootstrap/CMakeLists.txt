@@ -5,6 +5,7 @@ set(TORPEDO_BOOTSTRAP_SOURCES
         src/DeviceBuilder.cpp
         src/InstanceBuilder.cpp
         src/PhysicalDeviceSelector.cpp
+        src/SamplerBuilder.cpp
 )
 
 
