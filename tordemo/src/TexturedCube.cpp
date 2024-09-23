@@ -4,6 +4,7 @@
 #include <torpedo/bootstrap/SamplerBuilder.h>
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 void TexturedCube::createPipelineResources() {
     TordemoApplication::createPipelineResources();
@@ -15,99 +16,30 @@ void TexturedCube::createPipelineResources() {
 
 void TexturedCube::createDrawingBuffers() {
     static constexpr auto vertices = std::array{
-        // Face +X
-         1.0f, -1.0f,  1.0f,
-         1.0f, -1.0f, -1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f, -1.0f,
-        // Face +Y
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f, -1.0f,
-        // Face +Z
-        -1.0f,  1.0f,  1.0f,
-        -1.0f, -1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f, -1.0f,  1.0f,
-        // Face -X
-        -1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f,
-        -1.0f, -1.0f, -1.0f,
-        // Face -Y
-        -1.0f, -1.0f,  1.0f,
-        -1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f,  1.0f,
-         1.0f, -1.0f, -1.0f,
-        // Face -Z
-         1.0f,  1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f, -1.0f, -1.0f,
-    };
-    static constexpr auto colors = std::array{
-        // Face +X
-        1.0f, 0.0f, 1.0f, 1.0f,  // magenta
-        1.0f, 0.0f, 0.0f, 1.0f,  // red
-        1.0f, 1.0f, 1.0f, 1.0f,  // white
-        1.0f, 1.0f, 0.0f, 1.0f,  // yellow
-        // Face +Y
-        1.0f, 1.0f, 1.0f, 1.0f,  // white
-        1.0f, 1.0f, 0.0f, 1.0f,  // yellow
-        0.0f, 1.0f, 1.0f, 1.0f,  // cyan
-        0.0f, 1.0f, 0.0f, 1.0f,  // green
-        // Face +Z
-        0.0f, 1.0f, 1.0f, 1.0f,  // cyan
-        0.0f, 0.0f, 1.0f, 1.0f,  // blue
-        1.0f, 1.0f, 1.0f, 1.0f,  // white
-        1.0f, 0.0f, 1.0f, 1.0f,  // magenta
-        // Face -X
-        0.0f, 1.0f, 1.0f, 1.0f,  // cyan
-        0.0f, 1.0f, 0.0f, 1.0f,  // green
-        0.0f, 0.0f, 1.0f, 1.0f,  // blue
-        0.0f, 0.0f, 0.0f, 1.0f,  // black
-        // Face -Y
-        0.0f, 0.0f, 1.0f, 1.0f,  // blue
-        0.0f, 0.0f, 0.0f, 1.0f,  // black
-        1.0f, 0.0f, 1.0f, 1.0f,  // magenta
-        1.0f, 0.0f, 0.0f, 1.0f,  // red
-        // Face -Z
-        1.0f, 1.0f, 0.0f, 1.0f,  // yellow
-        1.0f, 0.0f, 0.0f, 1.0f,  // red
-        0.0f, 1.0f, 0.0f, 1.0f,  // green
-        0.0f, 0.0f, 0.0f, 1.0f,  // black
-    };
-    static constexpr auto texCoords = std::array{
-        0.0f, 0.0f,
-        0.0f, 1.0f,
-        1.0f, 0.0f,
-        1.0f, 1.0f,
-
-        0.0f, 0.0f,
-        0.0f, 1.0f,
-        1.0f, 0.0f,
-        1.0f, 1.0f,
-
-        0.0f, 0.0f,
-        0.0f, 1.0f,
-        1.0f, 0.0f,
-        1.0f, 1.0f,
-
-        0.0f, 0.0f,
-        0.0f, 1.0f,
-        1.0f, 0.0f,
-        1.0f, 1.0f,
-
-        0.0f, 0.0f,
-        0.0f, 1.0f,
-        1.0f, 0.0f,
-        1.0f, 1.0f,
-
-        0.0f, 0.0f,
-        0.0f, 1.0f,
-        1.0f, 0.0f,
-        1.0f, 1.0f,
+        Vertex{ {  1.0f, -1.0f,  1.0f, }, { 1.0f, 0.0f, 1.0f, 1.0f, }, { 0.0f, 0.0f, } },
+        Vertex{ {  1.0f, -1.0f, -1.0f, }, { 1.0f, 0.0f, 0.0f, 1.0f, }, { 0.0f, 1.0f, } },
+        Vertex{ {  1.0f,  1.0f,  1.0f, }, { 1.0f, 1.0f, 1.0f, 1.0f, }, { 1.0f, 0.0f, } },
+        Vertex{ {  1.0f,  1.0f, -1.0f, }, { 1.0f, 1.0f, 0.0f, 1.0f, }, { 1.0f, 1.0f, } },
+        Vertex{ {  1.0f,  1.0f,  1.0f, }, { 1.0f, 1.0f, 1.0f, 1.0f, }, { 0.0f, 0.0f, } },
+        Vertex{ {  1.0f,  1.0f, -1.0f, }, { 1.0f, 1.0f, 0.0f, 1.0f, }, { 0.0f, 1.0f, } },
+        Vertex{ { -1.0f,  1.0f,  1.0f, }, { 0.0f, 1.0f, 1.0f, 1.0f, }, { 1.0f, 0.0f, } },
+        Vertex{ { -1.0f,  1.0f, -1.0f, }, { 0.0f, 1.0f, 0.0f, 1.0f, }, { 1.0f, 1.0f, } },
+        Vertex{ { -1.0f,  1.0f,  1.0f, }, { 0.0f, 1.0f, 1.0f, 1.0f, }, { 0.0f, 0.0f, } },
+        Vertex{ { -1.0f, -1.0f,  1.0f, }, { 0.0f, 0.0f, 1.0f, 1.0f, }, { 0.0f, 1.0f, } },
+        Vertex{ {  1.0f,  1.0f,  1.0f, }, { 1.0f, 1.0f, 1.0f, 1.0f, }, { 1.0f, 0.0f, } },
+        Vertex{ {  1.0f, -1.0f,  1.0f, }, { 1.0f, 0.0f, 1.0f, 1.0f, }, { 1.0f, 1.0f, } },
+        Vertex{ { -1.0f,  1.0f,  1.0f, }, { 0.0f, 1.0f, 1.0f, 1.0f, }, { 0.0f, 0.0f, } },
+        Vertex{ { -1.0f,  1.0f, -1.0f, }, { 0.0f, 1.0f, 0.0f, 1.0f, }, { 0.0f, 1.0f, } },
+        Vertex{ { -1.0f, -1.0f,  1.0f, }, { 0.0f, 0.0f, 1.0f, 1.0f, }, { 1.0f, 0.0f, } },
+        Vertex{ { -1.0f, -1.0f, -1.0f, }, { 0.0f, 0.0f, 0.0f, 1.0f, }, { 1.0f, 1.0f, } },
+        Vertex{ { -1.0f, -1.0f,  1.0f, }, { 0.0f, 0.0f, 1.0f, 1.0f, }, { 0.0f, 0.0f, } },
+        Vertex{ { -1.0f, -1.0f, -1.0f, }, { 0.0f, 0.0f, 0.0f, 1.0f, }, { 0.0f, 1.0f, } },
+        Vertex{ {  1.0f, -1.0f,  1.0f, }, { 1.0f, 0.0f, 1.0f, 1.0f, }, { 1.0f, 0.0f, } },
+        Vertex{ {  1.0f, -1.0f, -1.0f, }, { 1.0f, 0.0f, 0.0f, 1.0f, }, { 1.0f, 1.0f, } },
+        Vertex{ {  1.0f,  1.0f, -1.0f, }, { 1.0f, 1.0f, 0.0f, 1.0f, }, { 0.0f, 0.0f, } },
+        Vertex{ {  1.0f, -1.0f, -1.0f, }, { 1.0f, 0.0f, 0.0f, 1.0f, }, { 0.0f, 1.0f, } },
+        Vertex{ { -1.0f,  1.0f, -1.0f, }, { 0.0f, 1.0f, 0.0f, 1.0f, }, { 1.0f, 0.0f, } },
+        Vertex{ { -1.0f, -1.0f, -1.0f, }, { 0.0f, 0.0f, 0.0f, 1.0f, }, { 1.0f, 1.0f, } },
     };
 
     for (auto i = 0; i < 6; ++i) {
@@ -117,11 +49,9 @@ void TexturedCube::createDrawingBuffers() {
     }
 
     _vertexBuffer = tpd::Buffer::Builder()
-        .bufferCount(3)
+        .bufferCount(1)
         .usage(vk::BufferUsageFlagBits::eVertexBuffer)
-        .buffer(0, sizeof(float) * 3 * vertices.size())
-        .buffer(1, sizeof(float) * 4 * colors.size())
-        .buffer(2, sizeof(float) * 2 * texCoords.size())
+        .buffer(0, sizeof(Vertex) * vertices.size())
         .buildDedicated(_resourceAllocator);
 
     _indexBuffer = tpd::Buffer::Builder()
@@ -137,8 +67,6 @@ void TexturedCube::createDrawingBuffers() {
     };
 
     _vertexBuffer->transferBufferData(0, vertices.data(), _resourceAllocator, bufferCopy);
-    _vertexBuffer->transferBufferData(1, colors.data(),   _resourceAllocator, bufferCopy);
-    _vertexBuffer->transferBufferData(2, texCoords.data(), _resourceAllocator, bufferCopy);
     _indexBuffer->transferBufferData(0, _indices.data(), _resourceAllocator, bufferCopy);
 }
 
@@ -239,14 +167,12 @@ void TexturedCube::createTextureResources() {
 
 vk::PipelineVertexInputStateCreateInfo TexturedCube::getGraphicsPipelineVertexInputState() const {
     static constexpr auto bindingDescriptions = std::array{
-        vk::VertexInputBindingDescription{ 0, sizeof(float) * 3 },
-        vk::VertexInputBindingDescription{ 1, sizeof(float) * 4 },
-        vk::VertexInputBindingDescription{ 2, sizeof(float) * 2 },
+        vk::VertexInputBindingDescription{ 0, sizeof(Vertex) },
     };
     static constexpr auto attributeDescriptions = std::array{
-        vk::VertexInputAttributeDescription{ 0, 0, vk::Format::eR32G32B32Sfloat },
-        vk::VertexInputAttributeDescription{ 1, 1, vk::Format::eR32G32B32A32Sfloat },
-        vk::VertexInputAttributeDescription{ 2, 2, vk::Format::eR32G32Sfloat },
+        vk::VertexInputAttributeDescription{ 0, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, position) },
+        vk::VertexInputAttributeDescription{ 1, 0, vk::Format::eR32G32B32A32Sfloat, offsetof(Vertex, color) },
+        vk::VertexInputAttributeDescription{ 2, 0, vk::Format::eR32G32Sfloat, offsetof(Vertex, texCoord) },
     };
 
     auto vertexInputStateCreateInfo = vk::PipelineVertexInputStateCreateInfo{};
@@ -294,11 +220,13 @@ void TexturedCube::onFrameReady() {
     const float frameTime = std::chrono::duration<float>(currentTime - startTime).count();
 
     auto mvp = MVP{};
-    mvp.model = rotate(glm::mat4(1.0f), frameTime * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    mvp.view = lookAt(glm::vec3(4.0f, 4.0f, 4.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    const auto model = rotate(glm::mat4(1.0f), frameTime * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    std::copy_n(value_ptr(model), 16, mvp.model.begin());
+    const auto view = lookAt(glm::vec3(4.0f, 4.0f, 4.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    std::copy_n(value_ptr(view), 16, mvp.view.begin());
     const auto ratio = static_cast<float>(_swapChainImageExtent.width) / static_cast<float>(_swapChainImageExtent.height);
-    mvp.proj = glm::perspective(glm::radians(45.0f), ratio, 0.1f, 10.0f);
-    mvp.proj[1][1] *= -1.0f;
+    auto proj = glm::perspective(glm::radians(45.0f), ratio, 0.1f, 10.0f); proj[1][1] *= -1.0f;
+    std::copy_n(value_ptr(proj), 16, mvp.proj.begin());
 
     _uniformBuffer->updateBufferData(_currentFrame, &mvp, sizeof(MVP));
 }
