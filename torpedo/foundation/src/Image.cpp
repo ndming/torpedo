@@ -67,7 +67,7 @@ void tpd::Image::transferImageData(
     allocator->destroyBuffer(stagingBuffer, stagingAllocation);
 }
 
-void tpd::Image::destroy(const vk::Device device, const std::unique_ptr<ResourceAllocator>& allocator) const noexcept {
+void tpd::Image::dispose(const vk::Device device, const std::unique_ptr<ResourceAllocator>& allocator) const noexcept {
     device.destroyImageView(_imageView);
     allocator->destroyImage(_image, _allocation);
 }

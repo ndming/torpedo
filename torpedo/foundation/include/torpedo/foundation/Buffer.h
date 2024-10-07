@@ -44,7 +44,7 @@ namespace tpd {
 
         void updateBufferData(uint32_t bufferIndex, const void* data, std::size_t dataByteSize) const;
 
-        void destroy(const std::unique_ptr<ResourceAllocator>& allocator) noexcept;
+        void dispose(const std::unique_ptr<ResourceAllocator>& allocator) noexcept;
 
     private:
         vk::Buffer _buffer;

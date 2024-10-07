@@ -61,7 +61,7 @@ namespace tpd {
         [[nodiscard]] vk::Image getImage() const;
         [[nodiscard]] vk::ImageView getImageView() const;
 
-        void destroy(vk::Device device, const std::unique_ptr<ResourceAllocator>& allocator) const noexcept;
+        void dispose(vk::Device device, const std::unique_ptr<ResourceAllocator>& allocator) const noexcept;
 
     private:
         vk::Image _image;

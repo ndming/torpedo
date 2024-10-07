@@ -246,10 +246,10 @@ void TexturedCube::render(const vk::CommandBuffer buffer) {
 }
 
 TexturedCube::~TexturedCube() {
-    _pipelineInstance->destroy(_device);
+    _pipelineInstance->dispose(_device);
     _device.destroySampler(_sampler);
-    _texture->destroy(_device, _resourceAllocator);
-    _uniformBuffer->destroy(_resourceAllocator);
-    _indexBuffer->destroy(_resourceAllocator);
-    _vertexBuffer->destroy(_resourceAllocator);
+    _texture->dispose(_device, _resourceAllocator);
+    _uniformBuffer->dispose(_resourceAllocator);
+    _indexBuffer->dispose(_resourceAllocator);
+    _vertexBuffer->dispose(_resourceAllocator);
 }

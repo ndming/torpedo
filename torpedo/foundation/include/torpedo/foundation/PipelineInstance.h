@@ -21,7 +21,7 @@ namespace tpd {
 
         [[nodiscard]] std::span<const vk::DescriptorSet> getDescriptorSets(uint32_t instance) const;
 
-        void destroy(vk::Device) const noexcept;
+        void dispose(vk::Device) const noexcept;
 
     private:
         uint32_t _perInstanceSetCount;
@@ -41,6 +41,6 @@ inline tpd::PipelineInstance::PipelineInstance(
 : _perInstanceSetCount{ perInstanceSetCount }, _descriptorPool{ descriptorPool }, _descriptorSets{ std::move(descriptorSets) } {
 }
 
-inline void tpd::PipelineInstance::destroy(const vk::Device device) const noexcept {
+inline void tpd::PipelineInstance::dispose(const vk::Device device) const noexcept {
     device.destroyDescriptorPool(_descriptorPool);
 }

@@ -97,7 +97,7 @@ void TordemoApplication::createPipelineResources() {
 }
 
 void TordemoApplication::destroyPipelineResources() noexcept {
-    _graphicsPipelineShader->destroy(_device);
+    _graphicsPipelineShader->dispose(_device);
 }
 
 void TordemoApplication::drawFrame() {

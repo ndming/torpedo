@@ -87,6 +87,6 @@ void HelloTriangle::render(const vk::CommandBuffer buffer) {
 }
 
 HelloTriangle::~HelloTriangle() {
-    _vertexBuffer->destroy(_resourceAllocator);
-    _indexBuffer->destroy(_resourceAllocator);
+    _vertexBuffer->dispose(_resourceAllocator);
+    _indexBuffer->dispose(_resourceAllocator);
 }

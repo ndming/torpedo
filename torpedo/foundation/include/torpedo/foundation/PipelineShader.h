@@ -70,7 +70,7 @@ namespace tpd {
         [[nodiscard]] vk::Pipeline getPipeline() const;
         [[nodiscard]] vk::PipelineLayout getPipelineLayout() const;
 
-        void destroy(vk::Device device) noexcept;
+        void dispose(vk::Device device) noexcept;
 
     private:
         vk::PipelineLayout _pipelineLayout;

@@ -62,7 +62,7 @@ void tpd::Buffer::updateBufferData(const uint32_t bufferIndex, const void* const
     memcpy(_pMappedData + offset, data, dataByteSize);
 }
 
-void tpd::Buffer::destroy(const std::unique_ptr<ResourceAllocator>& allocator) noexcept {
+void tpd::Buffer::dispose(const std::unique_ptr<ResourceAllocator>& allocator) noexcept {
     allocator->destroyBuffer(_buffer, _allocation);
     _pMappedData = nullptr;
 }

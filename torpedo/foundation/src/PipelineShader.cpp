@@ -172,7 +172,7 @@ std::unique_ptr<tpd::PipelineInstance> tpd::PipelineShader::createInstance(
     return std::make_unique<PipelineInstance>(perInstanceSetCount, descriptorPool, device.allocateDescriptorSets(allocInfo));
 }
 
-void tpd::PipelineShader::destroy(const vk::Device device) noexcept {
+void tpd::PipelineShader::dispose(const vk::Device device) noexcept {
     device.destroyPipelineLayout(_pipelineLayout);
     device.destroyPipeline(_pipeline);
     std::ranges::for_each(_descriptorSetLayouts, [&device](const auto& it) { device.destroyDescriptorSetLayout(it); });
