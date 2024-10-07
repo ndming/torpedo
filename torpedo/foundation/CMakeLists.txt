@@ -30,7 +30,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     if (WIN32)
         # The current Vulkan-Hpp implementation internally uses strncpy which is marked deprecated for Clang on Windows.
         # This would trigger a warning which is treated as compilation error, so we disable it here
-        target_compile_options(${TARGET} PUBLIC -Wno-deprecated-declarations)
+        target_compile_options(${TARGET} PRIVATE -Wno-deprecated-declarations)
         # The VMA library does not use nullability completeness annotations which would trigger warnings,
         # we disable them here for the foundation library only
         target_compile_options(${TARGET} PRIVATE -Wno-nullability-completeness)

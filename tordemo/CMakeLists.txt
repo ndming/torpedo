@@ -39,10 +39,13 @@ target_link_libraries(tordemo PRIVATE glfw)
 target_link_libraries(tordemo PRIVATE glm::glm)
 target_link_libraries(tordemo PRIVATE plog::plog)
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT WIN32)
-    # Use libc++ for Clang on non-Windows platforms
-    target_compile_options(tordemo PRIVATE -stdlib=libc++)
-    target_link_libraries(tordemo PRIVATE :libc++.a :libc++abi.a)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    if (WIN32)
+        target_compile_options(tordemo PRIVATE -Wno-deprecated-declarations)
+    else ()
+        target_compile_options(tordemo PRIVATE -stdlib=libc++)
+        target_link_libraries(tordemo PRIVATE :libc++.a :libc++abi.a)
+    endif ()
 endif()
 
 # Set the path to assets folder
