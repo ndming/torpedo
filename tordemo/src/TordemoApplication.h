@@ -128,6 +128,7 @@ protected:
     // Framebuffers
     std::vector<vk::Framebuffer> _framebuffers{};
     virtual void createFramebuffers();
+    [[nodiscard]] vk::SampleCountFlagBits getOrFallbackSampleCount(vk::SampleCountFlagBits sampleCount) const;
 
     // Drawing command pool
     vk::CommandPool _drawingCommandPool{};

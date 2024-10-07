@@ -497,7 +497,7 @@ void TordemoApplication::createFramebufferColorResources() {
 }
 
 vk::SampleCountFlagBits TordemoApplication::getFramebufferColorImageSampleCount() const {
-    return vk::SampleCountFlagBits::e4;
+    return getOrFallbackSampleCount(vk::SampleCountFlagBits::e4);
 }
 
 uint32_t TordemoApplication::getFramebufferColorImageMipLevels() const {
@@ -574,7 +574,7 @@ vk::Format TordemoApplication::findFramebufferDepthImageFormat(
 }
 
 vk::SampleCountFlagBits TordemoApplication::getFramebufferDepthImageSampleCount() const {
-    return vk::SampleCountFlagBits::e4;
+    return getOrFallbackSampleCount(vk::SampleCountFlagBits::e4);
 }
 
 // =====================================================================================================================
@@ -684,6 +684,37 @@ void TordemoApplication::createFramebuffers() {
     // The swap chain attachment differs for every swap chain image, but the same color and depth image can be used by
     // all of them because only a single subpass is running at the same time due to our semaphores.
     _framebuffers = _swapChainImageViews | std::ranges::views::transform(toFramebuffer) | std::ranges::to<std::vector>();
+}
+
+vk::SampleCountFlagBits TordemoApplication::getOrFallbackSampleCount(const vk::SampleCountFlagBits sampleCount) const {
+    const auto physicalDeviceProperties = _physicalDevice.getProperties();
+    const auto counts = physicalDeviceProperties.limits.framebufferColorSampleCounts &
+        physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+
+    // Get max usable sample count
+    using enum vk::SampleCountFlagBits;
+    auto maxUsableSampleCount = e1;
+    if      (counts & e64) { maxUsableSampleCount = e64; }
+    else if (counts & e32) { maxUsableSampleCount = e32; }
+    else if (counts & e16) { maxUsableSampleCount = e16; }
+    else if (counts & e8)  { maxUsableSampleCount = e8; }
+    else if (counts & e4)  { maxUsableSampleCount = e4; }
+    else if (counts & e2)  { maxUsableSampleCount = e2; }
+
+    // If the sample count is supported, return it
+    if (sampleCount <= maxUsableSampleCount) {
+        return sampleCount;
+    }
+    // Otherwise fallback to the max usable sample count
+    switch (maxUsableSampleCount) {
+        case e2:  PLOGW << "Falling back MSAA configuration: your device only supports up to 2x MSAA";  return e2;
+        case e4:  PLOGW << "Falling back MSAA configuration: your device only supports up to 4x MSAA";  return e4;
+        case e8:  PLOGW << "Falling back MSAA configuration: your device only supports up to 8x MSAA";  return e8;
+        case e16: PLOGW << "Falling back MSAA configuration: your device only supports up to 16x MSAA"; return e16;
+        case e32: PLOGW << "Falling back MSAA configuration: your device only supports up to 32x MSAA"; return e32;
+        case e64: PLOGW << "Falling back MSAA configuration: your device only supports up to 64x MSAA"; return e64;
+        default:  PLOGW << "Falling back MSAA configuration: your device does not support MSAA"; return  e1;
+    }
 }
 
 // =====================================================================================================================
