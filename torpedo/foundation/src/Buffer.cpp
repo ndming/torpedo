@@ -3,17 +3,17 @@
 #include <numeric>
 #include <ranges>
 
-std::shared_ptr<tpd::Buffer> tpd::Buffer::Builder::buildDedicated(const std::unique_ptr<ResourceAllocator>& allocator) {
+std::unique_ptr<tpd::Buffer> tpd::Buffer::Builder::buildDedicated(const std::unique_ptr<ResourceAllocator>& allocator) {
     auto allocation = VmaAllocation{};
     const auto buffer = allocator->allocateDedicatedBuffer(populateBufferCreateInfo(vk::BufferUsageFlagBits::eTransferDst), &allocation);
-    return std::make_shared<Buffer>(buffer, allocation, std::move(_sizes));
+    return std::make_unique<Buffer>(buffer, allocation, std::move(_sizes));
 }
 
-std::shared_ptr<tpd::Buffer> tpd::Buffer::Builder::buildPersistent(const std::unique_ptr<ResourceAllocator> &allocator) {
+std::unique_ptr<tpd::Buffer> tpd::Buffer::Builder::buildPersistent(const std::unique_ptr<ResourceAllocator> &allocator) {
     auto allocation = VmaAllocation{};          // allocation is a pointer
     auto allocationInfo = VmaAllocationInfo{};  // allocation info is a struct
     const auto buffer = allocator->allocatePersistentBuffer(populateBufferCreateInfo(), &allocation, &allocationInfo);
-    return std::make_shared<Buffer>(buffer, allocation, std::move(_sizes), static_cast<std::byte*>(allocationInfo.pMappedData));
+    return std::make_unique<Buffer>(buffer, allocation, std::move(_sizes), static_cast<std::byte*>(allocationInfo.pMappedData));
 }
 
 vk::BufferCreateInfo tpd::Buffer::Builder::populateBufferCreateInfo(const vk::BufferUsageFlags internalUsage) const {

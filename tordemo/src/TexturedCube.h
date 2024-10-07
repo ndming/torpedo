@@ -25,8 +25,8 @@ private:
         std::array<float, 2> texCoord;
     };
     void createDrawingBuffers();
-    std::shared_ptr<tpd::Buffer> _vertexBuffer{};
-    std::shared_ptr<tpd::Buffer> _indexBuffer{};
+    std::unique_ptr<tpd::Buffer> _vertexBuffer{};
+    std::unique_ptr<tpd::Buffer> _indexBuffer{};
     std::vector<uint16_t> _indices{};
 
     struct MVP {
@@ -35,7 +35,7 @@ private:
         std::array<float, 16> proj { 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f };
     };
     void createUniformBuffer();
-    std::shared_ptr<tpd::Buffer> _uniformBuffer{};
+    std::unique_ptr<tpd::Buffer> _uniformBuffer{};
 
     void createTextureResources();
     std::unique_ptr<tpd::Image> _texture{};

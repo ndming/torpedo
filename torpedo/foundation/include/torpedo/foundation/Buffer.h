@@ -16,9 +16,9 @@ namespace tpd {
             Builder& usage(vk::BufferUsageFlags usage);
             Builder& buffer(uint32_t index, std::size_t byteSize, std::size_t alignment = 0);
 
-            [[nodiscard]] std::shared_ptr<Buffer> buildDedicated(const std::unique_ptr<ResourceAllocator>& allocator);
+            [[nodiscard]] std::unique_ptr<Buffer> buildDedicated(const std::unique_ptr<ResourceAllocator>& allocator);
 
-            [[nodiscard]] std::shared_ptr<Buffer> buildPersistent(const std::unique_ptr<ResourceAllocator>& allocator);
+            [[nodiscard]] std::unique_ptr<Buffer> buildPersistent(const std::unique_ptr<ResourceAllocator>& allocator);
 
         private:
             [[nodiscard]] vk::BufferCreateInfo populateBufferCreateInfo(vk::BufferUsageFlags internalUsage = {}) const;

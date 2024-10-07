@@ -18,8 +18,8 @@ private:
 
     void createPipelineResources() override;
     void createBuffers();
-    std::shared_ptr<tpd::Buffer> _vertexBuffer{};
-    std::shared_ptr<tpd::Buffer> _indexBuffer{};
+    std::unique_ptr<tpd::Buffer> _vertexBuffer{};
+    std::unique_ptr<tpd::Buffer> _indexBuffer{};
 
     [[nodiscard]] vk::PipelineVertexInputStateCreateInfo getGraphicsPipelineVertexInputState() const override;
     std::unique_ptr<tpd::PipelineShader> buildPipelineShader(vk::GraphicsPipelineCreateInfo* pipelineInfo) const override;
