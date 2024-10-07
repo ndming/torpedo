@@ -1,5 +1,6 @@
 #pragma once
 
+#include <torpedo/bootstrap/PhysicalDeviceSelector.h>
 #include <torpedo/foundation/PipelineShader.h>
 #include <torpedo/foundation/ResourceAllocator.h>
 
@@ -68,6 +69,7 @@ protected:
     uint32_t _presentQueueFamily{};
     uint32_t _computeQueueFamily{};
     virtual void pickPhysicalDevice();
+    [[nodiscard]] virtual tpd::PhysicalDeviceSelector getPhysicalDeviceSelector() const;
     [[nodiscard]] virtual std::vector<const char*> getDeviceExtensions() const;
 
     // Device and queues

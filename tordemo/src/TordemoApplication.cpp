@@ -3,7 +3,6 @@
 #include <plog/Log.h>
 
 #include <torpedo/bootstrap/InstanceBuilder.h>
-#include <torpedo/bootstrap/PhysicalDeviceSelector.h>
 #include <torpedo/bootstrap/DeviceBuilder.h>
 
 #include <limits>
@@ -210,12 +209,7 @@ void TordemoApplication::createSurface() {
 // =====================================================================================================================
 
 void TordemoApplication::pickPhysicalDevice() {
-    const auto selector = tpd::PhysicalDeviceSelector()
-        .deviceExtensions(getDeviceExtensions())
-        .requestGraphicsQueueFamily()
-        .requestPresentQueueFamily(_surface)
-        .requestComputeQueueFamily()
-        .select(_instance);
+    const auto selector = getPhysicalDeviceSelector().select(_instance);
 
     _graphicsQueueFamily = selector.getGraphicsQueueFamily();
     _presentQueueFamily = selector.getPresentQueueFamily();
@@ -229,6 +223,14 @@ void TordemoApplication::pickPhysicalDevice() {
     PLOGD << "Present queue family index:  " << _presentQueueFamily;
     PLOGD << "Compute queue family index:  " << _computeQueueFamily;
 #endif
+}
+
+tpd::PhysicalDeviceSelector TordemoApplication::getPhysicalDeviceSelector() const {
+    return tpd::PhysicalDeviceSelector()
+        .deviceExtensions(getDeviceExtensions())
+        .requestGraphicsQueueFamily()
+        .requestPresentQueueFamily(_surface)
+        .requestComputeQueueFamily();
 }
 
 std::vector<const char*> TordemoApplication::getDeviceExtensions() const {
