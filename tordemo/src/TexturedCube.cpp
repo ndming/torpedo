@@ -6,12 +6,112 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-void TexturedCube::createPipelineResources() {
-    TordemoApplication::createPipelineResources();
+void TexturedCube::onInitialized() {
+    createPipeline();
     createDrawingBuffers();
     createUniformBuffer();
     createTextureResources();
-    createPipelineInstance();
+    createShaderInstance();
+}
+
+void TexturedCube::createPipeline() {
+    // Declare a layout for the uniform buffer and combined image sampler
+    _shaderLayout = tpd::ShaderLayout::Builder(1, 2)
+        .descriptor(0, 0, vk::DescriptorType::eUniformBuffer,        1, vk::ShaderStageFlagBits::eVertex)
+        .descriptor(0, 1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment)
+        .build(_device);
+
+    // Shaders
+    const auto vertShaderModule = createShaderModule(readShaderFile("assets/shaders/textured.vert.spv"));
+    const auto fragShaderModule = createShaderModule(readShaderFile("assets/shaders/textured.frag.spv"));
+    const auto shaderStageInfos = std::array{
+        vk::PipelineShaderStageCreateInfo{ {}, vk::ShaderStageFlagBits::eVertex,   vertShaderModule, "main" },
+        vk::PipelineShaderStageCreateInfo{ {}, vk::ShaderStageFlagBits::eFragment, fragShaderModule, "main" },
+    };
+
+    // Specify which properties will be able to change at runtime
+    constexpr auto dynamicStates = std::array{ vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+    auto dynamicStateInfo = vk::PipelineDynamicStateCreateInfo{};
+    dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+    dynamicStateInfo.pDynamicStates = dynamicStates.data();
+
+    // Default viewport state
+    const auto viewportState = getPipelineDefaultViewportState();
+    // Describe what kind of geometry will be drawn from the vertices and if primitive restart should be enabled
+    const auto inputAssembly = getPipelineDefaultInputAssemblyState();
+    // Input vertex binding and attribute descriptions
+    const auto vertexInputState = getVertexInputState();
+    // Rasterizer options
+    const auto rasterizer = getPipelineDefaultRasterizationState();
+    // MSAA
+    const auto multisampling = getMultisampleState();
+    // Depth stencil options
+    const auto depthStencil = getPipelineDefaultDepthStencilState();
+    // How the newly computed fragment colors are combined with the color that is already in the framebuffer
+    const auto colorBlendAttachment = getPipelineDefaultColorBlendAttachmentState();
+    // Configure global color blending
+    const auto colorBlending = vk::PipelineColorBlendStateCreateInfo{ {}, vk::False, {}, 1, &colorBlendAttachment };
+
+    // Construct the pipeline
+    auto pipelineInfo = vk::GraphicsPipelineCreateInfo{};
+    // Pipeline layout
+    pipelineInfo.layout = _shaderLayout->getPipelineLayout();
+    // Shader stages
+    pipelineInfo.stageCount = static_cast<uint32_t>(shaderStageInfos.size());
+    pipelineInfo.pStages = shaderStageInfos.data();
+    // Fixed and dynamic states
+    pipelineInfo.pVertexInputState = &vertexInputState;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+    pipelineInfo.pDepthStencilState = &depthStencil;
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.pDynamicState = &dynamicStateInfo;
+    // Reference to the render pass and the index of the subpass where this graphics pipeline will be used.
+    // It is also possible to use other render passes with this pipeline instead of this specific instance,
+    // but they have to be compatible with this very specific renderPass
+    pipelineInfo.renderPass = _renderPass;
+    pipelineInfo.subpass = 0;
+    // Pipeline derivatives can be used to create multiple pipelines that share most of their state
+    pipelineInfo.basePipelineHandle = nullptr;
+    pipelineInfo.basePipelineIndex = -1;
+
+    // Create the graphics pipeline
+    _graphicsPipeline = _device.createGraphicsPipeline(nullptr, pipelineInfo).value;
+
+    // We no longer need the shader modules once the pipeline is created
+    _device.destroyShaderModule(vertShaderModule);
+    _device.destroyShaderModule(fragShaderModule);
+}
+
+vk::PipelineVertexInputStateCreateInfo TexturedCube::getVertexInputState() {
+    static constexpr auto bindingDescriptions = std::array{
+        vk::VertexInputBindingDescription{ 0, sizeof(Vertex) },
+    };
+    static constexpr auto attributeDescriptions = std::array{
+        vk::VertexInputAttributeDescription{ 0, 0, vk::Format::eR32G32B32Sfloat,    offsetof(Vertex, position) },
+        vk::VertexInputAttributeDescription{ 1, 0, vk::Format::eR32G32B32A32Sfloat, offsetof(Vertex, color) },
+        vk::VertexInputAttributeDescription{ 2, 0, vk::Format::eR32G32Sfloat,       offsetof(Vertex, texCoord) },
+    };
+
+    auto vertexInputStateCreateInfo = vk::PipelineVertexInputStateCreateInfo{};
+    vertexInputStateCreateInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size());
+    vertexInputStateCreateInfo.pVertexBindingDescriptions = bindingDescriptions.data();
+    vertexInputStateCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputStateCreateInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+
+    return vertexInputStateCreateInfo;
+}
+
+vk::PipelineMultisampleStateCreateInfo TexturedCube::getMultisampleState() const {
+    // Use MSAA for the framebuffer's color attachment
+    auto multisampleStateCreateInfo = vk::PipelineMultisampleStateCreateInfo{};
+    multisampleStateCreateInfo.rasterizationSamples = getFramebufferColorImageSampleCount();
+    multisampleStateCreateInfo.sampleShadingEnable = vk::False;
+    multisampleStateCreateInfo.alphaToCoverageEnable = vk::False;
+    multisampleStateCreateInfo.alphaToOneEnable = vk::False;
+    return multisampleStateCreateInfo;
 }
 
 void TexturedCube::createDrawingBuffers() {
@@ -52,13 +152,13 @@ void TexturedCube::createDrawingBuffers() {
         .bufferCount(1)
         .usage(vk::BufferUsageFlagBits::eVertexBuffer)
         .buffer(0, sizeof(Vertex) * vertices.size())
-        .buildDedicated(_resourceAllocator);
+        .build(_allocator, tpd::ResourceType::Dedicated);
 
     _indexBuffer = tpd::Buffer::Builder()
         .bufferCount(1)
         .usage(vk::BufferUsageFlagBits::eIndexBuffer)
         .buffer(0, sizeof(uint16_t) * _indices.size())
-        .buildDedicated(_resourceAllocator);
+        .build(_allocator, tpd::ResourceType::Dedicated);
 
     const auto bufferCopy = [this](const vk::Buffer src, const vk::Buffer dst, const vk::BufferCopy& copyInfo) {
         const auto cmdBuffer = beginSingleTimeTransferCommands();
@@ -66,8 +166,8 @@ void TexturedCube::createDrawingBuffers() {
         endSingleTimeTransferCommands(cmdBuffer);
     };
 
-    _vertexBuffer->transferBufferData(0, vertices.data(), _resourceAllocator, bufferCopy);
-    _indexBuffer->transferBufferData(0, _indices.data(), _resourceAllocator, bufferCopy);
+    _vertexBuffer->transferBufferData(0, vertices.data(), _allocator, bufferCopy);
+    _indexBuffer->transferBufferData(0, _indices.data(), _allocator, bufferCopy);
 }
 
 void TexturedCube::createUniformBuffer() {
@@ -76,7 +176,7 @@ void TexturedCube::createUniformBuffer() {
         .usage(vk::BufferUsageFlagBits::eUniformBuffer);
     const auto alignment = _physicalDevice.getProperties().limits.minUniformBufferOffsetAlignment;
     for (uint32_t i = 0; i < _maxFramesInFlight; ++i) { uniformBufferBuilder.buffer(i, sizeof(MVP), alignment); }
-    _uniformBuffer = uniformBufferBuilder.buildPersistent(_resourceAllocator);
+    _uniformBuffer = uniformBufferBuilder.build(_allocator, tpd::ResourceType::Persistent);
 }
 
 void TexturedCube::createTextureResources() {
@@ -95,7 +195,7 @@ void TexturedCube::createTextureResources() {
         .usage(vk::ImageUsageFlagBits::eSampled)
         .imageViewType(vk::ImageViewType::e2D)
         .imageViewAspects(vk::ImageAspectFlagBits::eColor)
-        .buildDedicated(_resourceAllocator, _device);
+        .build(_device, _allocator, tpd::ResourceType::Dedicated);
 
     const auto layoutTransition = [this](const vk::ImageLayout oldLayout, const vk::ImageLayout newLayout, const vk::Image image) {
         const auto commandBuffer = beginSingleTimeTransferCommands();
@@ -158,43 +258,15 @@ void TexturedCube::createTextureResources() {
 
     _texture->transferImageData(
         pixels, imageSize, vk::ImageLayout::eShaderReadOnlyOptimal,
-        _resourceAllocator, layoutTransition, bufferToImageCopy);
+        _allocator, layoutTransition, bufferToImageCopy);
 
     stbi_image_free(pixels);
 
     _sampler = tpd::SamplerBuilder().build(_device);
 }
 
-vk::PipelineVertexInputStateCreateInfo TexturedCube::getGraphicsPipelineVertexInputState() const {
-    static constexpr auto bindingDescriptions = std::array{
-        vk::VertexInputBindingDescription{ 0, sizeof(Vertex) },
-    };
-    static constexpr auto attributeDescriptions = std::array{
-        vk::VertexInputAttributeDescription{ 0, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, position) },
-        vk::VertexInputAttributeDescription{ 1, 0, vk::Format::eR32G32B32A32Sfloat, offsetof(Vertex, color) },
-        vk::VertexInputAttributeDescription{ 2, 0, vk::Format::eR32G32Sfloat, offsetof(Vertex, texCoord) },
-    };
-
-    auto vertexInputStateCreateInfo = vk::PipelineVertexInputStateCreateInfo{};
-    vertexInputStateCreateInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size());
-    vertexInputStateCreateInfo.pVertexBindingDescriptions = bindingDescriptions.data();
-    vertexInputStateCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-    vertexInputStateCreateInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
-
-    return vertexInputStateCreateInfo;
-}
-
-std::unique_ptr<tpd::PipelineShader> TexturedCube::buildPipelineShader(vk::GraphicsPipelineCreateInfo* pipelineInfo) const {
-    return tpd::PipelineShader::Builder(1, 2)
-        .shader("assets/shaders/textured.vert.spv", vk::ShaderStageFlagBits::eVertex)
-        .shader("assets/shaders/textured.frag.spv", vk::ShaderStageFlagBits::eFragment)
-        .descriptor(0, 0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex)
-        .descriptor(0, 1, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment)
-        .build(pipelineInfo, _physicalDevice, _device);
-}
-
-void TexturedCube::createPipelineInstance() {
-    _pipelineInstance = _graphicsPipelineShader->createInstance(_device, _maxFramesInFlight);
+void TexturedCube::createShaderInstance() {
+    _shaderInstance = _shaderLayout->createInstance(_device, _maxFramesInFlight);
 
     for (uint32_t i = 0; i < _maxFramesInFlight; ++i) {
         auto bufferInfo = vk::DescriptorBufferInfo{};
@@ -207,14 +279,12 @@ void TexturedCube::createPipelineInstance() {
         imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
         imageInfo.sampler = _sampler;
 
-        _pipelineInstance->setDescriptors(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, { bufferInfo });
-        _pipelineInstance->setDescriptors(i, 0, 1, vk::DescriptorType::eCombinedImageSampler, _device, { imageInfo });
+        _shaderInstance->setDescriptors(i, 0, 0, vk::DescriptorType::eUniformBuffer,        _device, { bufferInfo });
+        _shaderInstance->setDescriptors(i, 0, 1, vk::DescriptorType::eCombinedImageSampler, _device, { imageInfo  });
     }
 }
 
 void TexturedCube::onFrameReady() {
-    TordemoApplication::onFrameReady();
-
     static auto startTime = std::chrono::high_resolution_clock::now();
     const auto currentTime = std::chrono::high_resolution_clock::now();
     const float frameTime = std::chrono::duration<float>(currentTime - startTime).count();
@@ -231,12 +301,23 @@ void TexturedCube::onFrameReady() {
     _uniformBuffer->updateBufferData(_currentFrame, &mvp, sizeof(MVP));
 }
 
-void TexturedCube::render(const vk::CommandBuffer buffer) {
-    TordemoApplication::render(buffer);
+void TexturedCube::onDraw(const vk::CommandBuffer buffer) {
+    buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, _graphicsPipeline);
+
+    // Set viewport and scissor states
+    auto viewport = vk::Viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(_swapChainImageExtent.width);
+    viewport.height = static_cast<float>(_swapChainImageExtent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    buffer.setViewport(0, viewport);
+    buffer.setScissor(0, vk::Rect2D{ { 0, 0 }, _swapChainImageExtent });
 
     buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, _graphicsPipelineShader->getPipelineLayout(),
-        /* first set */ 0, _pipelineInstance->getDescriptorSets(_currentFrame), {});
+        vk::PipelineBindPoint::eGraphics, _shaderLayout->getPipelineLayout(),
+        /* first set */ 0, _shaderInstance->getDescriptorSets(_currentFrame), {});
 
     const auto vertexBuffers = std::vector(_vertexBuffer->getBufferCount(), _vertexBuffer->getBuffer());
     buffer.bindVertexBuffers(0, vertexBuffers, _vertexBuffer->getOffsets());
@@ -246,10 +327,12 @@ void TexturedCube::render(const vk::CommandBuffer buffer) {
 }
 
 TexturedCube::~TexturedCube() {
-    _pipelineInstance->dispose(_device);
+    _shaderInstance->dispose(_device);
     _device.destroySampler(_sampler);
-    _texture->dispose(_device, _resourceAllocator);
-    _uniformBuffer->dispose(_resourceAllocator);
-    _indexBuffer->dispose(_resourceAllocator);
-    _vertexBuffer->dispose(_resourceAllocator);
+    _texture->dispose(_device, _allocator);
+    _uniformBuffer->dispose(_allocator);
+    _indexBuffer->dispose(_allocator);
+    _vertexBuffer->dispose(_allocator);
+    _device.destroyPipeline(_graphicsPipeline);
+    _shaderLayout->dispose(_device);
 }

@@ -3,6 +3,14 @@
 #include <numeric>
 #include <ranges>
 
+std::unique_ptr<tpd::Buffer> tpd::Buffer::Builder::build(const std::unique_ptr<ResourceAllocator>& allocator, const ResourceType type) {
+    switch (type) {
+        case ResourceType::Dedicated:  return buildDedicated(allocator);
+        case ResourceType::Persistent: return buildPersistent(allocator);
+        default: throw std::runtime_error("Buffer::Builder: unsupported resource type");
+    }
+}
+
 std::unique_ptr<tpd::Buffer> tpd::Buffer::Builder::buildDedicated(const std::unique_ptr<ResourceAllocator>& allocator) {
     auto allocation = VmaAllocation{};
     const auto buffer = allocator->allocateDedicatedBuffer(populateBufferCreateInfo(vk::BufferUsageFlagBits::eTransferDst), &allocation);
@@ -33,7 +41,7 @@ void tpd::Buffer::transferBufferData(
     const std::function<void(vk::Buffer, vk::Buffer, vk::BufferCopy)>& onBufferCopy) const
 {
     if (_pMappedData) {
-        throw std::runtime_error("Buffer was persistently created: transfer only works for dedicated buffers");
+        throw std::runtime_error("Buffer: buffer was persistently created, transfer only works for dedicated buffers");
     }
 
     // Create a staging buffer and fill it with the data
@@ -45,12 +53,12 @@ void tpd::Buffer::transferBufferData(
     const auto offset = std::ranges::fold_left(_sizes | std::views::take(bufferIndex), 0, std::plus());
     onBufferCopy(stagingBuffer, _buffer, vk::BufferCopy{ 0, offset, _sizes[bufferIndex] });
 
-    allocator->destroyBuffer(stagingBuffer, stagingAllocation);
+    allocator->freeBuffer(stagingBuffer, stagingAllocation);
 }
 
 void tpd::Buffer::updateBufferData(const uint32_t bufferIndex, const void* const data, const std::size_t dataByteSize) const {
     if (!_pMappedData) {
-        throw std::runtime_error("Buffer was locally created: update only works for persistent buffers");
+        throw std::runtime_error("Buffer: buffer was locally created, update only works for persistent buffers");
     }
 
     // Memory in Vulkan doesn't need to be unmapped before using it on GPU. However, unless memory types have
@@ -60,9 +68,4 @@ void tpd::Buffer::updateBufferData(const uint32_t bufferIndex, const void* const
     // memory types that are HOST_VISIBLE, so on PC we may not need to bother.
     const auto offset = std::ranges::fold_left(_sizes | std::views::take(bufferIndex), 0, std::plus());
     memcpy(_pMappedData + offset, data, dataByteSize);
-}
-
-void tpd::Buffer::dispose(const std::unique_ptr<ResourceAllocator>& allocator) noexcept {
-    allocator->destroyBuffer(_buffer, _allocation);
-    _pMappedData = nullptr;
 }

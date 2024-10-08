@@ -42,7 +42,7 @@ vk::Image tpd::ResourceAllocator::allocateDedicatedImage(const vk::ImageCreateIn
     return image;
 }
 
-void tpd::ResourceAllocator::destroyImage(const vk::Image image, VmaAllocation allocation) const noexcept {
+void tpd::ResourceAllocator::freeImage(const vk::Image image, VmaAllocation allocation) const noexcept {
     vmaDestroyImage(_allocator, image, allocation);
 }
 
@@ -108,6 +108,6 @@ void tpd::ResourceAllocator::mapAndCopyStagingBuffer(const std::size_t bufferSiz
     vmaUnmapMemory(_allocator, allocation);
 }
 
-void tpd::ResourceAllocator::destroyBuffer(const vk::Buffer buffer, VmaAllocation allocation) const noexcept {
+void tpd::ResourceAllocator::freeBuffer(const vk::Buffer buffer, VmaAllocation allocation) const noexcept {
     vmaDestroyBuffer(_allocator, buffer, allocation);
 }

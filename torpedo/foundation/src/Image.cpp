@@ -1,5 +1,17 @@
 #include "torpedo/foundation/Image.h"
 
+std::unique_ptr<tpd::Image> tpd::Image::Builder::build(
+    const vk::Device device,
+    const std::unique_ptr<ResourceAllocator>& allocator,
+    const ResourceType type,
+    const vk::ImageCreateFlags flags) const
+{
+    switch (type) {
+        case ResourceType::Dedicated: return buildDedicated(allocator, device, flags);
+        default: throw std::runtime_error("Image::Builder: unsupported resource type");
+    }
+}
+
 std::unique_ptr<tpd::Image> tpd::Image::Builder::buildDedicated(
     const std::unique_ptr<ResourceAllocator>& allocator,
     const vk::Device device,
@@ -64,10 +76,5 @@ void tpd::Image::transferImageData(
     onBufferToImageCopy(stagingBuffer, _image);
     onLayoutTransition(eTransferDstOptimal, finalLayout, _image);
 
-    allocator->destroyBuffer(stagingBuffer, stagingAllocation);
-}
-
-void tpd::Image::dispose(const vk::Device device, const std::unique_ptr<ResourceAllocator>& allocator) const noexcept {
-    device.destroyImageView(_imageView);
-    allocator->destroyImage(_image, _allocation);
+    allocator->freeBuffer(stagingBuffer, stagingAllocation);
 }

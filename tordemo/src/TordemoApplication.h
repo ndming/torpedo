@@ -26,20 +26,8 @@ private:
     void loop();
 
 protected:
-    // Bite-sized overrides
-    virtual void createFramebufferResources();
-    virtual void destroyFramebufferResources() const noexcept;
-
-    virtual void createCommandPools();
-    virtual void destroyCommandPools() const noexcept;
-
-    virtual void createSyncObjects();
-    virtual void destroySyncObjects() const noexcept;
-
-    virtual void createPipelineResources();
-    virtual void destroyPipelineResources() noexcept;
-
-    virtual void drawFrame();
+    // Call when all Vulkan resources are initialized
+    virtual void onInitialized() = 0;
 
     // Window
     GLFWwindow* _window{ nullptr };
@@ -81,7 +69,7 @@ protected:
     [[nodiscard]] virtual vk::PhysicalDeviceFeatures2 getDeviceFeatures() const;
 
     // Resource allocator
-    std::unique_ptr<tpd::ResourceAllocator> _resourceAllocator{};
+    std::unique_ptr<tpd::ResourceAllocator> _allocator{};
     virtual void initResourceAllocator();
 
     // Swap chain utilities
@@ -102,6 +90,10 @@ protected:
     [[nodiscard]] virtual vk::SurfaceFormatKHR chooseSwapSurfaceFormat() const;
     [[nodiscard]] virtual vk::PresentModeKHR chooseSwapPresentMode() const;
     [[nodiscard]] virtual vk::Extent2D chooseSwapExtent() const;
+
+    // Frame buffer resources
+    virtual void createFramebufferResources();
+    virtual void destroyFramebufferResources() const noexcept;
 
     // Framebuffer color resources
     vk::Image _framebufferColorImage{};
@@ -130,6 +122,10 @@ protected:
     virtual void createFramebuffers();
     [[nodiscard]] vk::SampleCountFlagBits getOrFallbackSampleCount(vk::SampleCountFlagBits sampleCount) const;
 
+    // Command pools
+    virtual void createCommandPools();
+    virtual void destroyCommandPools() const noexcept;
+
     // Drawing command pool
     vk::CommandPool _drawingCommandPool{};
     virtual void createDrawingCommandPool();
@@ -148,23 +144,26 @@ protected:
     std::vector<vk::Semaphore> _imageAvailableSemaphores{};
     std::vector<vk::Semaphore> _renderFinishedSemaphores{};
     std::vector<vk::Fence> _drawingInFlightFences{};
+    virtual void createSyncObjects();
+    virtual void destroySyncObjects() const noexcept;
     void createDrawingSyncObjects();
 
-    // Graphics pipeline
-    std::unique_ptr<tpd::PipelineShader> _graphicsPipelineShader{};
-    virtual void createGraphicsPipelineShader();
-    [[nodiscard]] virtual std::vector<vk::DynamicState> getGraphicsPipelineDynamicStates() const;
-    [[nodiscard]] virtual vk::PipelineViewportStateCreateInfo getGraphicsPipelineViewportState() const;
-    [[nodiscard]] virtual vk::PipelineInputAssemblyStateCreateInfo getGraphicsPipelineInputAssemblyState() const;
-    [[nodiscard]] virtual vk::PipelineVertexInputStateCreateInfo getGraphicsPipelineVertexInputState() const;
-    [[nodiscard]] virtual vk::PipelineRasterizationStateCreateInfo getGraphicsPipelineRasterizationState() const;
-    [[nodiscard]] virtual vk::PipelineMultisampleStateCreateInfo getGraphicsPipelineMultisampleState() const;
-    [[nodiscard]] virtual vk::PipelineDepthStencilStateCreateInfo getGraphicsPipelineDepthStencilState() const;
-    [[nodiscard]] virtual vk::PipelineColorBlendAttachmentState getGraphicsPipelineColorBlendAttachmentState() const;
-    [[nodiscard]] virtual std::unique_ptr<tpd::PipelineShader> buildPipelineShader(vk::GraphicsPipelineCreateInfo* pipelineInfo) const;
+    // Pipeline helpers
+    [[nodiscard]] static std::vector<std::byte> readShaderFile(const std::filesystem::path& path);
+    [[nodiscard]] vk::ShaderModule createShaderModule(const std::vector<std::byte>& code) const;
+
+    // Graphics pipeline default states
+    [[nodiscard]] static vk::PipelineViewportStateCreateInfo getPipelineDefaultViewportState();
+    [[nodiscard]] static vk::PipelineInputAssemblyStateCreateInfo getPipelineDefaultInputAssemblyState();
+    [[nodiscard]] static vk::PipelineVertexInputStateCreateInfo getPipelineDefaultVertexInputState();
+    [[nodiscard]] static vk::PipelineRasterizationStateCreateInfo getPipelineDefaultRasterizationState();
+    [[nodiscard]] static vk::PipelineMultisampleStateCreateInfo getPipelineDefaultMultisampleState();
+    [[nodiscard]] static vk::PipelineDepthStencilStateCreateInfo getPipelineDefaultDepthStencilState();
+    [[nodiscard]] static vk::PipelineColorBlendAttachmentState getPipelineDefaultColorBlendAttachmentState();
 
     // Drawing frames
     uint32_t _currentFrame{ 0 };
+    virtual void drawFrame();
     virtual bool beginFrame(uint32_t* imageIndex);
     virtual void onFrameReady();
     virtual void endFrame(uint32_t imageIndex);
@@ -172,7 +171,7 @@ protected:
     // Rendering
     virtual void beginRenderPass(uint32_t imageIndex);
     [[nodiscard]] virtual std::vector<vk::ClearValue> getClearValues() const;
-    virtual void render(vk::CommandBuffer buffer);
+    virtual void onDraw(vk::CommandBuffer buffer) = 0;
 
     // Transfer operations
     [[nodiscard]] vk::CommandBuffer beginSingleTimeTransferCommands() const;

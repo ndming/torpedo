@@ -4,6 +4,7 @@
 
 #include <torpedo/foundation/Buffer.h>
 #include <torpedo/foundation/PipelineShader.h>
+#include <torpedo/foundation/ShaderLayout.h>
 
 class HelloTriangle final : public TordemoApplication {
 public:
@@ -16,13 +17,17 @@ public:
 private:
     [[nodiscard]] std::string getWindowTitle() const override { return "Hello, Triangle!"; }
 
-    void createPipelineResources() override;
+    void onInitialized() override;
+
+    void createPipeline();
+    static vk::PipelineVertexInputStateCreateInfo getVertexInputState();
+    [[nodiscard]] vk::PipelineMultisampleStateCreateInfo getMultisampleState() const;
+    vk::PipelineLayout _pipelineLayout{};
+    vk::Pipeline _graphicsPipeline{};
+
     void createBuffers();
     std::unique_ptr<tpd::Buffer> _vertexBuffer{};
     std::unique_ptr<tpd::Buffer> _indexBuffer{};
 
-    [[nodiscard]] vk::PipelineVertexInputStateCreateInfo getGraphicsPipelineVertexInputState() const override;
-    std::unique_ptr<tpd::PipelineShader> buildPipelineShader(vk::GraphicsPipelineCreateInfo* pipelineInfo) const override;
-
-    void render(vk::CommandBuffer buffer) override;
+    void onDraw(vk::CommandBuffer buffer) override;
 };

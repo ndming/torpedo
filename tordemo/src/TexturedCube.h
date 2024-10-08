@@ -4,7 +4,8 @@
 
 #include <torpedo/foundation/Buffer.h>
 #include <torpedo/foundation/Image.h>
-#include <torpedo/foundation/PipelineInstance.h>
+#include <torpedo/foundation/ShaderLayout.h>
+#include <torpedo/foundation/ShaderInstance.h>
 
 class TexturedCube final : public TordemoApplication {
 public:
@@ -17,7 +18,13 @@ public:
 private:
     [[nodiscard]] std::string getWindowTitle() const override { return "Textured Cube"; }
 
-    void createPipelineResources() override;
+    void onInitialized() override;
+
+    void createPipeline();
+    static vk::PipelineVertexInputStateCreateInfo getVertexInputState();
+    [[nodiscard]] vk::PipelineMultisampleStateCreateInfo getMultisampleState() const;
+    std::unique_ptr<tpd::ShaderLayout> _shaderLayout{};
+    vk::Pipeline _graphicsPipeline{};
 
     struct Vertex {
         std::array<float, 3> position;
@@ -41,12 +48,9 @@ private:
     std::unique_ptr<tpd::Image> _texture{};
     vk::Sampler _sampler{};
 
-    [[nodiscard]] vk::PipelineVertexInputStateCreateInfo getGraphicsPipelineVertexInputState() const override;
-    std::unique_ptr<tpd::PipelineShader> buildPipelineShader(vk::GraphicsPipelineCreateInfo* pipelineInfo) const override;
-
-    void createPipelineInstance();
-    std::unique_ptr<tpd::PipelineInstance> _pipelineInstance{};
+    void createShaderInstance();
+    std::unique_ptr<tpd::ShaderInstance> _shaderInstance{};
 
     void onFrameReady() override;
-    void render(vk::CommandBuffer buffer) override;
+    void onDraw(vk::CommandBuffer buffer) override;
 };
