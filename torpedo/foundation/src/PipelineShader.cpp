@@ -176,4 +176,6 @@ void tpd::PipelineShader::dispose(const vk::Device device) noexcept {
     device.destroyPipelineLayout(_pipelineLayout);
     device.destroyPipeline(_pipeline);
     std::ranges::for_each(_descriptorSetLayouts, [&device](const auto& it) { device.destroyDescriptorSetLayout(it); });
+    _descriptorSetLayouts.clear();
+    _descriptorSetLayoutBindings.clear();
 }

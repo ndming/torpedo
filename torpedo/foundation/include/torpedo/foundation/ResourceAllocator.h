@@ -7,6 +7,11 @@
 #include <memory>
 
 namespace tpd {
+    enum class ResourceType {
+        Dedicated,
+        Persistent,
+    };
+
     class ResourceAllocator final {
     public:
         class Builder {
@@ -29,7 +34,7 @@ namespace tpd {
             uint32_t _apiVersion{ VK_API_VERSION_1_3 };
         };
 
-        explicit ResourceAllocator(VmaAllocator allocator) : _allocator{ allocator } {
+        explicit ResourceAllocator(VmaAllocator allocator) noexcept : _allocator{ allocator } {
         }
 
         ~ResourceAllocator() { vmaDestroyAllocator(_allocator); }
@@ -39,21 +44,15 @@ namespace tpd {
 
         vk::Image allocateDedicatedImage(const vk::ImageCreateInfo& imageCreateInfo, VmaAllocation* allocation) const;
 
-        void destroyImage(vk::Image image, VmaAllocation allocation) const noexcept;
+        void freeImage(vk::Image image, VmaAllocation allocation) const noexcept;
 
-        vk::Buffer allocateDedicatedBuffer(
-            const vk::BufferCreateInfo& bufferCreateInfo,
-            VmaAllocation* allocation) const;
-
-        vk::Buffer allocatePersistentBuffer(
-            const vk::BufferCreateInfo& bufferCreateInfo,
-            VmaAllocation* allocation,
-            VmaAllocationInfo* allocationInfo) const;
-
+        vk::Buffer allocateDedicatedBuffer(const vk::BufferCreateInfo& bufferCreateInfo, VmaAllocation* allocation) const;
+        vk::Buffer allocatePersistentBuffer(const vk::BufferCreateInfo& bufferCreateInfo, VmaAllocation* allocation, VmaAllocationInfo* allocationInfo) const;
         vk::Buffer allocateStagingBuffer(std::size_t bufferSize, VmaAllocation* allocation) const;
+
         void mapAndCopyStagingBuffer(std::size_t bufferSize, const void* data, VmaAllocation allocation) const;
 
-        void destroyBuffer(vk::Buffer buffer, VmaAllocation allocation) const noexcept;
+        void freeBuffer(vk::Buffer buffer, VmaAllocation allocation) const noexcept;
 
     private:
         VmaAllocator _allocator;

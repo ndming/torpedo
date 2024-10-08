@@ -7,6 +7,8 @@ set(TORPEDO_FOUNDATION_SOURCES
         src/PipelineInstance.cpp
         src/PipelineShader.cpp
         src/ResourceAllocator.cpp
+        src/ShaderLayout.cpp
+        src/ShaderInstance.cpp
         src/VmaUsage.cpp
 )
 

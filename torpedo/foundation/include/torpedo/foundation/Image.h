@@ -21,12 +21,18 @@ namespace tpd {
             Builder& imageViewAspects(vk::ImageAspectFlags viewAspects);
             Builder& imageViewBaseMipLevel(uint32_t baseLevel);
 
+            [[nodiscard]] std::unique_ptr<Image> build(
+                vk::Device device,
+                const std::unique_ptr<ResourceAllocator>& allocator,
+                ResourceType type,
+                vk::ImageCreateFlags flags = {}) const;
+
+        private:
             [[nodiscard]] std::unique_ptr<Image> buildDedicated(
                 const std::unique_ptr<ResourceAllocator>& allocator,
                 vk::Device device,
                 vk::ImageCreateFlags flags = {}) const;
 
-        private:
             [[nodiscard]] vk::ImageCreateInfo populateImageCreateInfo(
                 vk::ImageUsageFlags internalUsage,
                 vk::ImageTiling tiling,
@@ -45,10 +51,15 @@ namespace tpd {
             uint32_t _viewBaseMipLevel{ 0 };
         };
 
-        Image(vk::Image image, vk::ImageView imageView, VmaAllocation allocation);
+        Image(vk::Image image, vk::ImageView imageView, VmaAllocation allocation) noexcept;
 
         Image(const Image&) = delete;
         Image& operator=(const Image&) = delete;
+
+        [[nodiscard]] vk::Image getImage() const;
+        [[nodiscard]] vk::ImageView getImageView() const;
+
+        void dispose(vk::Device device, const std::unique_ptr<ResourceAllocator>& allocator) const noexcept;
 
         void transferImageData(
             const void* data,
@@ -57,11 +68,6 @@ namespace tpd {
             const std::unique_ptr<ResourceAllocator>& allocator,
             const std::function<void(vk::ImageLayout, vk::ImageLayout, vk::Image)>& onLayoutTransition,
             const std::function<void(vk::Buffer, vk::Image)>& onBufferToImageCopy) const;
-
-        [[nodiscard]] vk::Image getImage() const;
-        [[nodiscard]] vk::ImageView getImageView() const;
-
-        void dispose(vk::Device device, const std::unique_ptr<ResourceAllocator>& allocator) const noexcept;
 
     private:
         vk::Image _image;
@@ -116,8 +122,10 @@ inline tpd::Image::Builder& tpd::Image::Builder::imageViewBaseMipLevel(const uin
     return *this;
 }
 
-inline tpd::Image::Image(const vk::Image image, const vk::ImageView imageView, VmaAllocation allocation)
-: _image{ image }, _imageView{ imageView }, _allocation{ allocation } {
+inline tpd::Image::Image(const vk::Image image, const vk::ImageView imageView, VmaAllocation allocation) noexcept
+    : _image{ image }
+    , _imageView{ imageView }
+    , _allocation{ allocation } {
 }
 
 inline vk::Image tpd::Image::getImage() const {
@@ -126,4 +134,9 @@ inline vk::Image tpd::Image::getImage() const {
 
 inline vk::ImageView tpd::Image::getImageView() const {
     return _imageView;
+}
+
+inline void tpd::Image::dispose(const vk::Device device, const std::unique_ptr<ResourceAllocator>& allocator) const noexcept {
+    device.destroyImageView(_imageView);
+    allocator->freeImage(_image, _allocation);
 }
