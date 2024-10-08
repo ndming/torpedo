@@ -6,7 +6,7 @@
 vk::Instance tpd::InstanceBuilder::build(const vk::InstanceCreateFlags flags) {
     // Check if all required layers are available, throw if any of them is not supported
     if (!allLayersAvailable()) {
-        throw std::runtime_error("InstanceBuilder: some requested layers are not available!");
+        throw std::runtime_error("InstanceBuilder: not all requested layers are available, consider update your drivers");
     }
 
     auto createInfo = vk::InstanceCreateInfo{};

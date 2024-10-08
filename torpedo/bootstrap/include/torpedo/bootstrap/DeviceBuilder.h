@@ -17,7 +17,7 @@ namespace tpd {
         DeviceBuilder& queueFamilyIndices(const std::set<uint32_t>& families);
         DeviceBuilder& queueFamilyIndices(std::set<uint32_t>&& families) noexcept;
 
-        [[nodiscard]] vk::Device build(const vk::PhysicalDevice& physicalDevice) const;
+        [[nodiscard]] vk::Device build(vk::PhysicalDevice physicalDevice) const;
 
     private:
         std::vector<const char*> _extensions{};

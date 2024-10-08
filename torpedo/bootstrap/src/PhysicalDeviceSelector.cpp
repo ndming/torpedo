@@ -3,7 +3,7 @@
 #include <ranges>
 #include <unordered_set>
 
-tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::select(const vk::Instance& instance) {
+tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::select(const vk::Instance instance) {
     const auto devices = instance.enumeratePhysicalDevices();
 
     const auto suitable = [this](const auto& device) {
@@ -30,7 +30,8 @@ tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::select(const vk::Insta
         if (_requestPresentQueueFamily) _presentQueueFamily = presentFamily.value();
         if (_requestComputeQueueFamily) _computeQueueFamily = computeFamily.value();
     } else {
-        throw std::runtime_error("Failed to find a suitable device");
+        throw std::runtime_error(
+            "PhysicalDeviceSelector: failed to find a suitable device, consider requesting less extensions and features");
     }
 
     _isSelected = true;

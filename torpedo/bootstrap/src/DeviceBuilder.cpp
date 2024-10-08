@@ -2,7 +2,7 @@
 
 #include <ranges>
 
-vk::Device tpd::DeviceBuilder::build(const vk::PhysicalDevice& physicalDevice) const {
+vk::Device tpd::DeviceBuilder::build(const vk::PhysicalDevice physicalDevice) const {
     using namespace std::views;
     constexpr auto priority = 1.0f;
     const auto toQueueCreateInfo = [&priority](const auto& family) { return vk::DeviceQueueCreateInfo{ {}, family, 1, &priority }; };

@@ -32,7 +32,7 @@ namespace tpd {
         PhysicalDeviceSelector& featuresConditionalRendering(const vk::PhysicalDeviceConditionalRenderingFeaturesEXT& features);
         PhysicalDeviceSelector& featuresVertexInputDynamicState(const vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT& features);
 
-        [[nodiscard]] PhysicalDeviceSelector& select(const vk::Instance& instance);
+        [[nodiscard]] PhysicalDeviceSelector& select(vk::Instance instance);
 
         [[nodiscard]] vk::PhysicalDevice getPhysicalDevice() const;
         [[nodiscard]] uint32_t getGraphicsQueueFamily() const;
