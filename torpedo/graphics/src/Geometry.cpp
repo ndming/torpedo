@@ -2,6 +2,66 @@
 
 #include "torpedo/graphics/Engine.h"
 
+tpd::Geometry::Builder& tpd::Geometry::Builder::attributeCount(const uint32_t count) {
+    _bindings.reserve(count);
+    _attributes.reserve(count);
+    _attributeBindings.reserve(count);
+    return *this;
+}
+
+tpd::Geometry::Builder& tpd::Geometry::Builder::vertexAttribute(
+    const uint32_t location,
+    const vk::Format format,
+    const uint32_t stride)
+{
+    auto bindingDescription = VkVertexInputBindingDescription2EXT{};
+    bindingDescription.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
+    bindingDescription.binding = static_cast<uint32_t>(_bindings.size());
+    bindingDescription.stride = stride;
+    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    bindingDescription.divisor = 1;
+
+    auto attributeDescription = VkVertexInputAttributeDescription2EXT{};
+    attributeDescription.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+    attributeDescription.binding = static_cast<uint32_t>(_bindings.size());
+    attributeDescription.location = location;
+    attributeDescription.format = static_cast<VkFormat>(format);
+    attributeDescription.offset = 0;
+
+    _bindings.push_back(bindingDescription);
+    _attributes.push_back(attributeDescription);
+    _attributeBindings.push_back(location);
+
+    return *this;
+}
+
+tpd::Geometry::Builder & tpd::Geometry::Builder::instanceAttribute(
+    const uint32_t location,
+    const vk::Format format,
+    const uint32_t stride,
+    const uint32_t divisor)
+{
+    auto bindingDescription = VkVertexInputBindingDescription2EXT{};
+    bindingDescription.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
+    bindingDescription.binding = static_cast<uint32_t>(_bindings.size());
+    bindingDescription.stride = stride;
+    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+    bindingDescription.divisor = divisor;
+
+    auto attributeDescription = VkVertexInputAttributeDescription2EXT{};
+    attributeDescription.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
+    attributeDescription.binding = static_cast<uint32_t>(_bindings.size());
+    attributeDescription.location = location;
+    attributeDescription.format = static_cast<VkFormat>(format);
+    attributeDescription.offset = 0;
+
+    _bindings.push_back(bindingDescription);
+    _attributes.push_back(attributeDescription);
+    _attributeBindings.push_back(location);
+
+    return *this;
+}
+
 std::shared_ptr<tpd::Geometry> tpd::Geometry::Builder::build(const Engine& engine) {
     auto vbBuilder = _bindings.empty()
         ? getVertexBufferBuilder(_vertexCount, _instanceCount, DEFAULT_BINDING_DESCRIPTIONS)
@@ -80,41 +140,41 @@ const std::map<std::string_view, uint32_t> tpd::Geometry::DEFAULT_ATTRIBUTE_BIND
 void tpd::Geometry::setVertexData(
     const uint32_t location,
     const void* const data,
-    const std::size_t dataByteSize,
+    const std::size_t dataSize,
     const Engine& engine) const
 {
     const auto found = std::ranges::find(_attributeBindings, location);
     if (found == _attributeBindings.end()) {
         throw std::runtime_error(
-            "Geometry - Unregistered location: if you're not specifying custom vertex attributes, "
+            "Geometry - Unregistered location: if you're not using manually-defined vertex attributes, "
             "consider the overload that accepts an attribute key.");
     }
     const auto binding = std::distance(_attributeBindings.begin(), found);
     _vertexBuffer->transferBufferData(
-        binding, data, dataByteSize, engine.getResourceAllocator(),
+        binding, data, dataSize, engine.getResourceAllocator(),
         [&engine](const auto src, const auto dst, const auto& bufferCopy) { engine.copyBuffer(src, dst, bufferCopy); });
 }
 
 void tpd::Geometry::setVertexData(
     const std::string_view attribute,
     const void* const data,
-    const std::size_t dataByteSize,
     const Engine& engine) const
 {
     if (!DEFAULT_ATTRIBUTE_BINDINGS.contains(attribute)) {
         throw std::runtime_error(
-            "Geometry - Unrecognized attribute key: if you're using a custom vertex attribute, "
+            "Geometry - Unrecognized attribute key: if you're using manually-defined vertex attributes, "
             "consider the overload that accepts a location parameter.");
     }
-    const auto binding = DEFAULT_ATTRIBUTE_BINDINGS.at(attribute);
+    const auto binding  = DEFAULT_ATTRIBUTE_BINDINGS.at(attribute);
+    const auto dataSize = DEFAULT_BINDING_DESCRIPTIONS[binding].stride * _vertexCount;
     _vertexBuffer->transferBufferData(
-        binding, data, dataByteSize, engine.getResourceAllocator(),
+        binding, data, dataSize, engine.getResourceAllocator(),
         [&engine](const auto src, const auto dst, const auto& bufferCopy) { engine.copyBuffer(src, dst, bufferCopy); });
 }
 
-void tpd::Geometry::setIndexData(const void* const data, const std::size_t dataByteSize, const Engine& engine) const {
+void tpd::Geometry::setIndexData(const void* const data, const std::size_t dataSize, const Engine& engine) const {
     _indexBuffer->transferBufferData(
-        0, data, dataByteSize, engine.getResourceAllocator(),
+        0, data, dataSize, engine.getResourceAllocator(),
         [&engine](const auto src, const auto dst, const auto& bufferCopy) { engine.copyBuffer(src, dst, bufferCopy); });
 }
 

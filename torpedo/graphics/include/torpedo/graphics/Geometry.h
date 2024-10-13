@@ -11,17 +11,53 @@ namespace tpd {
     public:
         class Builder {
         public:
+            /**
+             * Constructs a new Builder with specified vertex, index, and instance counts.
+             *
+             * @param vertexCount The number of vertices in the geometry.
+             * @param indexCount The number of indices in the geometry.
+             * @param instanceCount The number of instances (for instanced rendering).
+             */
             Builder(uint32_t vertexCount, uint32_t indexCount, uint32_t instanceCount = 1);
 
-            template<typename T = Builder>
-            T& attributeCount(uint32_t count);
+            /**
+             * Registers the number of manually-defined vertex attributes. This method should be called before chaining
+             * vertexAttribute/instanceAttribute calls to better optimize runtime performance.
+             *
+             * @param count The total number of separated attributes this Geometry will have.
+             * @return This Builder object for chaining calls.
+             */
+            Builder& attributeCount(uint32_t count);
 
-            template<typename T = Builder>
-            T& vertexAttribute(uint32_t location, vk::Format format, uint32_t byteStride);
+            /**
+             * Manually defines a vertex attribute for a given location with the specified format and byte stride.
+             * Note that a call to this method disables the use of default vertex attributes.
+             *
+             * @param location The location declared for the vertex attribute in the shader.
+             * @param format The format of the vertex attribute (e.g., vk::Format).
+             * @param stride The byte stride between consecutive vertex elements of this attribute.
+             * @return This Builder object for chaining calls.
+             */
+            Builder& vertexAttribute(uint32_t location, vk::Format format, uint32_t stride);
 
-            template<typename T = Builder>
-            T& instanceAttribute(uint32_t location, vk::Format format, uint32_t byteStride, uint32_t divisor = 1);
+            /**
+             * Manually defines a vertex attribute that varies per instance. Note that a call to this method disables
+             * the use of default vertex attributes.
+             *
+             * @param location The location declared for the vertex attribute in the shader.
+             * @param format The format of the vertex attribute (e.g., vk::Format).
+             * @param stride The byte stride between consecutive instance elements of this attribute.
+             * @param divisor The divisor for instanced rendering.
+             * @return This Builder object for chaining calls.
+             */
+            Builder& instanceAttribute(uint32_t location, vk::Format format, uint32_t stride, uint32_t divisor = 1);
 
+            /**
+             * Builds the Geometry.
+             *
+             * @param engine The Engine that will manage this Geometry's resource allocation.
+             * @return A shared pointer to the constructed Geometry object.
+             */
             [[nodiscard]] std::shared_ptr<Geometry> build(const Engine& engine);
 
         private:
@@ -48,10 +84,35 @@ namespace tpd {
         Geometry(const Geometry&) = delete;
         Geometry& operator=(const Geometry&) = delete;
 
-        void setVertexData(uint32_t location,          const void* data, std::size_t dataByteSize, const Engine& engine) const;
-        void setVertexData(std::string_view attribute, const void* data, std::size_t dataByteSize, const Engine& engine) const;
+        /**
+         * Transfers vertex data to the vertex attribute specified at location. This method shall be used if the
+         * Geometry was created with manually-defined vertex attributes.
+         *
+         * @param location The location declared for the vertex attribute in the shader.
+         * @param data Pointer to the data array.
+         * @param dataSize Total byte size of the data pointer. A value of stride * vertexCount will exhaust this attribute's buffer slot.
+         * @param engine The Engine that was used to create this Geometry.
+         */
+        void setVertexData(uint32_t location, const void* data, std::size_t dataSize, const Engine& engine) const;
 
-        void setIndexData(const void* data, std::size_t dataByteSize, const Engine& engine) const;
+        /**
+         * Transfers vertex data to the vertex attribute specified at by attribute key. This method shall be used if the
+         * Geometry was created without any manually-defined vertex attributes.
+         *
+         * @param attribute A string key to one of the default attributes.
+         * @param data Pointer to the data array.
+         * @param engine The Engine that was used to create this Geometry.
+         */
+        void setVertexData(std::string_view attribute, const void* data, const Engine& engine) const;
+
+        /**
+         * Transfers index data to the local device buffer associated with this Geometry.
+         *
+         * @param data Pointer to the data array. Note that Geometry uses uint32_t index data type.
+         * @param dataSize Total byte size of the data pointer. Note that index values are uint32_t by default.
+         * @param engine The Engine that was used to create this Geometry.
+         */
+        void setIndexData(const void* data, std::size_t dataSize, const Engine& engine) const;
 
         [[nodiscard]] uint32_t getVertexCount() const noexcept;
         [[nodiscard]] uint32_t getIndexCount()  const noexcept;
@@ -84,69 +145,6 @@ namespace tpd {
 
 inline tpd::Geometry::Builder::Builder(const uint32_t vertexCount, const uint32_t indexCount, const uint32_t instanceCount)
     : _vertexCount{ vertexCount }, _indexCount { indexCount }, _instanceCount{ instanceCount } {
-}
-
-template<typename T>
-T& tpd::Geometry::Builder::attributeCount(const uint32_t count) {
-    _bindings.reserve(count);
-    _attributes.reserve(count);
-    _attributeBindings.reserve(count);
-    return *static_cast<T*>(this);
-}
-
-template<typename T>
-T& tpd::Geometry::Builder::vertexAttribute(
-    const uint32_t location,
-    const vk::Format format,
-    const uint32_t byteStride)
-{
-    auto bindingDescription = VkVertexInputBindingDescription2EXT{};
-    bindingDescription.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
-    bindingDescription.binding = static_cast<uint32_t>(_bindings.size());
-    bindingDescription.stride = byteStride;
-    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    bindingDescription.divisor = 1;
-
-    auto attributeDescription = VkVertexInputAttributeDescription2EXT{};
-    attributeDescription.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
-    attributeDescription.binding = static_cast<uint32_t>(_bindings.size());
-    attributeDescription.location = location;
-    attributeDescription.format = static_cast<VkFormat>(format);
-    attributeDescription.offset = 0;
-
-    _bindings.push_back(bindingDescription);
-    _attributes.push_back(attributeDescription);
-    _attributeBindings.push_back(location);
-
-    return *static_cast<T*>(this);
-}
-
-template<typename T>
-T& tpd::Geometry::Builder::instanceAttribute(
-    const uint32_t location,
-    const vk::Format format,
-    const uint32_t byteStride,
-    const uint32_t divisor)
-{
-    auto bindingDescription = VkVertexInputBindingDescription2EXT{};
-    bindingDescription.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT;
-    bindingDescription.binding = static_cast<uint32_t>(_bindings.size());
-    bindingDescription.stride = byteStride;
-    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
-    bindingDescription.divisor = divisor;
-
-    auto attributeDescription = VkVertexInputAttributeDescription2EXT{};
-    attributeDescription.sType = VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT;
-    attributeDescription.binding = static_cast<uint32_t>(_bindings.size());
-    attributeDescription.location = location;
-    attributeDescription.format = static_cast<VkFormat>(format);
-    attributeDescription.offset = 0;
-
-    _bindings.push_back(bindingDescription);
-    _attributes.push_back(attributeDescription);
-    _attributeBindings.push_back(location);
-
-    return *static_cast<T*>(this);
 }
 
 inline tpd::Geometry::Geometry(
