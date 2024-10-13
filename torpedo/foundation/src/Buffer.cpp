@@ -37,6 +37,7 @@ vk::BufferCreateInfo tpd::Buffer::Builder::populateBufferCreateInfo(const vk::Bu
 void tpd::Buffer::transferBufferData(
     const uint32_t bufferIndex,
     const void* const data,
+    const std::size_t dataByteSize,
     const std::unique_ptr<ResourceAllocator>& allocator,
     const std::function<void(vk::Buffer, vk::Buffer, vk::BufferCopy)>& onBufferCopy) const
 {
@@ -46,12 +47,11 @@ void tpd::Buffer::transferBufferData(
 
     // Create a staging buffer and fill it with the data
     auto stagingAllocation = VmaAllocation{};
-    const auto stagingBuffer = allocator->allocateStagingBuffer(_sizes[bufferIndex], &stagingAllocation);
-    allocator->mapAndCopyStagingBuffer(_sizes[bufferIndex], data, stagingAllocation);
+    const auto stagingBuffer = allocator->allocateStagingBuffer(dataByteSize, &stagingAllocation);
+    allocator->mapAndCopyStagingBuffer(dataByteSize, data, stagingAllocation);
 
     // Copy the content from the staging buffer to the dedicated buffer
-    const auto offset = std::ranges::fold_left(_sizes | std::views::take(bufferIndex), 0, std::plus());
-    onBufferCopy(stagingBuffer, _buffer, vk::BufferCopy{ 0, offset, _sizes[bufferIndex] });
+    onBufferCopy(stagingBuffer, _buffer, vk::BufferCopy{ 0, _offsets[bufferIndex], dataByteSize });
 
     allocator->freeBuffer(stagingBuffer, stagingAllocation);
 }
@@ -66,6 +66,5 @@ void tpd::Buffer::updateBufferData(const uint32_t bufferIndex, const void* const
     // pointer and flush cache after writing to map a pointer. Map/unmap operations don't do that automatically.
     // Windows drivers from all 3 PC GPU vendors (AMD, Intel, NVIDIA) currently provide HOST_COHERENT flag on all
     // memory types that are HOST_VISIBLE, so on PC we may not need to bother.
-    const auto offset = std::ranges::fold_left(_sizes | std::views::take(bufferIndex), 0, std::plus());
-    memcpy(_pMappedData + offset, data, dataByteSize);
+    memcpy(_pMappedData + _offsets[bufferIndex], data, dataByteSize);
 }

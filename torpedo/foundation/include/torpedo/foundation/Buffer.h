@@ -34,13 +34,14 @@ namespace tpd {
 
         [[nodiscard]] vk::Buffer getBuffer() const { return _buffer; }
         [[nodiscard]] const std::vector<vk::DeviceSize>& getOffsets() const noexcept { return _offsets; }
-        [[nodiscard]] uint32_t getBufferCount() const noexcept { return _sizes.size(); }
+        [[nodiscard]] uint32_t getBufferCount() const noexcept { return _offsets.size(); }
 
         void dispose(const std::unique_ptr<ResourceAllocator>& allocator) noexcept;
 
         void transferBufferData(
             uint32_t bufferIndex,
             const void* data,
+            std::size_t dataByteSize,
             const std::unique_ptr<ResourceAllocator>& allocator,
             const std::function<void(vk::Buffer, vk::Buffer, vk::BufferCopy)>& onBufferCopy) const;
 
@@ -51,7 +52,6 @@ namespace tpd {
         VmaAllocation _allocation;
         std::byte* _pMappedData;
 
-        std::vector<std::size_t> _sizes;
         std::vector<vk::DeviceSize> _offsets;
     };
 }
@@ -81,12 +81,14 @@ inline tpd::Buffer::Buffer(const vk::Buffer buffer, VmaAllocation allocation, st
     : _buffer{ buffer }
     , _allocation{ allocation }
     , _pMappedData{ pMappedData }
-    , _sizes{ std::move(sizes) }
 {
-    _offsets = std::vector<vk::DeviceSize>(_sizes.size());
-    _offsets[0] = vk::DeviceSize{ 0 };
-    for (int i = 0; i < _sizes.size() - 1; ++i) {
-        _offsets[i + 1] = vk::DeviceSize{ _offsets[i] + _sizes[i] };
+    // Convert to offsets in-place
+    _offsets = std::vector(std::move(sizes));
+    std::size_t cumulativeSum = 0;
+    for (auto& size : _offsets) {
+        const auto temp = size;
+        size = cumulativeSum;
+        cumulativeSum += temp;
     }
 }
 
