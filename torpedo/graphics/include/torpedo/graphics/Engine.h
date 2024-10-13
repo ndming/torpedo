@@ -14,6 +14,10 @@ namespace tpd {
         std::unique_ptr<Renderer> createRenderer(RenderEngine renderEngine, void* nativeWindow = nullptr);
         void destroyRenderer(const std::unique_ptr<Renderer>& renderer);
 
+        [[nodiscard]] const std::unique_ptr<ResourceAllocator>& getResourceAllocator() const noexcept;
+
+        void copyBuffer(vk::Buffer src, vk::Buffer dst, const vk::BufferCopy& copyInfo) const;
+
         ~Engine();
 
     private:
@@ -51,4 +55,8 @@ namespace tpd {
             vk::EXTMemoryPriorityExtensionName,  // incorporate memory priority to the allocator
         };
     };
+}
+
+inline const std::unique_ptr<tpd::ResourceAllocator>& tpd::Engine::getResourceAllocator() const noexcept {
+    return _allocator;
 }

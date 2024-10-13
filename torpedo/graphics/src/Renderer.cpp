@@ -118,6 +118,10 @@ void tpd::Renderer::createDrawingCommandPool() {
     _drawingCommandPool = _device.createCommandPool(poolInfo);
 }
 
+void tpd::Renderer::waitIdle() const noexcept {
+    _device.waitIdle();
+}
+
 void tpd::Renderer::onDestroy(const vk::Instance instance) noexcept {
     _device.destroyCommandPool(_drawingCommandPool);
     _allocator = nullptr;

@@ -18,6 +18,8 @@ namespace tpd {
         virtual void render() = 0;
         virtual void render(const std::function<void(uint32_t)>& onFrameReady) = 0;
 
+        void waitIdle() const noexcept;
+
         virtual ~Renderer() = default;
 
     protected:

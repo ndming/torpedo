@@ -140,6 +140,30 @@ void tpd::Engine::destroyRenderer(const std::unique_ptr<Renderer>& renderer) {
     _device.destroy();
 }
 
+vk::CommandBuffer tpd::Engine::beginSingleTimeTransferCommands() const {
+    const auto allocInfo = vk::CommandBufferAllocateInfo{ _transferCommandPool, vk::CommandBufferLevel::ePrimary, 1 };
+    const auto commandBuffer = _device.allocateCommandBuffers(allocInfo)[0];
+
+    // Use the command buffer once and wait with returning from the function until the copy operation has finished
+    constexpr auto beginInfo = vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit };
+    commandBuffer.begin(beginInfo);
+
+    return commandBuffer;
+}
+
+void tpd::Engine::endSingleTimeTransferCommands(const vk::CommandBuffer commandBuffer) const {
+    commandBuffer.end();
+    _transferQueue.submit(vk::SubmitInfo{ {}, {}, {}, 1, &commandBuffer });
+    _transferQueue.waitIdle();
+    _device.freeCommandBuffers(_transferCommandPool, 1, &commandBuffer);
+}
+
+void tpd::Engine::copyBuffer(const vk::Buffer src, const vk::Buffer dst, const vk::BufferCopy& copyInfo) const {
+    const auto cmdBuffer = beginSingleTimeTransferCommands();
+    cmdBuffer.copyBuffer(src, dst, copyInfo);
+    endSingleTimeTransferCommands(cmdBuffer);
+}
+
 tpd::Engine::~Engine() {
 #ifndef NDEBUG
     bootstrap::destroyDebugUtilsMessenger(_instance, _debugMessenger);
