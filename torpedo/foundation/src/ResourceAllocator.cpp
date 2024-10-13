@@ -36,7 +36,7 @@ vk::Image tpd::ResourceAllocator::allocateDedicatedImage(const vk::ImageCreateIn
     auto image = VkImage{};
 
     if (vmaCreateImage(_allocator, &imgCreateInfo, &allocInfo, &image, allocation, nullptr) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to allocate a dedicated image");
+        throw std::runtime_error("ResourceAllocator - Failed to allocate a dedicated image");
     }
 
     return image;
@@ -56,7 +56,7 @@ vk::Buffer tpd::ResourceAllocator::allocateDedicatedBuffer(const vk::BufferCreat
 
     auto buffer = VkBuffer{};
     if (vmaCreateBuffer(_allocator, &bufferInfo, &allocInfo, &buffer, allocation, nullptr) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to allocate a dedicated buffer");
+        throw std::runtime_error("ResourceAllocator - Failed to allocate a dedicated buffer");
     }
 
     return buffer;
@@ -77,7 +77,7 @@ vk::Buffer tpd::ResourceAllocator::allocatePersistentBuffer(
 
     auto buffer = VkBuffer{};
     if (vmaCreateBuffer(_allocator, &bufferInfo, &allocCreateInfo, &buffer, allocation, allocationInfo) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create a persistently mapped buffer");
+        throw std::runtime_error("ResourceAllocator - Failed to create a persistently mapped buffer");
     }
 
     return buffer;
@@ -95,7 +95,7 @@ vk::Buffer tpd::ResourceAllocator::allocateStagingBuffer(const std::size_t buffe
 
     auto buffer = VkBuffer{};
     if (vmaCreateBuffer(_allocator, &bufferCreateInfo, &allocCreateInfo, &buffer, allocation, nullptr) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to allocate a staging buffer");
+        throw std::runtime_error("ResourceAllocator - Failed to allocate a staging buffer");
     }
 
     return buffer;

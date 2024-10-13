@@ -31,7 +31,7 @@ namespace tpd {
         [[nodiscard]] bool allLayersAvailable() const;
     };
 
-    namespace core {
+    namespace bootstrap {
         vk::ApplicationInfo createApplicationInfo(std::string_view name, uint32_t apiVersion);
         vk::DebugUtilsMessengerCreateInfoEXT createDebugInfo(PFN_vkDebugUtilsMessengerCallbackEXT callback, void* pUserData = nullptr);
 
@@ -95,6 +95,6 @@ inline tpd::InstanceBuilder&tpd::InstanceBuilder::layers(std::vector<const char*
     return *this;
 }
 
-inline vk::ApplicationInfo tpd::core::createApplicationInfo(const std::string_view name, const uint32_t apiVersion) {
+inline vk::ApplicationInfo tpd::bootstrap::createApplicationInfo(const std::string_view name, const uint32_t apiVersion) {
     return vk::ApplicationInfo{ name.data(), vk::makeApiVersion(0, 1, 0, 0), "None", apiVersion, apiVersion };
 }

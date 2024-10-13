@@ -7,7 +7,7 @@ std::unique_ptr<tpd::Buffer> tpd::Buffer::Builder::build(const std::unique_ptr<R
     switch (type) {
         case ResourceType::Dedicated:  return buildDedicated(allocator);
         case ResourceType::Persistent: return buildPersistent(allocator);
-        default: throw std::runtime_error("Buffer::Builder: unsupported resource type");
+        default: throw std::runtime_error("Buffer::Builder - Unsupported resource type");
     }
 }
 
@@ -41,7 +41,7 @@ void tpd::Buffer::transferBufferData(
     const std::function<void(vk::Buffer, vk::Buffer, vk::BufferCopy)>& onBufferCopy) const
 {
     if (_pMappedData) {
-        throw std::runtime_error("Buffer: buffer was persistently created, transfer only works for dedicated buffers");
+        throw std::runtime_error("Buffer - Buffer was persistently created, transfer only works for dedicated buffers");
     }
 
     // Create a staging buffer and fill it with the data
@@ -58,7 +58,7 @@ void tpd::Buffer::transferBufferData(
 
 void tpd::Buffer::updateBufferData(const uint32_t bufferIndex, const void* const data, const std::size_t dataByteSize) const {
     if (!_pMappedData) {
-        throw std::runtime_error("Buffer: buffer was locally created, update only works for persistent buffers");
+        throw std::runtime_error("Buffer - Buffer was locally created, update only works for persistent buffers");
     }
 
     // Memory in Vulkan doesn't need to be unmapped before using it on GPU. However, unless memory types have

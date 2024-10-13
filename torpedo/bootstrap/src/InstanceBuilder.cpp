@@ -6,7 +6,7 @@
 vk::Instance tpd::InstanceBuilder::build(const vk::InstanceCreateFlags flags) {
     // Check if all required layers are available, throw if any of them is not supported
     if (!allLayersAvailable()) {
-        throw std::runtime_error("InstanceBuilder: not all requested layers are available, consider update your drivers");
+        throw std::runtime_error("InstanceBuilder - Not all requested layers are available, consider update your drivers");
     }
 
     auto createInfo = vk::InstanceCreateInfo{};
@@ -40,7 +40,7 @@ bool tpd::InstanceBuilder::allLayersAvailable() const {
     return all_of(_layers, std::identity{}, supported);
 }
 
-vk::DebugUtilsMessengerCreateInfoEXT tpd::core::createDebugInfo(PFN_vkDebugUtilsMessengerCallbackEXT callback, void* pUserData) {
+vk::DebugUtilsMessengerCreateInfoEXT tpd::bootstrap::createDebugInfo(PFN_vkDebugUtilsMessengerCallbackEXT callback, void* pUserData) {
     using MessageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
     using MessageType = vk::DebugUtilsMessageTypeFlagBitsEXT;
 
@@ -53,7 +53,7 @@ vk::DebugUtilsMessengerCreateInfoEXT tpd::core::createDebugInfo(PFN_vkDebugUtils
     return debugInfo;
 }
 
-vk::Result tpd::core::createDebugUtilsMessenger(
+vk::Result tpd::bootstrap::createDebugUtilsMessenger(
     const vk::Instance& instance,
     const vk::DebugUtilsMessengerCreateInfoEXT* pCreateInfo,
     vk::DebugUtilsMessengerEXT* pDebugMessenger,
@@ -73,7 +73,7 @@ vk::Result tpd::core::createDebugUtilsMessenger(
     return vk::Result::eErrorExtensionNotPresent;
 }
 
-void tpd::core::destroyDebugUtilsMessenger(
+void tpd::bootstrap::destroyDebugUtilsMessenger(
     const vk::Instance& instance,
     const vk::DebugUtilsMessengerEXT debugMessenger,
     const vk::AllocationCallbacks *pAllocator)

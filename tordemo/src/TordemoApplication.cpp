@@ -74,7 +74,7 @@ void TordemoApplication::framebufferResizeCallback(GLFWwindow* window, [[maybe_u
 // DEBUG MESSENGER
 // =====================================================================================================================
 
-VKAPI_ATTR vk::Bool32 VKAPI_CALL defaultDebugCallback(
+inline VKAPI_ATTR vk::Bool32 VKAPI_CALL tordemoDebugCallback(
     const VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     [[maybe_unused]] const VkDebugUtilsMessageTypeFlagsEXT messageType,
     const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
@@ -96,9 +96,9 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL defaultDebugCallback(
 }
 
 void TordemoApplication::createDebugMessenger() {
-    const auto debugInfo = tpd::core::createDebugInfo(defaultDebugCallback);
+    const auto debugInfo = tpd::bootstrap::createDebugInfo(tordemoDebugCallback);
 
-    if (tpd::core::createDebugUtilsMessenger(_instance, &debugInfo, &_debugMessenger) == vk::Result::eErrorExtensionNotPresent) {
+    if (tpd::bootstrap::createDebugUtilsMessenger(_instance, &debugInfo, &_debugMessenger) == vk::Result::eErrorExtensionNotPresent) {
         throw std::runtime_error("Failed to set up a debug messenger!");
     }
 }
@@ -121,7 +121,7 @@ void TordemoApplication::createInstance() {
     _instance = tpd::InstanceBuilder()
         .applicationInfo(getApplicationInfo())
 #ifndef NDEBUG
-        .debugInfo(tpd::core::createDebugInfo(defaultDebugCallback))
+        .debugInfo(tpd::bootstrap::createDebugInfo(tordemoDebugCallback))
         .layers({ "VK_LAYER_KHRONOS_validation" })
 #endif
         .extensions(getRequiredExtensions())
@@ -135,7 +135,7 @@ std::vector<const char*> TordemoApplication::getRequiredExtensions() const {
 }
 
 vk::ApplicationInfo TordemoApplication::getApplicationInfo() const {
-    return tpd::core::createApplicationInfo("tordemo", vk::makeApiVersion(0, 1, 3, 0));
+    return tpd::bootstrap::createApplicationInfo("tordemo", vk::makeApiVersion(0, 1, 3, 0));
 }
 
 // =====================================================================================================================
@@ -956,7 +956,7 @@ TordemoApplication::~TordemoApplication() {
     _device.destroy();
     _instance.destroySurfaceKHR(_surface);
 #ifndef NDEBUG
-    tpd::core::destroyDebugUtilsMessenger(_instance, _debugMessenger);
+    tpd::bootstrap::destroyDebugUtilsMessenger(_instance, _debugMessenger);
 #endif
     _instance.destroy();
 

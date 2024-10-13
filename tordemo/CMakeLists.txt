@@ -3,42 +3,36 @@ cmake_minimum_required(VERSION 3.22...3.30)
 include(FetchContent)
 
 FetchContent_Declare(
-        glfw
-        GIT_REPOSITORY https://github.com/glfw/glfw.git
-        GIT_TAG 3.4)
-FetchContent_Declare(
         glm
         GIT_REPOSITORY https://github.com/g-truc/glm.git
         GIT_TAG 1.0.1)
 FetchContent_Declare(
-        plog
-        GIT_REPOSITORY https://github.com/SergiusTheBest/plog.git
-        GIT_TAG 1.1.10)
+        assimp
+        GIT_REPOSITORY https://github.com/assimp/assimp.git
+        GIT_TAG v5.4.3)
 
-FetchContent_MakeAvailable(glfw)
 FetchContent_MakeAvailable(glm)
-FetchContent_MakeAvailable(plog)
+FetchContent_MakeAvailable(assimp)
 
 set(TORDEMO_SOURCE_FILES
-        src/HelloTriangle.cpp
-        src/TexturedCube.cpp
-        src/TordemoApplication.cpp
+#        src/HelloTriangle.cpp
+#        src/ModelViewer.cpp
+#        src/TexturedCube.cpp
+#        src/TordemoApplication.cpp
         ext/stb.cpp
         main.cpp)
 
 add_executable(tordemo ${TORDEMO_SOURCE_FILES})
 target_include_directories(tordemo PRIVATE src ext)
 set_target_properties(tordemo PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS OFF COMPILE_WARNING_AS_ERROR ON)
-target_compile_definitions(tordemo PRIVATE GLFW_INCLUDE_NONE)
 target_compile_definitions(tordemo PRIVATE GLM_FORCE_DEPTH_ZERO_TO_ONE)
 
 # Dependencies
-target_link_libraries(tordemo PRIVATE torpedo::bootstrap)
-target_link_libraries(tordemo PRIVATE torpedo::foundation)
-target_link_libraries(tordemo PRIVATE glfw)
+target_link_libraries(tordemo PRIVATE torpedo::graphics)
 target_link_libraries(tordemo PRIVATE glm::glm)
-target_link_libraries(tordemo PRIVATE plog::plog)
+target_link_libraries(tordemo PRIVATE assimp::assimp)
 
+# Compiler options for Clang
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     if (WIN32)
         target_compile_options(tordemo PRIVATE -Wno-deprecated-declarations)

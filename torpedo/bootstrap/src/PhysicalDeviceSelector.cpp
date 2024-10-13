@@ -31,7 +31,7 @@ tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::select(const vk::Insta
         if (_requestComputeQueueFamily) _computeQueueFamily = computeFamily.value();
     } else {
         throw std::runtime_error(
-            "PhysicalDeviceSelector: failed to find a suitable device, consider requesting less extensions and features");
+            "PhysicalDeviceSelector - Failed to find a suitable device, consider requesting less extensions and features");
     }
 
     _isSelected = true;

@@ -8,7 +8,7 @@ std::unique_ptr<tpd::Image> tpd::Image::Builder::build(
 {
     switch (type) {
         case ResourceType::Dedicated: return buildDedicated(allocator, device, flags);
-        default: throw std::runtime_error("Image::Builder: unsupported resource type");
+        default: throw std::runtime_error("Image::Builder - Unsupported resource type");
     }
 }
 
