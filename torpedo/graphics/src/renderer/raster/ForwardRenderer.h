@@ -7,6 +7,8 @@ namespace tpd::renderer {
     public:
         explicit ForwardRenderer(GLFWwindow* window) : RasterRenderer{ window } {}
 
+        [[nodiscard]] vk::GraphicsPipelineCreateInfo getGraphicsPipelineInfo() const override;
+
         ForwardRenderer(const ForwardRenderer&) = delete;
         ForwardRenderer& operator=(const ForwardRenderer&) = delete;
 

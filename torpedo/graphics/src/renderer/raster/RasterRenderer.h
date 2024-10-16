@@ -10,24 +10,21 @@ namespace tpd::renderer {
         RasterRenderer(const RasterRenderer&) = delete;
         RasterRenderer& operator=(const RasterRenderer&) = delete;
 
-        static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
-
     protected:
         explicit RasterRenderer(GLFWwindow* window);
-        void onCreate(vk::Instance instance, std::initializer_list<const char*> deviceExtensions) final;
-        void onInitialize() final;
 
         // Native window and Vulkan surface
         GLFWwindow* _window;
         vk::SurfaceKHR _surface{};
 
-        // Present queue family
-        uint32_t _presentQueueFamily{};
-        vk::Queue _presentQueue{};
-        void pickPhysicalDevice(vk::Instance instance, std::initializer_list<const char*> deviceExtensions) final;
         [[nodiscard]] PhysicalDeviceSelector getPhysicalDeviceSelector(std::initializer_list<const char*> deviceExtensions) const override;
-        void createDevice(std::initializer_list<const char*> deviceExtensions) final;
         [[nodiscard]] std::vector<const char*> getRendererExtensions() const override;
+
+        void onFeaturesRegister() override;
+        [[nodiscard]] static vk::PhysicalDeviceFeatures getFeatures();
+        [[nodiscard]] static vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT getVertexInputDynamicStateFeatures();
+        [[nodiscard]] static vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT getExtendedDynamicStateFeatures();
+        [[nodiscard]] static vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT getExtendedDynamicState3Features();
 
         // Swap chain characteristics
         vk::Format _swapChainImageFormat{ vk::Format::eUndefined };
@@ -50,7 +47,6 @@ namespace tpd::renderer {
 
         // Framebuffers
         std::vector<vk::Framebuffer> _framebuffers{};
-        bool _framebufferResized{ false };
         virtual void createFramebuffers();
 
         // Rendering
@@ -65,8 +61,18 @@ namespace tpd::renderer {
         void onDestroy(vk::Instance instance) noexcept override;
 
     private:
+        bool _framebufferResized{ false };
         static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
+
         void createSurface(vk::Instance instance);
+        void onCreate(vk::Instance instance, std::initializer_list<const char*> deviceExtensions) final;
+        void onInitialize() final;
+
+        // Present queue family
+        uint32_t _presentQueueFamily{};
+        vk::Queue _presentQueue{};
+        void pickPhysicalDevice(vk::Instance instance, std::initializer_list<const char*> deviceExtensions) final;
+        void createDevice(std::initializer_list<const char*> deviceExtensions) final;
 
         // Swap chain infrastructure
         vk::SwapchainKHR _swapChain{};
@@ -79,6 +85,9 @@ namespace tpd::renderer {
         void cleanupSwapChain() const noexcept;
         bool acquireSwapChainImage(vk::Semaphore semaphore, uint32_t* imageIndex);
         void presentSwapChainImage(uint32_t imageIndex, vk::Semaphore semaphore);
+
+        // Number of in-flight frames
+        static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
         // Drawing command buffers
         std::array<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> _drawingCommandBuffers{};

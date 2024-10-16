@@ -26,7 +26,7 @@ void tpd::renderer::ForwardRenderer::createFramebufferColorResources() {
     imageCreateInfo.extent.depth = 1;
     imageCreateInfo.mipLevels = mipLevels;
     imageCreateInfo.arrayLayers = 1;
-    imageCreateInfo.samples = _colorAttachmentSampleCount;
+    imageCreateInfo.samples = _msaaSampleCount;
     imageCreateInfo.tiling = vk::ImageTiling::eOptimal;
     imageCreateInfo.usage = Usage::eTransientAttachment | Usage::eColorAttachment;
     imageCreateInfo.sharingMode = vk::SharingMode::eExclusive;
@@ -73,7 +73,7 @@ void tpd::renderer::ForwardRenderer::createFramebufferDepthResources() {
     imageCreateInfo.extent.depth = 1;
     imageCreateInfo.mipLevels = mipLevels;
     imageCreateInfo.arrayLayers = 1;
-    imageCreateInfo.samples = _depthAttachmentSampleCount;
+    imageCreateInfo.samples = _msaaSampleCount;
     imageCreateInfo.tiling = vk::ImageTiling::eOptimal;
     imageCreateInfo.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
     imageCreateInfo.sharingMode = vk::SharingMode::eExclusive;
@@ -118,9 +118,9 @@ vk::Format tpd::renderer::ForwardRenderer::findFramebufferDepthImageFormat(
 void tpd::renderer::ForwardRenderer::createRenderPass() {
     const auto colorAttachment = vk::AttachmentDescription{
         {}, _swapChainImageFormat,
-        _colorAttachmentSampleCount,
-        vk::AttachmentLoadOp::eClear,   // clear the framebuffer to black before drawing a new frame
-        vk::AttachmentStoreOp::eStore,  // rendered contents will be stored in memory to be resolved later
+        _msaaSampleCount,
+        vk::AttachmentLoadOp::eClear,     // clear the framebuffer to black before drawing a new frame
+        vk::AttachmentStoreOp::eStore,    // rendered contents will be stored in memory to be resolved later
         vk::AttachmentLoadOp::eDontCare,
         vk::AttachmentStoreOp::eDontCare,
         vk::ImageLayout::eUndefined,
@@ -128,7 +128,7 @@ void tpd::renderer::ForwardRenderer::createRenderPass() {
     };
     const auto depthAttachment = vk::AttachmentDescription{
         {}, _framebufferDepthImageFormat,
-        _depthAttachmentSampleCount,
+        _msaaSampleCount,
         vk::AttachmentLoadOp::eClear,
         vk::AttachmentStoreOp::eDontCare,  // we're not using depth values after drawing has finished
         vk::AttachmentLoadOp::eDontCare,
@@ -216,5 +216,59 @@ void tpd::renderer::ForwardRenderer::createFramebuffers() {
     _framebuffers = _swapChainImageViews | std::ranges::views::transform(toFramebuffer) | std::ranges::to<std::vector>();
 }
 
-void tpd::renderer::ForwardRenderer::onDraw(vk::CommandBuffer buffer) {
+vk::GraphicsPipelineCreateInfo tpd::renderer::ForwardRenderer::getGraphicsPipelineInfo() const {
+    // Specify which properties will be able to change at runtime
+    static constexpr auto dynamicStates = std::array{
+        vk::DynamicState::eViewport,
+        vk::DynamicState::eScissor,
+        vk::DynamicState::eVertexInputEXT,
+        vk::DynamicState::ePrimitiveTopology,
+        vk::DynamicState::ePolygonModeEXT,
+        vk::DynamicState::eCullMode,
+        vk::DynamicState::eLineWidth,
+        vk::DynamicState::eRasterizationSamplesEXT,
+    };
+
+    static constexpr auto dynamicStateInfo = vk::PipelineDynamicStateCreateInfo{ {}, dynamicStates.size(), dynamicStates.data() };
+    static constexpr auto vertexInputState = vk::PipelineVertexInputStateCreateInfo{};
+    static constexpr auto viewportState = vk::PipelineViewportStateCreateInfo{ {}, 1, {}, 1, {} };
+    static constexpr auto inputAssembly = vk::PipelineInputAssemblyStateCreateInfo{ {}, vk::PrimitiveTopology::eTriangleList, vk::False };
+    static constexpr auto depthStencil  = vk::PipelineDepthStencilStateCreateInfo{ {}, vk::True, vk::True, vk::CompareOp::eLess };
+
+    static constexpr auto rasterization = vk::PipelineRasterizationStateCreateInfo{
+        {}, vk::False, vk::False, vk::PolygonMode::eFill, vk::CullModeFlagBits::eBack,
+        vk::FrontFace::eCounterClockwise, vk::False, {}, {}, {}, /* line width */ 1.0f };
+
+    static auto colorBlendAttachment = vk::PipelineColorBlendAttachmentState{ vk::False, };
+    colorBlendAttachment.blendEnable = vk::False;
+    colorBlendAttachment.colorWriteMask = vk::ColorComponentFlagBits::eR |
+                                          vk::ColorComponentFlagBits::eG |
+                                          vk::ColorComponentFlagBits::eB |
+                                          vk::ColorComponentFlagBits::eA;
+    static const auto colorBlending = vk::PipelineColorBlendStateCreateInfo{ {}, vk::False, {}, colorBlendAttachment };
+    static const auto multisampling = vk::PipelineMultisampleStateCreateInfo{
+        {}, /* MSAA */ _msaaSampleCount, /* Sample Shading */ vk::True, _minSampleShading };
+
+    auto pipelineInfo = vk::GraphicsPipelineCreateInfo{};
+    pipelineInfo.pDynamicState       = &dynamicStateInfo;
+    pipelineInfo.pVertexInputState   = &vertexInputState;
+    pipelineInfo.pViewportState      = &viewportState;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pDepthStencilState  = &depthStencil;
+    pipelineInfo.pRasterizationState = &rasterization;
+    pipelineInfo.pColorBlendState    = &colorBlending;
+    pipelineInfo.pMultisampleState   = &multisampling;
+    // Reference to the render pass and the index of the subpass where this graphics pipeline will be used.
+    // It is also possible to use other render passes with this pipeline instead of this specific instance,
+    // but they have to be compatible with this very specific renderPass
+    pipelineInfo.renderPass = _renderPass;
+    pipelineInfo.subpass = 0;
+    // Pipeline derivatives can be used to create multiple pipelines that share most of their state
+    pipelineInfo.basePipelineHandle = nullptr;
+    pipelineInfo.basePipelineIndex = -1;
+
+    return pipelineInfo;
+}
+
+void tpd::renderer::ForwardRenderer::onDraw(const vk::CommandBuffer buffer) {
 }

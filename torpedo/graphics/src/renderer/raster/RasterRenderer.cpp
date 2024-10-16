@@ -77,13 +77,17 @@ tpd::PhysicalDeviceSelector tpd::renderer::RasterRenderer::getPhysicalDeviceSele
     const std::initializer_list<const char*> deviceExtensions) const
 {
     return Renderer::getPhysicalDeviceSelector(deviceExtensions)
-        .requestPresentQueueFamily(_surface);
+        .requestPresentQueueFamily(_surface)
+        .features(getFeatures())
+        .featuresVertexInputDynamicState(getVertexInputDynamicStateFeatures())
+        .featuresExtendedDynamicState(getExtendedDynamicStateFeatures())
+        .featuresExtendedDynamicState3(getExtendedDynamicState3Features());
 }
 
 void tpd::renderer::RasterRenderer::createDevice(const std::initializer_list<const char*> deviceExtensions) {
     _device = DeviceBuilder()
         .deviceExtensions(getDeviceExtensions(deviceExtensions))
-        .deviceFeatures(buildDeviceFeatures())
+        .deviceFeatures(buildDeviceFeatures(getFeatures()))
         .queueFamilyIndices({ _graphicsQueueFamily, _presentQueueFamily })
         .build(_physicalDevice);
 
@@ -95,7 +99,50 @@ std::vector<const char*> tpd::renderer::RasterRenderer::getRendererExtensions() 
     auto rendererExtensions = Renderer::getRendererExtensions();
     // A raster renderer must be able to display rendered images
     rendererExtensions.push_back(vk::KHRSwapchainExtensionName);
+    // For dynamic vertex bindings and attributes
+    rendererExtensions.push_back(vk::EXTVertexInputDynamicStateExtensionName);
+    // For dynamic polygon mode and rasterization samples
+    rendererExtensions.push_back(vk::EXTExtendedDynamicState3ExtensionName);
     return rendererExtensions;
+}
+
+vk::PhysicalDeviceFeatures tpd::renderer::RasterRenderer::getFeatures() {
+    auto features = vk::PhysicalDeviceFeatures{};
+    features.largePoints       = vk::True;  // for custom gl_PointSize in vertex shader
+    features.wideLines         = vk::True;  // for custom line width
+    features.fillModeNonSolid  = vk::True;  // for custom polygon mode
+    features.samplerAnisotropy = vk::True;  // required by raster materials
+    features.sampleRateShading = vk::True;  // required by raster materials
+    return features;
+}
+
+void tpd::renderer::RasterRenderer::onFeaturesRegister() {
+    Renderer::onFeaturesRegister();
+    // Dynamic vertex input state
+    addFeature(getVertexInputDynamicStateFeatures());
+    // Dynamic cull mode, front face, and primitive topology
+    addFeature(getExtendedDynamicStateFeatures());
+    // Dynamic polygon mode and MSAA
+    addFeature(getExtendedDynamicState3Features());
+}
+
+vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT tpd::renderer::RasterRenderer::getVertexInputDynamicStateFeatures() {
+    auto vertexInputDynamicStateFeatures = vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT{};
+    vertexInputDynamicStateFeatures.vertexInputDynamicState = vk::True;
+    return vertexInputDynamicStateFeatures;
+}
+
+vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT tpd::renderer::RasterRenderer::getExtendedDynamicStateFeatures() {
+    auto extendedDynamicStateFeatures = vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT{};
+    extendedDynamicStateFeatures.extendedDynamicState = vk::True;
+    return extendedDynamicStateFeatures;
+}
+
+vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT tpd::renderer::RasterRenderer::getExtendedDynamicState3Features() {
+    auto extendedDynamicState3Features = vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT{};
+    extendedDynamicState3Features.extendedDynamicState3PolygonMode          = vk::True;
+    extendedDynamicState3Features.extendedDynamicState3RasterizationSamples = vk::True;
+    return extendedDynamicState3Features;
 }
 
 // =====================================================================================================================
