@@ -59,8 +59,8 @@ vk::Result tpd::bootstrap::createDebugUtilsMessenger(
     vk::DebugUtilsMessengerEXT* pDebugMessenger,
     const vk::AllocationCallbacks* pAllocator)
 {
-    static constexpr auto createFunc = "vkCreateDebugUtilsMessengerEXT";
-    if (const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, createFunc));
+    constexpr auto createDebugFn = "vkCreateDebugUtilsMessengerEXT";
+    if (const auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, createDebugFn));
         func != nullptr) {
         return static_cast<vk::Result>(
             func(
@@ -78,8 +78,8 @@ void tpd::bootstrap::destroyDebugUtilsMessenger(
     const vk::DebugUtilsMessengerEXT debugMessenger,
     const vk::AllocationCallbacks *pAllocator)
 {
-    static constexpr auto destroyFunc = "vkDestroyDebugUtilsMessengerEXT";
-    if (const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, destroyFunc));
+    constexpr auto destroyDebugFn = "vkDestroyDebugUtilsMessengerEXT";
+    if (const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, destroyDebugFn));
         func != nullptr) {
         func(instance, debugMessenger, reinterpret_cast<const VkAllocationCallbacks*>(pAllocator));
     }
