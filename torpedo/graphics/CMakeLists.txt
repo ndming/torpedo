@@ -25,6 +25,7 @@ set(TORPEDO_GRAPHICS_SOURCES
         src/Engine.cpp
         src/Geometry.cpp
         src/Material.cpp
+        src/MaterialInstance.cpp
         src/Mesh.cpp
         src/Renderer.cpp
         src/renderer/raster/ForwardRenderer.cpp

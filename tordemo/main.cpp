@@ -51,11 +51,14 @@ int main() {
         .fragShader("assets/shaders/simple.frag.spv")
         .build(*renderer);
 
+    const auto materialInstance = material->createInstance(*renderer);
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
     }
     renderer->waitIdle();
 
+    materialInstance->dispose(*renderer);
     material->dispose(*renderer);
     geometry->dispose(*engine);
     engine->destroyRenderer(renderer);

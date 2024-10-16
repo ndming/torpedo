@@ -60,6 +60,11 @@ vk::ShaderModule tpd::Material::Builder::createShaderModule(const vk::Device dev
     return device.createShaderModule(shaderModuleCreateInfo);
 }
 
+std::shared_ptr<tpd::MaterialInstance> tpd::Material::createInstance(const Renderer& renderer) const {
+    auto shaderInstance = _shaderLayout->createInstance(renderer.getVulkanDevice(), Renderer::MAX_FRAMES_IN_FLIGHT);
+    return std::make_shared<MaterialInstance>(std::move(shaderInstance), this);
+}
+
 void tpd::Material::dispose(const Renderer& renderer) noexcept {
     const auto device = renderer.getVulkanDevice();
     device.destroyPipeline(_pipeline);

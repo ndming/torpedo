@@ -1,6 +1,7 @@
 #pragma once
 
 #include "torpedo/graphics/Renderer.h"
+#include "torpedo/graphics/MaterialInstance.h"
 
 #include <torpedo/foundation/ShaderLayout.h>
 
@@ -29,6 +30,8 @@ namespace tpd {
 
         Material(const Material&) = delete;
         Material& operator=(const Material&) = delete;
+
+        [[nodiscard]] std::shared_ptr<MaterialInstance> createInstance(const Renderer& renderer) const;
 
         [[nodiscard]] vk::Pipeline getVulkanPipeline() const;
         [[nodiscard]] vk::PipelineLayout getVulkanPipelineLayout() const;
