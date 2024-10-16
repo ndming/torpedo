@@ -49,6 +49,11 @@ std::unique_ptr<tpd::ShaderInstance> tpd::ShaderLayout::createInstance(
     const uint32_t instanceCount,
     const vk::DescriptorPoolCreateFlags flags) const
 {
+    // Create an empty ShaderInstance if the shader layout is empty
+    if (empty()) {
+        return std::make_unique<ShaderInstance>();
+    }
+
     // Count how many descriptors of each type in this pipeline
     auto descriptorTypeNumbers = std::unordered_map<vk::DescriptorType, uint32_t>{};
     for (const auto binding : _descriptorSetLayoutBindings) {

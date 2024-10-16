@@ -47,6 +47,8 @@ namespace tpd {
 
         [[nodiscard]] vk::PipelineLayout getPipelineLayout() const;
 
+        [[nodiscard]] bool empty() const;
+
         void dispose(vk::Device device) noexcept;
 
         [[nodiscard]] std::unique_ptr<ShaderInstance> createInstance(
@@ -105,6 +107,10 @@ inline tpd::ShaderLayout::ShaderLayout(
 
 inline vk::PipelineLayout tpd::ShaderLayout::getPipelineLayout() const {
     return _pipelineLayout;
+}
+
+inline bool tpd::ShaderLayout::empty() const {
+    return _descriptorSetLayouts.empty();
 }
 
 inline void tpd::ShaderLayout::dispose(const vk::Device device) noexcept {

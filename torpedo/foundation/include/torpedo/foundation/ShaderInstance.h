@@ -7,6 +7,8 @@
 namespace tpd {
     class ShaderInstance final {
     public:
+        ShaderInstance() = default;
+
         ShaderInstance(
             uint32_t perInstanceSetCount,
             vk::DescriptorPool descriptorPool,
@@ -17,8 +19,6 @@ namespace tpd {
 
         [[nodiscard]] std::span<const vk::DescriptorSet> getDescriptorSets(uint32_t instance) const;
 
-        void dispose(vk::Device) noexcept;
-
         void setDescriptors(
             uint32_t instance, uint32_t set, uint32_t binding, vk::DescriptorType type, vk::Device device,
             const std::vector<vk::DescriptorBufferInfo>& bufferInfos) const;
@@ -27,12 +27,16 @@ namespace tpd {
             uint32_t instance, uint32_t set, uint32_t binding, vk::DescriptorType type, vk::Device device,
             const std::vector<vk::DescriptorImageInfo>& imageInfos) const;
 
+        [[nodiscard]] bool empty() const;
+
+        void dispose(vk::Device) noexcept;
+
     private:
         // The number of descriptor sets per instance
-        uint32_t _perInstanceSetCount;
+        uint32_t _perInstanceSetCount{ 0 };
 
-        vk::DescriptorPool _descriptorPool;
-        std::vector<vk::DescriptorSet> _descriptorSets;
+        vk::DescriptorPool _descriptorPool{};
+        std::vector<vk::DescriptorSet> _descriptorSets{};
     };
 }
 
@@ -50,7 +54,6 @@ inline std::span<const vk::DescriptorSet> tpd::ShaderInstance::getDescriptorSets
     return std::span{ _descriptorSets.begin() + instance * _perInstanceSetCount, _perInstanceSetCount };
 }
 
-inline void tpd::ShaderInstance::dispose(const vk::Device device) noexcept {
-    device.destroyDescriptorPool(_descriptorPool);
-    _descriptorSets.clear();
+inline bool tpd::ShaderInstance::empty() const {
+    return _perInstanceSetCount == 0;
 }

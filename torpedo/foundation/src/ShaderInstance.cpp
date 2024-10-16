@@ -37,3 +37,8 @@ void tpd::ShaderInstance::setDescriptors(
 
     device.updateDescriptorSets({ writeDescriptor }, {});
 }
+
+void tpd::ShaderInstance::dispose(const vk::Device device) noexcept {
+    device.destroyDescriptorPool(_descriptorPool);
+    _descriptorSets.clear();
+}
