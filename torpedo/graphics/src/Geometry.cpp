@@ -167,9 +167,9 @@ const std::vector<VkVertexInputAttributeDescription2EXT> tpd::Geometry::DEFAULT_
 };
 
 const std::map<std::string_view, uint32_t> tpd::Geometry::DEFAULT_ATTRIBUTE_BINDINGS{
-    { "positions", 0 },
-    { "normals",   1 },
-    { "uv",        2 },
+    { "position", 0 },
+    { "normal",   1 },
+    { "uv",       2 },
 };
 
 void tpd::Geometry::setVertexData(

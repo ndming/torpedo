@@ -48,10 +48,12 @@ namespace tpd {
             Builder& vertexAttribute(uint32_t location, vk::Format format, uint32_t stride);
 
             /**
-             * Manually defines a vertex attribute using its default location, format, and stride. This is useful when
-             * the Geometry requires a non-default vertex attribute (like color) and it is being used with Materials
-             * that define their own internal shaders. Note that a call to this method disables the use of default
-             * vertex attributes.
+             * Manually defines a vertex attribute using its default attribute properties (location, format, and stride).
+             * Note that default vertex attributes and default attribute properties are two different concepts. This is
+             * method useful when the Geometry is asking for a non-default vertex attribute (like color) and it is being
+             * used with Materials that provide their own internal shaders. The default attribute properties used here
+             * will match the properties defined in those shaders. Note that a call to this method disables the use of
+             * default vertex attributes.
              *
              * @param attribute The predefined vertex attribute.
              * @return This Builder object for chaining calls.
@@ -117,8 +119,11 @@ namespace tpd {
         void setVertexData(uint32_t location, const void* data, std::size_t dataSize, const Engine& engine) const;
 
         /**
-         * Transfers vertex data to the vertex attribute specified at by attribute key. This method shall be used if the
-         * Geometry was created without any manually-defined vertex attributes.
+         * Transfers vertex data to the vertex attribute specified by an attribute key. This method shall be used if the
+         * Geometry was created without any manually-defined vertex attributes. The available keys are:
+         * - position
+         * - normal
+         * - uv
          *
          * @param attribute A string key to one of the default attributes.
          * @param data Pointer to the data array.
