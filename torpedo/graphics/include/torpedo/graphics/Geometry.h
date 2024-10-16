@@ -7,6 +7,13 @@
 namespace tpd {
     class Engine;
 
+    enum class VertexAttribute : uint32_t {
+        Position = 0,
+        Normal   = 1,
+        UV       = 2,
+        Color    = 3,
+    };
+
     class Geometry {
     public:
         class Builder {
@@ -41,6 +48,17 @@ namespace tpd {
             Builder& vertexAttribute(uint32_t location, vk::Format format, uint32_t stride);
 
             /**
+             * Manually defines a vertex attribute using its default location, format, and stride. This is useful when
+             * the Geometry requires a non-default vertex attribute (like color) and it is being used with Materials
+             * that define their own internal shaders. Note that a call to this method disables the use of default
+             * vertex attributes.
+             *
+             * @param attribute The predefined vertex attribute.
+             * @return This Builder object for chaining calls.
+             */
+            Builder& vertexAttribute(VertexAttribute attribute);
+
+            /**
              * Manually defines a vertex attribute that varies per instance. Note that a call to this method disables
              * the use of default vertex attributes.
              *
@@ -64,6 +82,9 @@ namespace tpd {
             static Buffer::Builder getVertexBufferBuilder(
                 uint32_t vertexCount, uint32_t instanceCount,
                 const std::vector<VkVertexInputBindingDescription2EXT>& bindings);
+
+            static vk::Format getDefaultVertexAttributeFormat(VertexAttribute attribute);
+            static uint32_t getDefaultVertexAttributeStride(VertexAttribute attribute);
 
             uint32_t _vertexCount;
             uint32_t _indexCount;
