@@ -23,6 +23,8 @@ namespace tpd {
         [[nodiscard]] virtual vk::GraphicsPipelineCreateInfo getGraphicsPipelineInfo() const = 0;
         [[nodiscard]] vk::Device getVulkanDevice() const;
 
+        static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+
         virtual ~Renderer() = default;
 
     protected:

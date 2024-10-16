@@ -86,9 +86,6 @@ namespace tpd::renderer {
         bool acquireSwapChainImage(vk::Semaphore semaphore, uint32_t* imageIndex);
         void presentSwapChainImage(uint32_t imageIndex, vk::Semaphore semaphore);
 
-        // Number of in-flight frames
-        static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
-
         // Drawing command buffers
         std::array<vk::CommandBuffer, MAX_FRAMES_IN_FLIGHT> _drawingCommandBuffers{};
         void createDrawingCommandBuffers();
