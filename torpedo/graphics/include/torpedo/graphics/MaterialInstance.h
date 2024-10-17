@@ -1,11 +1,10 @@
 #pragma once
 
-#include "torpedo/graphics/Renderer.h"
-
 #include <torpedo/foundation/ShaderInstance.h>
 
 namespace tpd {
     class Material;
+    class Renderer;
 
     class MaterialInstance {
     public:
@@ -14,18 +13,21 @@ namespace tpd {
         MaterialInstance(const MaterialInstance& material) = delete;
         MaterialInstance& operator=(const MaterialInstance& material) = delete;
 
+        virtual void bindDescriptorSets(vk::CommandBuffer buffer, uint32_t frameIndex) const;
+
         [[nodiscard]] const Material* getMaterial() const;
 
         vk::CullModeFlagBits cullMode{ vk::CullModeFlagBits::eBack };
         vk::PolygonMode polygonMode{ vk::PolygonMode::eFill };
+        float lineWidth{ 1.0f };
 
         void dispose(const Renderer& renderer) noexcept;
+
+        virtual ~MaterialInstance() = default;
 
     private:
         std::unique_ptr<ShaderInstance> _shaderInstance;
         const Material* _material;
-
-        friend class Material;
     };
 }
 

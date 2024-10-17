@@ -1,6 +1,5 @@
 #pragma once
 
-#include "torpedo/graphics/Renderer.h"
 #include "torpedo/graphics/MaterialInstance.h"
 
 #include <torpedo/foundation/ShaderLayout.h>

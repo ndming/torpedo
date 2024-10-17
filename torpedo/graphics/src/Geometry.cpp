@@ -97,10 +97,10 @@ tpd::Geometry::Builder& tpd::Geometry::Builder::instanceAttribute(
     return *this;
 }
 
-std::shared_ptr<tpd::Geometry> tpd::Geometry::Builder::build(const Engine& engine) {
+std::shared_ptr<tpd::Geometry> tpd::Geometry::Builder::build(const Engine& engine, const vk::PrimitiveTopology topology) {
     auto vbBuilder = _bindings.empty()
-        ? getVertexBufferBuilder(_vertexCount, _instanceCount, DEFAULT_BINDING_DESCRIPTIONS)
-        : getVertexBufferBuilder(_vertexCount, _instanceCount, _bindings);
+        ? getVertexBufferBuilder(_vertexCount, _maxInstanceCount, DEFAULT_BINDING_DESCRIPTIONS)
+        : getVertexBufferBuilder(_vertexCount, _maxInstanceCount, _bindings);
     auto vertexBuffer = vbBuilder.build(engine.getResourceAllocator(), ResourceType::Dedicated);
 
     auto indexBuffer = Buffer::Builder()
@@ -110,8 +110,11 @@ std::shared_ptr<tpd::Geometry> tpd::Geometry::Builder::build(const Engine& engin
         .build(engine.getResourceAllocator(), ResourceType::Dedicated);
 
     return std::make_shared<Geometry>(
-        _vertexCount, std::move(vertexBuffer),
-        _indexCount, std::move(indexBuffer),
+        _vertexCount,
+        std::move(vertexBuffer),
+        _indexCount,
+        std::move(indexBuffer),
+        topology,
         std::move(_bindings),
         std::move(_attributes),
         std::move(_attributeBindings));

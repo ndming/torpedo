@@ -1,4 +1,4 @@
-#include "renderer/raster/RasterRenderer.h"
+#include "renderer/StandardRenderer.h"
 
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
 #include <torpedo/bootstrap/DeviceBuilder.h>
@@ -7,25 +7,31 @@
 
 #include <ranges>
 
-tpd::renderer::RasterRenderer::RasterRenderer(GLFWwindow* const window) : Renderer{}, _window{ window } {
+tpd::renderer::StandardRenderer::StandardRenderer(GLFWwindow* const window) : Renderer{}, _window{ window } {
     glfwSetWindowUserPointer(window, this);
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 }
 
-void tpd::renderer::RasterRenderer::framebufferResizeCallback(
+void tpd::renderer::StandardRenderer::framebufferResizeCallback(
     GLFWwindow* window,
     [[maybe_unused]] const int width,
     [[maybe_unused]] const int height)
 {
-    const auto renderer = static_cast<RasterRenderer*>(glfwGetWindowUserPointer(window));
+    const auto renderer = static_cast<StandardRenderer*>(glfwGetWindowUserPointer(window));
     renderer->_framebufferResized = true;
+}
+
+std::unique_ptr<tpd::Scene> tpd::renderer::StandardRenderer::createScene() const {
+    const auto viewport = vk::Viewport{ static_cast<float>(_swapChainImageExtent.width), static_cast<float>(_swapChainImageExtent.height) };
+    const auto scissor = vk::Rect2D{ vk::Offset2D{ 0, 0 }, _swapChainImageExtent };
+    return std::make_unique<Scene>(viewport, scissor);
 }
 
 // =====================================================================================================================
 // INITIALIZATIONS
 // =====================================================================================================================
 
-void tpd::renderer::RasterRenderer::onCreate(
+void tpd::renderer::StandardRenderer::onCreate(
     const vk::Instance instance,
     const std::initializer_list<const char*> deviceExtensions)
 {
@@ -33,9 +39,20 @@ void tpd::renderer::RasterRenderer::onCreate(
     // a present queue which, in turn, depends on the surface
     createSurface(instance);
     Renderer::onCreate(instance, deviceExtensions);
+    loadExtensionFunctions(instance);
 }
 
-void tpd::renderer::RasterRenderer::onInitialize() {
+PFN_vkCmdSetVertexInputEXT tpd::renderer::StandardRenderer::_vkCmdSetVertexInput = nullptr;
+PFN_vkCmdSetPolygonModeEXT tpd::renderer::StandardRenderer::_vkCmdSetPolygonMode = nullptr;
+PFN_vkCmdSetRasterizationSamplesEXT tpd::renderer::StandardRenderer::_vkCmdSetRasterizationSamples = nullptr;
+
+void tpd::renderer::StandardRenderer::loadExtensionFunctions(const vk::Instance instance) {
+    _vkCmdSetVertexInput = reinterpret_cast<PFN_vkCmdSetVertexInputEXT>(vkGetInstanceProcAddr(instance, "vkCmdSetVertexInputEXT"));
+    _vkCmdSetPolygonMode = reinterpret_cast<PFN_vkCmdSetPolygonModeEXT>(vkGetInstanceProcAddr(instance, "vkCmdSetPolygonModeEXT"));
+    _vkCmdSetRasterizationSamples = reinterpret_cast<PFN_vkCmdSetRasterizationSamplesEXT>(vkGetInstanceProcAddr(instance, "vkCmdSetRasterizationSamplesEXT"));
+}
+
+void tpd::renderer::StandardRenderer::onInitialize() {
     Renderer::onInitialize();
 
     // Initialize swap chain specific resources
@@ -52,13 +69,13 @@ void tpd::renderer::RasterRenderer::onInitialize() {
     createDrawingSyncObjects();
 }
 
-void tpd::renderer::RasterRenderer::createSurface(const vk::Instance instance) {
+void tpd::renderer::StandardRenderer::createSurface(const vk::Instance instance) {
     if (glfwCreateWindowSurface(instance, _window, nullptr, reinterpret_cast<VkSurfaceKHR*>(&_surface)) != VK_SUCCESS) {
         throw std::runtime_error("StandardRenderer: failed to create a Vulkan surface");
     }
 }
 
-void tpd::renderer::RasterRenderer::pickPhysicalDevice(
+void tpd::renderer::StandardRenderer::pickPhysicalDevice(
     const vk::Instance instance,
     const std::initializer_list<const char*> deviceExtensions)
 {
@@ -73,7 +90,7 @@ void tpd::renderer::RasterRenderer::pickPhysicalDevice(
     PLOGD << "StandardRenderer - Present queue family:  " << _presentQueueFamily;
 }
 
-tpd::PhysicalDeviceSelector tpd::renderer::RasterRenderer::getPhysicalDeviceSelector(
+tpd::PhysicalDeviceSelector tpd::renderer::StandardRenderer::getPhysicalDeviceSelector(
     const std::initializer_list<const char*> deviceExtensions) const
 {
     return Renderer::getPhysicalDeviceSelector(deviceExtensions)
@@ -84,7 +101,7 @@ tpd::PhysicalDeviceSelector tpd::renderer::RasterRenderer::getPhysicalDeviceSele
         .featuresExtendedDynamicState3(getExtendedDynamicState3Features());
 }
 
-void tpd::renderer::RasterRenderer::createDevice(const std::initializer_list<const char*> deviceExtensions) {
+void tpd::renderer::StandardRenderer::createDevice(const std::initializer_list<const char*> deviceExtensions) {
     _device = DeviceBuilder()
         .deviceExtensions(getDeviceExtensions(deviceExtensions))
         .deviceFeatures(buildDeviceFeatures(getFeatures()))
@@ -95,7 +112,7 @@ void tpd::renderer::RasterRenderer::createDevice(const std::initializer_list<con
     _presentQueue  = _device.getQueue(_presentQueueFamily,  0);
 }
 
-std::vector<const char*> tpd::renderer::RasterRenderer::getRendererExtensions() const {
+std::vector<const char*> tpd::renderer::StandardRenderer::getRendererExtensions() const {
     auto rendererExtensions = Renderer::getRendererExtensions();
     // A raster renderer must be able to display rendered images
     rendererExtensions.push_back(vk::KHRSwapchainExtensionName);
@@ -106,7 +123,7 @@ std::vector<const char*> tpd::renderer::RasterRenderer::getRendererExtensions() 
     return rendererExtensions;
 }
 
-vk::PhysicalDeviceFeatures tpd::renderer::RasterRenderer::getFeatures() {
+vk::PhysicalDeviceFeatures tpd::renderer::StandardRenderer::getFeatures() {
     auto features = vk::PhysicalDeviceFeatures{};
     features.largePoints       = vk::True;  // for custom gl_PointSize in vertex shader
     features.wideLines         = vk::True;  // for custom line width
@@ -116,7 +133,7 @@ vk::PhysicalDeviceFeatures tpd::renderer::RasterRenderer::getFeatures() {
     return features;
 }
 
-void tpd::renderer::RasterRenderer::onFeaturesRegister() {
+void tpd::renderer::StandardRenderer::onFeaturesRegister() {
     Renderer::onFeaturesRegister();
     // Dynamic vertex input state
     addFeature(getVertexInputDynamicStateFeatures());
@@ -126,19 +143,19 @@ void tpd::renderer::RasterRenderer::onFeaturesRegister() {
     addFeature(getExtendedDynamicState3Features());
 }
 
-vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT tpd::renderer::RasterRenderer::getVertexInputDynamicStateFeatures() {
+vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT tpd::renderer::StandardRenderer::getVertexInputDynamicStateFeatures() {
     auto vertexInputDynamicStateFeatures = vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT{};
     vertexInputDynamicStateFeatures.vertexInputDynamicState = vk::True;
     return vertexInputDynamicStateFeatures;
 }
 
-vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT tpd::renderer::RasterRenderer::getExtendedDynamicStateFeatures() {
+vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT tpd::renderer::StandardRenderer::getExtendedDynamicStateFeatures() {
     auto extendedDynamicStateFeatures = vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT{};
     extendedDynamicStateFeatures.extendedDynamicState = vk::True;
     return extendedDynamicStateFeatures;
 }
 
-vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT tpd::renderer::RasterRenderer::getExtendedDynamicState3Features() {
+vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT tpd::renderer::StandardRenderer::getExtendedDynamicState3Features() {
     auto extendedDynamicState3Features = vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT{};
     extendedDynamicState3Features.extendedDynamicState3PolygonMode          = vk::True;
     extendedDynamicState3Features.extendedDynamicState3RasterizationSamples = vk::True;
@@ -149,7 +166,7 @@ vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT tpd::renderer::RasterRenderer
 // SWAP CHAIN INFRASTRUCTURE
 // =====================================================================================================================
 
-void tpd::renderer::RasterRenderer::createSwapChain() {
+void tpd::renderer::StandardRenderer::createSwapChain() {
     const auto surfaceFormat = chooseSwapSurfaceFormat();
     const auto presentMode = chooseSwapPresentMode();
     const auto extent = chooseSwapExtent();
@@ -190,7 +207,7 @@ void tpd::renderer::RasterRenderer::createSwapChain() {
     _swapChainImageExtent = extent;
 }
 
-vk::SurfaceFormatKHR tpd::renderer::RasterRenderer::chooseSwapSurfaceFormat() const {
+vk::SurfaceFormatKHR tpd::renderer::StandardRenderer::chooseSwapSurfaceFormat() const {
     const auto availableFormats = _physicalDevice.getSurfaceFormatsKHR(_surface);
 
     constexpr auto format = vk::Format::eB8G8R8A8Srgb;
@@ -204,7 +221,7 @@ vk::SurfaceFormatKHR tpd::renderer::RasterRenderer::chooseSwapSurfaceFormat() co
     return availableFormats[0];
 }
 
-vk::PresentModeKHR tpd::renderer::RasterRenderer::chooseSwapPresentMode() const {
+vk::PresentModeKHR tpd::renderer::StandardRenderer::chooseSwapPresentMode() const {
     const auto presentModes = _physicalDevice.getSurfacePresentModesKHR(_surface);
 
     constexpr auto preferredMode = vk::PresentModeKHR::eMailbox;
@@ -215,7 +232,7 @@ vk::PresentModeKHR tpd::renderer::RasterRenderer::chooseSwapPresentMode() const 
     return vk::PresentModeKHR::eFifo;
 }
 
-vk::Extent2D tpd::renderer::RasterRenderer::chooseSwapExtent() const {
+vk::Extent2D tpd::renderer::StandardRenderer::chooseSwapExtent() const {
     const auto capabilities = _physicalDevice.getSurfaceCapabilitiesKHR(_surface);
     if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
         return capabilities.currentExtent;
@@ -237,7 +254,7 @@ vk::Extent2D tpd::renderer::RasterRenderer::chooseSwapExtent() const {
 // SWAP CHAIN IMAGE VIEWS
 // =====================================================================================================================
 
-void tpd::renderer::RasterRenderer::createSwapChainImageViews() {
+void tpd::renderer::StandardRenderer::createSwapChainImageViews() {
     const auto toImageView = [this](const auto& image) {
         constexpr auto aspectFlags = vk::ImageAspectFlagBits::eColor;
         constexpr auto mipLevels = 1;
@@ -264,7 +281,7 @@ void tpd::renderer::RasterRenderer::createSwapChainImageViews() {
 // SWAP CHAIN UTILITIES
 // =====================================================================================================================
 
-void tpd::renderer::RasterRenderer::recreateSwapChain() {
+void tpd::renderer::StandardRenderer::recreateSwapChain() {
     // We won't recreate while the window is being minimized
     int width = 0, height = 0;
     glfwGetFramebufferSize(_window, &width, &height);
@@ -284,7 +301,7 @@ void tpd::renderer::RasterRenderer::recreateSwapChain() {
     createFramebuffers();
 }
 
-void tpd::renderer::RasterRenderer::cleanupSwapChain() const noexcept {
+void tpd::renderer::StandardRenderer::cleanupSwapChain() const noexcept {
     // Destroy all framebuffers' attachments
     destroyFramebufferResources();
 
@@ -297,7 +314,7 @@ void tpd::renderer::RasterRenderer::cleanupSwapChain() const noexcept {
     _device.destroySwapchainKHR(_swapChain);
 }
 
-bool tpd::renderer::RasterRenderer::acquireSwapChainImage(const vk::Semaphore semaphore, uint32_t* imageIndex) {
+bool tpd::renderer::StandardRenderer::acquireSwapChainImage(const vk::Semaphore semaphore, uint32_t* imageIndex) {
     using limits = std::numeric_limits<uint64_t>;
     const auto result = _device.acquireNextImageKHR(_swapChain, limits::max(), semaphore, nullptr);
 
@@ -313,7 +330,7 @@ bool tpd::renderer::RasterRenderer::acquireSwapChainImage(const vk::Semaphore se
     return true;
 }
 
-void tpd::renderer::RasterRenderer::presentSwapChainImage(const uint32_t imageIndex, const vk::Semaphore semaphore) {
+void tpd::renderer::StandardRenderer::presentSwapChainImage(const uint32_t imageIndex, const vk::Semaphore semaphore) {
     const auto presentInfo = vk::PresentInfoKHR{ semaphore, _swapChain, imageIndex };
 
     if (const auto result = _presentQueue.presentKHR(&presentInfo);
@@ -329,7 +346,7 @@ void tpd::renderer::RasterRenderer::presentSwapChainImage(const uint32_t imageIn
 // RENDER PASS & FRAMEBUFFERS
 // =====================================================================================================================
 
-void tpd::renderer::RasterRenderer::createRenderPass() {
+void tpd::renderer::StandardRenderer::createRenderPass() {
     const auto colorAttachment = vk::AttachmentDescription{
         {}, _swapChainImageFormat,
         vk::SampleCountFlagBits::e1,
@@ -385,7 +402,7 @@ void tpd::renderer::RasterRenderer::createRenderPass() {
     _renderPass = _device.createRenderPass(renderPassInfo);
 }
 
-void tpd::renderer::RasterRenderer::createFramebuffers() {
+void tpd::renderer::StandardRenderer::createFramebuffers() {
     const auto toFramebuffer = [this](const auto& swapChainImageView) {
         // Specify the image views that should be bound to the respective attachment descriptions in the render pass
         const auto attachments = std::array{ swapChainImageView };
@@ -408,7 +425,7 @@ void tpd::renderer::RasterRenderer::createFramebuffers() {
 // DRAWING RESOURCES
 // =====================================================================================================================
 
-void tpd::renderer::RasterRenderer::createDrawingCommandBuffers() {
+void tpd::renderer::StandardRenderer::createDrawingCommandBuffers() {
     // Allocate a drawing command buffer for each in-flight frame
     auto allocInfo = vk::CommandBufferAllocateInfo{};
     allocInfo.commandPool = _drawingCommandPool;
@@ -419,7 +436,7 @@ void tpd::renderer::RasterRenderer::createDrawingCommandBuffers() {
     std::ranges::move(commandBuffers.begin(), commandBuffers.end(), _drawingCommandBuffers.begin());
 }
 
-void tpd::renderer::RasterRenderer::createDrawingSyncObjects() {
+void tpd::renderer::StandardRenderer::createDrawingSyncObjects() {
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         _imageAvailableSemaphores[i] = _device.createSemaphore({});
         _renderFinishedSemaphores[i] = _device.createSemaphore({});
@@ -427,7 +444,7 @@ void tpd::renderer::RasterRenderer::createDrawingSyncObjects() {
     }
 }
 
-void tpd::renderer::RasterRenderer::destroyDrawingSyncObjects() const noexcept {
+void tpd::renderer::StandardRenderer::destroyDrawingSyncObjects() const noexcept {
     using namespace std::ranges;
     for_each(_drawingInFlightFences, [this](const auto& it) { _device.destroyFence(it); });
     for_each(_renderFinishedSemaphores, [this](const auto& it) { _device.destroySemaphore(it); });
@@ -438,23 +455,24 @@ void tpd::renderer::RasterRenderer::destroyDrawingSyncObjects() const noexcept {
 // RENDERING & DRAWING
 // =====================================================================================================================
 
-void tpd::renderer::RasterRenderer::render() {
-    render([](const uint32_t) {});
+void tpd::renderer::StandardRenderer::render(const std::unique_ptr<Scene>& scene) {
+    render(scene, [](const uint32_t) {});
 }
 
-void tpd::renderer::RasterRenderer::render(const std::function<void(uint32_t)>& onFrameReady) {
+void tpd::renderer::StandardRenderer::render(const std::unique_ptr<Scene>& scene, const std::function<void(uint32_t)>& onFrameReady) {
     uint32_t imageIndex;
     if (!beginFrame(&imageIndex)) return;
     onFrameReady(_currentFrame);
 
+    onDrawBegin(scene, _currentFrame);
     beginRenderPass(imageIndex);
-    onDraw(_drawingCommandBuffers[_currentFrame]);
-    endFrame(imageIndex);
+    onDraw(scene, _drawingCommandBuffers[_currentFrame], _currentFrame);
 
+    endFrame(imageIndex);
     _currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-bool tpd::renderer::RasterRenderer::beginFrame(uint32_t* imageIndex) {
+bool tpd::renderer::StandardRenderer::beginFrame(uint32_t* imageIndex) {
     using limits = std::numeric_limits<uint64_t>;
     [[maybe_unused]] const auto result = _device.waitForFences(_drawingInFlightFences[_currentFrame], vk::True, limits::max());
 
@@ -469,7 +487,7 @@ bool tpd::renderer::RasterRenderer::beginFrame(uint32_t* imageIndex) {
     return true;
 }
 
-void tpd::renderer::RasterRenderer::endFrame(const uint32_t imageIndex) {
+void tpd::renderer::StandardRenderer::endFrame(const uint32_t imageIndex) {
     _drawingCommandBuffers[_currentFrame].endRenderPass();
     _drawingCommandBuffers[_currentFrame].end();
 
@@ -490,20 +508,25 @@ void tpd::renderer::RasterRenderer::endFrame(const uint32_t imageIndex) {
     presentSwapChainImage(imageIndex, _renderFinishedSemaphores[_currentFrame]);
 }
 
-void tpd::renderer::RasterRenderer::beginRenderPass(const uint32_t imageIndex) {
+void tpd::renderer::StandardRenderer::beginRenderPass(const uint32_t imageIndex) const {
     auto renderPassBeginInfo = vk::RenderPassBeginInfo{};
     renderPassBeginInfo.renderPass = _renderPass;
     renderPassBeginInfo.framebuffer = _framebuffers[imageIndex];
     renderPassBeginInfo.renderArea.offset = vk::Offset2D{ 0, 0 };
     renderPassBeginInfo.renderArea.extent = _swapChainImageExtent;
-    constexpr auto clearColor = std::array<vk::ClearValue, 1>{ vk::ClearColorValue{ 0.0f, 0.0f, 0.0f, 1.0f } };
-    renderPassBeginInfo.clearValueCount = 1;
-    renderPassBeginInfo.pClearValues = clearColor.data();
+
+    const auto clearValues = getClearValues();
+    renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+    renderPassBeginInfo.pClearValues = clearValues.data();
 
     _drawingCommandBuffers[_currentFrame].beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
 }
 
-void tpd::renderer::RasterRenderer::onDestroy(const vk::Instance instance) noexcept {
+std::vector<vk::ClearValue> tpd::renderer::StandardRenderer::getClearValues() const {
+    return { vk::ClearColorValue{ 0.0f, 0.0f, 0.0f, 1.0f } };
+}
+
+void tpd::renderer::StandardRenderer::onDestroy(const vk::Instance instance) noexcept {
     destroyDrawingSyncObjects();
     _device.destroyRenderPass(_renderPass);
     cleanupSwapChain();

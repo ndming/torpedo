@@ -1,5 +1,7 @@
 #pragma once
 
+#include "torpedo/graphics/Scene.h"
+
 #include <torpedo/foundation/ResourceAllocator.h>
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
 
@@ -15,8 +17,10 @@ namespace tpd {
         Renderer(const Renderer&) = delete;
         Renderer& operator=(const Renderer&) = delete;
 
-        virtual void render() = 0;
-        virtual void render(const std::function<void(uint32_t)>& onFrameReady) = 0;
+        [[nodiscard]] virtual std::unique_ptr<Scene> createScene() const = 0;
+
+        virtual void render(const std::unique_ptr<Scene>& scene) = 0;
+        virtual void render(const std::unique_ptr<Scene>& scene, const std::function<void(uint32_t)>& onFrameReady) = 0;
 
         void waitIdle() const noexcept;
 

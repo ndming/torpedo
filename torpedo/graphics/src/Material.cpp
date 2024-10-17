@@ -1,4 +1,5 @@
 #include "torpedo/graphics/Material.h"
+#include "torpedo/graphics/Renderer.h"
 
 #include <fstream>
 #include <ranges>

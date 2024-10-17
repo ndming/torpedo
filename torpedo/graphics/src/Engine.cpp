@@ -1,5 +1,5 @@
 #include "torpedo/graphics/Engine.h"
-#include "renderer/raster/ForwardRenderer.h"
+#include "renderer/ForwardRenderer.h"
 
 #include <torpedo/bootstrap/InstanceBuilder.h>
 

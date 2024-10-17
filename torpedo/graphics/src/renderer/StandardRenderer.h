@@ -5,13 +5,15 @@
 #include <GLFW/glfw3.h>
 
 namespace tpd::renderer {
-    class RasterRenderer : public Renderer {
+    class StandardRenderer : public Renderer {
     public:
-        RasterRenderer(const RasterRenderer&) = delete;
-        RasterRenderer& operator=(const RasterRenderer&) = delete;
+        StandardRenderer(const StandardRenderer&) = delete;
+        StandardRenderer& operator=(const StandardRenderer&) = delete;
+
+        [[nodiscard]] std::unique_ptr<Scene> createScene() const final;
 
     protected:
-        explicit RasterRenderer(GLFWwindow* window);
+        explicit StandardRenderer(GLFWwindow* window);
 
         // Native window and Vulkan surface
         GLFWwindow* _window;
@@ -25,6 +27,11 @@ namespace tpd::renderer {
         [[nodiscard]] static vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT getVertexInputDynamicStateFeatures();
         [[nodiscard]] static vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT getExtendedDynamicStateFeatures();
         [[nodiscard]] static vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT getExtendedDynamicState3Features();
+
+        static void loadExtensionFunctions(vk::Instance instance);
+        static PFN_vkCmdSetVertexInputEXT _vkCmdSetVertexInput;
+        static PFN_vkCmdSetPolygonModeEXT _vkCmdSetPolygonMode;
+        static PFN_vkCmdSetRasterizationSamplesEXT _vkCmdSetRasterizationSamples;
 
         // Swap chain characteristics
         vk::Format _swapChainImageFormat{ vk::Format::eUndefined };
@@ -51,12 +58,14 @@ namespace tpd::renderer {
 
         // Rendering
         uint32_t _currentFrame{ 0 };
-        void render() override;
-        void render(const std::function<void(uint32_t)>& onFrameReady) override;
+        void render(const std::unique_ptr<Scene>& scene) override;
+        void render(const std::unique_ptr<Scene>& scene, const std::function<void(uint32_t)>& onFrameReady) override;
 
         // Drawing
-        virtual void beginRenderPass(uint32_t imageIndex);
-        virtual void onDraw(vk::CommandBuffer buffer) = 0;
+        virtual void onDrawBegin(const std::unique_ptr<Scene>& scene, uint32_t frameIndex) const = 0;
+        virtual void beginRenderPass(uint32_t imageIndex) const;
+        [[nodiscard]] virtual std::vector<vk::ClearValue> getClearValues() const;
+        virtual void onDraw(const std::unique_ptr<Scene>& scene, vk::CommandBuffer buffer, uint32_t frameIndex) const = 0;
 
         void onDestroy(vk::Instance instance) noexcept override;
 

@@ -57,6 +57,10 @@ namespace tpd {
     };
 }
 
+// =====================================================================================================================
+// INLINE FUNCTION DEFINITIONS
+// =====================================================================================================================
+
 inline const std::unique_ptr<tpd::ResourceAllocator>& tpd::Engine::getResourceAllocator() const noexcept {
     return _allocator;
 }

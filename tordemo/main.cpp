@@ -1,6 +1,7 @@
 #include <torpedo/graphics/Engine.h>
 #include <torpedo/graphics/Geometry.h>
 #include <torpedo/graphics/Material.h>
+#include <torpedo/graphics/Drawable.h>
 #include <GLFW/glfw3.h>
 
 #include <plog/Init.h>
@@ -53,8 +54,14 @@ int main() {
 
     const auto materialInstance = material->createInstance(*renderer);
 
+    const auto drawable = tpd::Drawable::Builder().build(geometry, materialInstance);
+
+    const auto scene = renderer->createScene();
+    scene->insert(drawable);
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
+        renderer->render(scene);
     }
     renderer->waitIdle();
 

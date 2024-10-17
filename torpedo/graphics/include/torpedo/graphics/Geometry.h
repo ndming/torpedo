@@ -23,9 +23,9 @@ namespace tpd {
              *
              * @param vertexCount The number of vertices in the geometry.
              * @param indexCount The number of indices in the geometry.
-             * @param instanceCount The number of instances (for instanced rendering).
+             * @param maxInstanceCount The maximum number of instances (for instanced rendering).
              */
-            Builder(uint32_t vertexCount, uint32_t indexCount, uint32_t instanceCount = 1);
+            Builder(uint32_t vertexCount, uint32_t indexCount, uint32_t maxInstanceCount = 1);
 
             /**
              * Registers the number of manually-defined vertex attributes. This method should be called before chaining
@@ -76,9 +76,10 @@ namespace tpd {
              * Builds the Geometry.
              *
              * @param engine The Engine that will manage this Geometry's resource allocation.
+             * @param topology The topology that will be used to draw this Geometry, default to TriangleList.
              * @return A shared pointer to the constructed Geometry object.
              */
-            [[nodiscard]] std::shared_ptr<Geometry> build(const Engine& engine);
+            [[nodiscard]] std::shared_ptr<Geometry> build(const Engine& engine, vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList);
 
         private:
             static Buffer::Builder getVertexBufferBuilder(
@@ -90,7 +91,7 @@ namespace tpd {
 
             uint32_t _vertexCount;
             uint32_t _indexCount;
-            uint32_t _instanceCount;
+            uint32_t _maxInstanceCount;
 
             std::vector<VkVertexInputBindingDescription2EXT> _bindings{};
             std::vector<VkVertexInputAttributeDescription2EXT> _attributes{};
@@ -100,6 +101,7 @@ namespace tpd {
         Geometry(
             uint32_t vertexCount, std::unique_ptr<Buffer> vertexBuffer,
             uint32_t indexCount, std::unique_ptr<Buffer> indexBuffer,
+            vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList,
             std::vector<VkVertexInputBindingDescription2EXT>&& bindingDescriptions = {},
             std::vector<VkVertexInputAttributeDescription2EXT>&& attributeDescriptions = {},
             std::vector<uint32_t>&& attributeBindings = {}) noexcept;
@@ -141,7 +143,12 @@ namespace tpd {
         void setIndexData(const void* data, std::size_t dataSize, const Engine& engine) const;
 
         [[nodiscard]] uint32_t getVertexCount() const noexcept;
+        [[nodiscard]] const std::unique_ptr<Buffer>& getVertexBuffer() const noexcept;
+
         [[nodiscard]] uint32_t getIndexCount()  const noexcept;
+        [[nodiscard]] const std::unique_ptr<Buffer>& getIndexBuffer() const noexcept;
+
+        [[nodiscard]] vk::PrimitiveTopology getPrimitiveTopology() const noexcept;
 
         [[nodiscard]] const std::vector<VkVertexInputBindingDescription2EXT>& getBindingDescriptions() const noexcept;
         [[nodiscard]] const std::vector<VkVertexInputAttributeDescription2EXT>& getAttributeDescriptions() const noexcept;
@@ -154,6 +161,8 @@ namespace tpd {
 
         uint32_t _indexCount;
         std::unique_ptr<Buffer> _indexBuffer;
+
+        vk::PrimitiveTopology _primitiveTopology;
 
         std::vector<VkVertexInputBindingDescription2EXT> _bindingDescriptions;
         std::vector<VkVertexInputAttributeDescription2EXT> _attributeDescriptions;
@@ -169,8 +178,8 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS
 // =====================================================================================================================
 
-inline tpd::Geometry::Builder::Builder(const uint32_t vertexCount, const uint32_t indexCount, const uint32_t instanceCount)
-    : _vertexCount{ vertexCount }, _indexCount { indexCount }, _instanceCount{ instanceCount } {
+inline tpd::Geometry::Builder::Builder(const uint32_t vertexCount, const uint32_t indexCount, const uint32_t maxInstanceCount)
+    : _vertexCount{ vertexCount }, _indexCount { indexCount }, _maxInstanceCount{ maxInstanceCount } {
 }
 
 inline tpd::Geometry::Geometry(
@@ -178,6 +187,7 @@ inline tpd::Geometry::Geometry(
     std::unique_ptr<Buffer> vertexBuffer,
     const uint32_t indexCount,
     std::unique_ptr<Buffer> indexBuffer,
+    const vk::PrimitiveTopology topology,
     std::vector<VkVertexInputBindingDescription2EXT>&& bindingDescriptions,
     std::vector<VkVertexInputAttributeDescription2EXT>&& attributeDescriptions,
     std::vector<uint32_t>&& attributeBindings) noexcept
@@ -185,6 +195,7 @@ inline tpd::Geometry::Geometry(
     , _vertexBuffer{ std::move(vertexBuffer) }
     , _indexCount{ indexCount }
     , _indexBuffer{ std::move(indexBuffer) }
+    , _primitiveTopology{ topology }
     , _bindingDescriptions{ std::move(bindingDescriptions) }
     , _attributeDescriptions{ std::move(attributeDescriptions) }
     , _attributeBindings{ std::move(attributeBindings) } {
@@ -194,8 +205,20 @@ inline uint32_t tpd::Geometry::getVertexCount() const noexcept {
     return _vertexCount;
 }
 
+inline const std::unique_ptr<tpd::Buffer>& tpd::Geometry::getVertexBuffer() const noexcept {
+    return _vertexBuffer;
+}
+
 inline uint32_t tpd::Geometry::getIndexCount() const noexcept {
     return _indexCount;
+}
+
+inline const std::unique_ptr<tpd::Buffer>& tpd::Geometry::getIndexBuffer() const noexcept {
+    return _indexBuffer;
+}
+
+inline vk::PrimitiveTopology tpd::Geometry::getPrimitiveTopology() const noexcept {
+    return _primitiveTopology;
 }
 
 inline const std::vector<VkVertexInputBindingDescription2EXT>& tpd::Geometry::getBindingDescriptions() const noexcept {

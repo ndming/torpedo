@@ -3,15 +3,9 @@ cmake_minimum_required(VERSION 3.22...3.30)
 include(FetchContent)
 
 FetchContent_Declare(
-        glm
-        GIT_REPOSITORY https://github.com/g-truc/glm.git
-        GIT_TAG 1.0.1)
-FetchContent_Declare(
         assimp
         GIT_REPOSITORY https://github.com/assimp/assimp.git
         GIT_TAG v5.4.3)
-
-FetchContent_MakeAvailable(glm)
 FetchContent_MakeAvailable(assimp)
 
 set(TORDEMO_SOURCE_FILES
@@ -25,11 +19,9 @@ set(TORDEMO_SOURCE_FILES
 add_executable(tordemo ${TORDEMO_SOURCE_FILES})
 target_include_directories(tordemo PRIVATE src ext)
 set_target_properties(tordemo PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS OFF COMPILE_WARNING_AS_ERROR ON)
-target_compile_definitions(tordemo PRIVATE GLM_FORCE_DEPTH_ZERO_TO_ONE)
 
 # Dependencies
 target_link_libraries(tordemo PRIVATE torpedo::graphics)
-target_link_libraries(tordemo PRIVATE glm::glm)
 target_link_libraries(tordemo PRIVATE assimp::assimp)
 
 # Compiler options for Clang

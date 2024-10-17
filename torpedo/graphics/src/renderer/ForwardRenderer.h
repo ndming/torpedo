@@ -1,11 +1,11 @@
 #pragma once
 
-#include "renderer/raster/RasterRenderer.h"
+#include "renderer/StandardRenderer.h"
 
 namespace tpd::renderer {
-    class ForwardRenderer final : public RasterRenderer {
+    class ForwardRenderer final : public StandardRenderer {
     public:
-        explicit ForwardRenderer(GLFWwindow* window) : RasterRenderer{ window } {}
+        explicit ForwardRenderer(GLFWwindow* window) : StandardRenderer{ window } {}
 
         [[nodiscard]] vk::GraphicsPipelineCreateInfo getGraphicsPipelineInfo() const override;
 
@@ -36,6 +36,8 @@ namespace tpd::renderer {
         void createRenderPass() override;
         void createFramebuffers() override;
 
-        void onDraw(vk::CommandBuffer buffer) override;
+        [[nodiscard]] std::vector<vk::ClearValue> getClearValues() const override;
+        void onDrawBegin(const std::unique_ptr<Scene>& scene, uint32_t frameIndex) const override;
+        void onDraw(const std::unique_ptr<Scene>& scene, vk::CommandBuffer buffer, uint32_t frameIndex) const override;
     };
 }

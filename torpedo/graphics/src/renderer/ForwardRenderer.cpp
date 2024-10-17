@@ -1,4 +1,6 @@
-#include "renderer/raster/ForwardRenderer.h"
+#include "renderer/ForwardRenderer.h"
+
+#include "torpedo/graphics/Material.h"
 
 #include <ranges>
 
@@ -219,14 +221,17 @@ void tpd::renderer::ForwardRenderer::createFramebuffers() {
 vk::GraphicsPipelineCreateInfo tpd::renderer::ForwardRenderer::getGraphicsPipelineInfo() const {
     // Specify which properties will be able to change at runtime
     static constexpr auto dynamicStates = std::array{
+        // Renderer
         vk::DynamicState::eViewport,
         vk::DynamicState::eScissor,
+        vk::DynamicState::eRasterizationSamplesEXT,
+        // Geometry
         vk::DynamicState::eVertexInputEXT,
         vk::DynamicState::ePrimitiveTopology,
+        // MaterialInstance
         vk::DynamicState::ePolygonModeEXT,
         vk::DynamicState::eCullMode,
         vk::DynamicState::eLineWidth,
-        vk::DynamicState::eRasterizationSamplesEXT,
     };
 
     static constexpr auto dynamicStateInfo = vk::PipelineDynamicStateCreateInfo{ {}, dynamicStates.size(), dynamicStates.data() };
@@ -270,5 +275,38 @@ vk::GraphicsPipelineCreateInfo tpd::renderer::ForwardRenderer::getGraphicsPipeli
     return pipelineInfo;
 }
 
-void tpd::renderer::ForwardRenderer::onDraw(const vk::CommandBuffer buffer) {
+std::vector<vk::ClearValue> tpd::renderer::ForwardRenderer::getClearValues() const {
+    return {
+        vk::ClearColorValue{ 0.0f, 0.0f, 0.0f, 1.0f },                    // for the multi-sampled color attachment
+        vk::ClearDepthStencilValue{ /* depth */ 1.0f, /* stencil */ 0 },  // for the depth/stencil attachment
+    };
+}
+
+void tpd::renderer::ForwardRenderer::onDrawBegin(const std::unique_ptr<Scene>& scene, const uint32_t frameIndex) const {
+}
+
+void tpd::renderer::ForwardRenderer::onDraw(
+    const std::unique_ptr<Scene>& scene,
+    const vk::CommandBuffer buffer,
+    const uint32_t frameIndex) const
+{
+    for (const auto& graph = scene->getDrawableGraph(); const auto& [material, drawables] : graph) {
+        // Bind the graphics pipeline for this material group
+        buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, material->getVulkanPipeline());
+
+        // Set dynamic viewport and scissor states
+        const auto viewport = vk::Viewport{
+            0.0f, 0.0f,
+            static_cast<float>(_swapChainImageExtent.width), static_cast<float>(_swapChainImageExtent.height) };
+        const auto scissor = vk::Rect2D{ vk::Offset2D{ 0, 0 }, _swapChainImageExtent };
+        buffer.setViewport(0, viewport);
+        buffer.setScissor(0, scissor);
+
+        // Set MSAA sample count
+        _vkCmdSetRasterizationSamples(buffer, static_cast<VkSampleCountFlagBits>(_msaaSampleCount));
+
+        for (const auto& drawable : drawables) {
+            drawable->recordDrawCommands(buffer, frameIndex, _vkCmdSetVertexInput, _vkCmdSetPolygonMode);
+        }
+    }
 }
