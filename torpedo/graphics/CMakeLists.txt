@@ -36,6 +36,7 @@ set(TORPEDO_GRAPHICS_SOURCES
         src/MaterialInstance.cpp
         src/Renderer.cpp
         src/Scene.cpp
+        src/View.cpp
         src/material/PhongMaterial.cpp
         src/material/PhongMaterialInstance.cpp
         src/renderer/ForwardRenderer.cpp

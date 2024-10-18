@@ -282,25 +282,21 @@ std::vector<vk::ClearValue> tpd::renderer::ForwardRenderer::getClearValues() con
     };
 }
 
-void tpd::renderer::ForwardRenderer::onDrawBegin(const std::unique_ptr<Scene>& scene, const uint32_t frameIndex) const {
+void tpd::renderer::ForwardRenderer::onDrawBegin(const std::unique_ptr<View>& view, const uint32_t frameIndex) const {
 }
 
 void tpd::renderer::ForwardRenderer::onDraw(
-    const std::unique_ptr<Scene>& scene,
+    const std::unique_ptr<View>& view,
     const vk::CommandBuffer buffer,
     const uint32_t frameIndex) const
 {
-    for (const auto& graph = scene->getDrawableGraph(); const auto& [material, drawables] : graph) {
+    for (const auto& graph = view->scene->getDrawableGraph(); const auto& [material, drawables] : graph) {
         // Bind the graphics pipeline for this material group
         buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, material->getVulkanPipeline());
 
         // Set dynamic viewport and scissor states
-        const auto viewport = vk::Viewport{
-            0.0f, 0.0f,
-            static_cast<float>(_swapChainImageExtent.width), static_cast<float>(_swapChainImageExtent.height) };
-        const auto scissor = vk::Rect2D{ vk::Offset2D{ 0, 0 }, _swapChainImageExtent };
-        buffer.setViewport(0, viewport);
-        buffer.setScissor(0, scissor);
+        buffer.setViewport(0, view->viewport);
+        buffer.setScissor(0, view->scissor);
 
         // Set MSAA sample count
         _vkCmdSetRasterizationSamples(buffer, static_cast<VkSampleCountFlagBits>(_msaaSampleCount));

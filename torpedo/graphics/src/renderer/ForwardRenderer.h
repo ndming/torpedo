@@ -37,7 +37,7 @@ namespace tpd::renderer {
         void createFramebuffers() override;
 
         [[nodiscard]] std::vector<vk::ClearValue> getClearValues() const override;
-        void onDrawBegin(const std::unique_ptr<Scene>& scene, uint32_t frameIndex) const override;
-        void onDraw(const std::unique_ptr<Scene>& scene, vk::CommandBuffer buffer, uint32_t frameIndex) const override;
+        void onDrawBegin(const std::unique_ptr<View>& view, uint32_t frameIndex) const override;
+        void onDraw(const std::unique_ptr<View>& view, vk::CommandBuffer buffer, uint32_t frameIndex) const override;
     };
 }

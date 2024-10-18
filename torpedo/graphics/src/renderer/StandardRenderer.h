@@ -10,7 +10,11 @@ namespace tpd::renderer {
         StandardRenderer(const StandardRenderer&) = delete;
         StandardRenderer& operator=(const StandardRenderer&) = delete;
 
-        [[nodiscard]] std::unique_ptr<Scene> createScene() const final;
+        [[nodiscard]] std::unique_ptr<View> createView() const final;
+
+        void setOnFramebufferResize(const std::function<void(uint32_t, uint32_t)> &callback) final;
+        void setOnFramebufferResize(std::function<void(uint32_t, uint32_t)> &&callback) noexcept final;
+        [[nodiscard]] float getFramebufferAspectRatio() const final;
 
     protected:
         explicit StandardRenderer(GLFWwindow* window);
@@ -58,19 +62,20 @@ namespace tpd::renderer {
 
         // Rendering
         uint32_t _currentFrame{ 0 };
-        void render(const std::unique_ptr<Scene>& scene) override;
-        void render(const std::unique_ptr<Scene>& scene, const std::function<void(uint32_t)>& onFrameReady) override;
+        void render(const std::unique_ptr<View>& view) override;
+        void render(const std::unique_ptr<View>& view, const std::function<void(uint32_t)>& onFrameReady) override;
 
         // Drawing
-        virtual void onDrawBegin(const std::unique_ptr<Scene>& scene, uint32_t frameIndex) const = 0;
+        virtual void onDrawBegin(const std::unique_ptr<View>& view, uint32_t frameIndex) const = 0;
         virtual void beginRenderPass(uint32_t imageIndex) const;
         [[nodiscard]] virtual std::vector<vk::ClearValue> getClearValues() const;
-        virtual void onDraw(const std::unique_ptr<Scene>& scene, vk::CommandBuffer buffer, uint32_t frameIndex) const = 0;
+        virtual void onDraw(const std::unique_ptr<View>& view, vk::CommandBuffer buffer, uint32_t frameIndex) const = 0;
 
         void onDestroy(vk::Instance instance) noexcept override;
 
     private:
         bool _framebufferResized{ false };
+        std::function<void(uint32_t, uint32_t)> _userFramebufferResizeCallback{ [](uint32_t, uint32_t) {} };
         static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 
         void createSurface(vk::Instance instance);
@@ -112,3 +117,18 @@ namespace tpd::renderer {
     };
 }
 
+// =====================================================================================================================
+// INLINE FUNCTION DEFINITIONS
+// =====================================================================================================================
+
+inline void tpd::renderer::StandardRenderer::setOnFramebufferResize(const std::function<void(uint32_t, uint32_t)>& callback) {
+    _userFramebufferResizeCallback = callback;
+}
+
+inline void tpd::renderer::StandardRenderer::setOnFramebufferResize(std::function<void(uint32_t, uint32_t)>&& callback) noexcept {
+    _userFramebufferResizeCallback = std::move(callback);
+}
+
+inline float tpd::renderer::StandardRenderer::getFramebufferAspectRatio() const {
+    return static_cast<float>(_swapChainImageExtent.width) / static_cast<float>(_swapChainImageExtent.height);
+}

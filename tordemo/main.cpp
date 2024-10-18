@@ -63,12 +63,16 @@ int main() {
         .instanceCount(3)
         .build(geometry, materialInstance);
 
-    const auto scene = renderer->createScene();
-    scene->insert(drawable);
+    const auto view = renderer->createView();
+    view->scene->insert(drawable);
+
+    renderer->setOnFramebufferResize([&view](const uint32_t width, const uint32_t height) {
+        view->setSize(width, height);
+    });
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
-        renderer->render(scene);
+        renderer->render(view);
     }
     renderer->waitIdle();
 
