@@ -124,6 +124,31 @@ namespace tpd {
     };
 }
 
+inline tpd::Drawable::Builder& tpd::Drawable::Builder::indexCount(const uint32_t count) {
+    _indexCount = count;
+    return *this;
+}
+
+inline tpd::Drawable::Builder& tpd::Drawable::Builder::instanceCount(const uint32_t count) {
+    _instanceCount = count;
+    return *this;
+}
+
+inline tpd::Drawable::Builder& tpd::Drawable::Builder::firstIndex(const uint32_t index) {
+    _firstIndex = index;
+    return *this;
+}
+
+inline tpd::Drawable::Builder& tpd::Drawable::Builder::vertexOffset(const int32_t offset) {
+    _vertexOffset = offset;
+    return *this;
+}
+
+inline tpd::Drawable::Builder& tpd::Drawable::Builder::firstInstance(const uint32_t instance) {
+    _firstInstance = instance;
+    return *this;
+}
+
 inline tpd::Drawable::Drawable(
     std::shared_ptr<Geometry> geometry,
     std::shared_ptr<MaterialInstance> materialInstance,

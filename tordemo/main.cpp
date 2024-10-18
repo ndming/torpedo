@@ -22,6 +22,8 @@ static constexpr auto colors = std::array{
 
 static constexpr auto indices = std::array<uint32_t, 3>{ 0, 1, 2 };
 
+static constexpr auto instances = std::array<uint16_t, 3>{ 0, 1, 2 };
+
 int main() {
     auto appender = plog::ColorConsoleAppender<plog::TxtFormatter>();
 #ifdef NDEBUG
@@ -37,14 +39,16 @@ int main() {
     const auto engine = tpd::Engine::create();
     const auto renderer = engine->createRenderer(tpd::RenderEngine::Forward, window);
 
-    const auto geometry = tpd::Geometry::Builder(3, indices.size())
-        .attributeCount(2)
+    const auto geometry = tpd::Geometry::Builder(3, indices.size(), 3)
+        .attributeCount(3)
         .vertexAttribute(0, vk::Format::eR32G32B32Sfloat,    sizeof(float) * 3)
         .vertexAttribute(1, vk::Format::eR32G32B32A32Sfloat, sizeof(float) * 4)
+        .instanceAttribute(2, vk::Format::eR16Uint,          sizeof(uint16_t))
         .build(*engine);
 
     geometry->setVertexData(0, positions.data(), sizeof(float) *  9, *engine);
     geometry->setVertexData(1, colors.data(),    sizeof(float) * 12, *engine);
+    geometry->setVertexData(2, instances.data(), sizeof(uint16_t) * 3, *engine);
     geometry->setIndexData(indices.data(), sizeof(uint32_t) * indices.size(), *engine);
 
     const auto material = tpd::Material::Builder()
@@ -53,8 +57,11 @@ int main() {
         .build(*renderer);
 
     const auto materialInstance = material->createInstance(*renderer);
+    materialInstance->polygonMode = vk::PolygonMode::eLine;
 
-    const auto drawable = tpd::Drawable::Builder().build(geometry, materialInstance);
+    const auto drawable = tpd::Drawable::Builder()
+        .instanceCount(3)
+        .build(geometry, materialInstance);
 
     const auto scene = renderer->createScene();
     scene->insert(drawable);
