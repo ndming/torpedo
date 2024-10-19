@@ -2,6 +2,8 @@
 #include <torpedo/graphics/Geometry.h>
 #include <torpedo/graphics/Material.h>
 #include <torpedo/graphics/Drawable.h>
+#include <torpedo/camera/PerspectiveCamera.h>
+
 #include <GLFW/glfw3.h>
 
 #include <plog/Init.h>
@@ -9,9 +11,9 @@
 #include <plog/Formatters/TxtFormatter.h>
 
 static constexpr auto positions = std::array{
-     0.0f, -0.5f,  0.0f,  // 1st vertex
-    -0.5f,  0.5f,  0.0f,  // 2nd vertex
-     0.5f,  0.5f,  0.0f,  // 3rd vertex
+     0.0f,  0.5f,  0.0f,  // 1st vertex
+    -0.5f, -0.5f,  0.0f,  // 2nd vertex
+     0.5f, -0.5f,  0.0f,  // 3rd vertex
 };
 
 static constexpr auto colors = std::array{
@@ -63,16 +65,22 @@ int main() {
         .instanceCount(3)
         .build(geometry, materialInstance);
 
+    const auto camera = renderer->createCamera<tpd::PerspectiveCamera>();
     const auto view = renderer->createView();
     view->scene->insert(drawable);
+    view->camera = camera;
 
-    renderer->setOnFramebufferResize([&view](const uint32_t width, const uint32_t height) {
+    camera->lookAt({ 2.0f, -2.0f, 2.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 1.0f });
+
+    renderer->setOnFramebufferResize([&view, &camera](const uint32_t width, const uint32_t height) {
+        const auto aspect = static_cast<float>(width) / static_cast<float>(height);
+        camera->setProjection(45.0f, aspect, 0.1f, 32.0f);
         view->setSize(width, height);
     });
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
-        renderer->render(view);
+        renderer->render(*view);
     }
     renderer->waitIdle();
 

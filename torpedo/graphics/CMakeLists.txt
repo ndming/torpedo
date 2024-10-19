@@ -28,6 +28,7 @@ FetchContent_MakeAvailable(plog)
 # LIBARY SOURCE FILES
 # ======================================================================================================================
 set(TORPEDO_GRAPHICS_SOURCES
+        src/Camera.cpp
         src/Composable.cpp
         src/Drawable.cpp
         src/Engine.cpp
@@ -37,8 +38,7 @@ set(TORPEDO_GRAPHICS_SOURCES
         src/Renderer.cpp
         src/Scene.cpp
         src/View.cpp
-        src/material/PhongMaterial.cpp
-        src/material/PhongMaterialInstance.cpp
+        src/camera/PerspectiveCamera.cpp
         src/renderer/ForwardRenderer.cpp
         src/renderer/StandardRenderer.cpp
 )

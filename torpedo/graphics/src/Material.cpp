@@ -19,7 +19,7 @@ std::unique_ptr<tpd::Material> tpd::Material::Builder::build(const Renderer& ren
     pipelineInfo.pStages = shaderStageInfos.data();
 
     // Pipeline layout
-    auto shaderLayout = layout ? std::move(layout) : ShaderLayout::Builder().build(device);
+    auto shaderLayout = layout ? std::move(layout) : Renderer::getSharedDescriptorLayoutBuilder().build(device);
     pipelineInfo.layout = shaderLayout->getPipelineLayout();
 
     // Create the graphics pipeline
@@ -62,8 +62,11 @@ vk::ShaderModule tpd::Material::Builder::createShaderModule(const vk::Device dev
 }
 
 std::shared_ptr<tpd::MaterialInstance> tpd::Material::createInstance(const Renderer& renderer) const {
-    auto shaderInstance = _shaderLayout->createInstance(renderer.getVulkanDevice(), Renderer::MAX_FRAMES_IN_FLIGHT);
-    return std::make_shared<MaterialInstance>(std::move(shaderInstance), this);
+    // If this Material was not created with user-declared ShaderLayout, the first descriptor set (shared set)
+    // has already been created and managed by the Renderer
+    const auto firstSet = _userDeclaredLayout ? 0 : 1;
+    auto shaderInstance = _shaderLayout->createInstance(renderer.getVulkanDevice(), Renderer::MAX_FRAMES_IN_FLIGHT, firstSet);
+    return std::make_shared<MaterialInstance>(std::move(shaderInstance), this, firstSet);
 }
 
 void tpd::Material::dispose(const Renderer& renderer) noexcept {

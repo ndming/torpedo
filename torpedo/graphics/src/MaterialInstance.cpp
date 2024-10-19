@@ -4,10 +4,11 @@
 #include "torpedo/graphics/Renderer.h"
 
 void tpd::MaterialInstance::bindDescriptorSets(const vk::CommandBuffer buffer, const uint32_t frameIndex) const {
+    // Only bind if the number of descriptor sets are greater than 0, otherwise the validation layer will complain
     if (!_shaderInstance->empty()) {
         buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eGraphics, _material->getVulkanPipelineLayout(),
-        /* first set */ 0, _shaderInstance->getDescriptorSets(frameIndex), {});
+            vk::PipelineBindPoint::eGraphics, _material->getVulkanPipelineLayout(),
+            _firstSet, _shaderInstance->getDescriptorSets(frameIndex), {});
     }
 }
 

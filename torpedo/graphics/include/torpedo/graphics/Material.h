@@ -27,7 +27,7 @@ namespace tpd {
             std::string _fragShaderEntryPoint{};
         };
 
-        Material(vk::Pipeline pipeline, std::unique_ptr<ShaderLayout> shaderLayout) noexcept;
+        Material(vk::Pipeline pipeline, std::unique_ptr<ShaderLayout> shaderLayout, bool userDeclaredLayout = false) noexcept;
 
         Material(const Material&) = delete;
         Material& operator=(const Material&) = delete;
@@ -44,6 +44,7 @@ namespace tpd {
     private:
         vk::Pipeline _pipeline;
         std::unique_ptr<ShaderLayout> _shaderLayout;
+        bool _userDeclaredLayout;
     };
 }
 
@@ -63,8 +64,8 @@ inline tpd::Material::Builder& tpd::Material::Builder::fragShader(const std::fil
     return *this;
 }
 
-inline tpd::Material::Material(const vk::Pipeline pipeline, std::unique_ptr<ShaderLayout> shaderLayout) noexcept
-: _pipeline{ pipeline }, _shaderLayout{ std::move(shaderLayout) } {
+inline tpd::Material::Material(const vk::Pipeline pipeline, std::unique_ptr<ShaderLayout> shaderLayout, const bool userDeclaredLayout) noexcept
+: _pipeline{ pipeline }, _shaderLayout{ std::move(shaderLayout) }, _userDeclaredLayout { userDeclaredLayout } {
 }
 
 inline vk::Pipeline tpd::Material::getVulkanPipeline() const {

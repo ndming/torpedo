@@ -34,16 +34,17 @@ std::unique_ptr<tpd::ShaderLayout> tpd::ShaderLayout::Builder::build(const vk::D
 std::unique_ptr<tpd::ShaderInstance> tpd::ShaderLayout::createInstance(
     const vk::Device device,
     const uint32_t instanceCount,
+    const uint32_t firstSet,
     const vk::DescriptorPoolCreateFlags flags) const
 {
-    // Create an empty ShaderInstance if the shader layout is empty
-    if (empty()) {
+    // Create an empty ShaderInstance if the number of sets to include is zero
+    if (firstSet >= _descriptorSetLayouts.size()) {
         return std::make_unique<ShaderInstance>();
     }
 
     // Count how many descriptors of each type in this pipeline, ...
     auto descriptorTypeCounts = std::unordered_map<vk::DescriptorType, uint32_t>{};
-    for (const auto binding : _descriptorSetLayoutBindingLists | std::views::join) {
+    for (const auto binding : _descriptorSetLayoutBindingLists | std::views::drop(firstSet) | std::views::join) {
         descriptorTypeCounts[binding.descriptorType] += binding.descriptorCount;
     }
     // ... then compute the pool sizes for each descriptor type
@@ -55,19 +56,21 @@ std::unique_ptr<tpd::ShaderInstance> tpd::ShaderLayout::createInstance(
     // Create a descriptor pool
     auto poolInfo = vk::DescriptorPoolCreateInfo{};
     poolInfo.flags = flags;
-    poolInfo.maxSets = instanceCount * _descriptorSetLayoutBindingLists.size();
+    poolInfo.maxSets = instanceCount * (_descriptorSetLayoutBindingLists.size() - firstSet);
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
     const auto descriptorPool = device.createDescriptorPool(poolInfo);
 
     // Allocate a descriptor set for each instance
-    const auto layouts =  std::views::repeat(_descriptorSetLayouts, instanceCount) | std::views::join | std::ranges::to<std::vector>();
+    const auto layouts =  std::views::repeat(_descriptorSetLayouts | std::views::drop(firstSet), instanceCount)
+        | std::views::join
+        | std::ranges::to<std::vector>();
     auto allocInfo = vk::DescriptorSetAllocateInfo{};
     allocInfo.descriptorPool = descriptorPool;
     allocInfo.descriptorSetCount = static_cast<uint32_t>(layouts.size());
     allocInfo.pSetLayouts = layouts.data();
 
-    const auto perInstanceSetCount = static_cast<uint32_t>(_descriptorSetLayouts.size());
+    const auto perInstanceSetCount = _descriptorSetLayouts.size() - firstSet;
     return std::make_unique<ShaderInstance>(perInstanceSetCount, descriptorPool, device.allocateDescriptorSets(allocInfo));
 }
 

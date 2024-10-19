@@ -8,7 +8,7 @@ namespace tpd {
 
     class MaterialInstance {
     public:
-        MaterialInstance(std::unique_ptr<ShaderInstance> shaderInstance, const Material* material) noexcept;
+        MaterialInstance(std::unique_ptr<ShaderInstance> shaderInstance, const Material* material, uint32_t firstSet = 0) noexcept;
 
         MaterialInstance(const MaterialInstance& material) = delete;
         MaterialInstance& operator=(const MaterialInstance& material) = delete;
@@ -28,6 +28,7 @@ namespace tpd {
     private:
         std::unique_ptr<ShaderInstance> _shaderInstance;
         const Material* _material;
+        const uint32_t _firstSet;
     };
 }
 
@@ -35,8 +36,13 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS
 // =====================================================================================================================
 
-inline tpd::MaterialInstance::MaterialInstance(std::unique_ptr<ShaderInstance> shaderInstance, const Material* material) noexcept
-: _shaderInstance{ std::move(shaderInstance) }, _material { material } {
+inline tpd::MaterialInstance::MaterialInstance(
+    std::unique_ptr<ShaderInstance> shaderInstance,
+    const Material* material,
+    const uint32_t firstSet) noexcept
+    : _shaderInstance{ std::move(shaderInstance) }
+    , _material { material }
+    , _firstSet{ firstSet } {
 }
 
 inline const tpd::Material* tpd::MaterialInstance::getMaterial() const {

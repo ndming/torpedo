@@ -9,10 +9,6 @@ void tpd::Renderer::onCreate(const vk::Instance instance, const std::initializer
     clearRendererFeatures();
 }
 
-void tpd::Renderer::onInitialize() {
-    createDrawingCommandPool();
-}
-
 void tpd::Renderer::pickPhysicalDevice(const vk::Instance instance, const std::initializer_list<const char*> engineExtensions) {
     const auto selector = getPhysicalDeviceSelector(engineExtensions).select(instance);
     _physicalDevice = selector.getPhysicalDevice();
@@ -67,6 +63,14 @@ void tpd::Renderer::clearRendererFeatures() noexcept {
     _rendererFeatures.clear();
 }
 
+void tpd::Renderer::onInitialize() {
+    createDrawingCommandPool();
+
+    createSharedDescriptorSetLayout();
+    createSharedObjectBuffers();
+    writeSharedDescriptorSets();
+}
+
 void tpd::Renderer::createDrawingCommandPool() {
     auto poolInfo = vk::CommandPoolCreateInfo{};
     poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
@@ -74,11 +78,53 @@ void tpd::Renderer::createDrawingCommandPool() {
     _drawingCommandPool = _device.createCommandPool(poolInfo);
 }
 
+void tpd::Renderer::createSharedDescriptorSetLayout() {
+    _sharedDescriptorSetLayout = getSharedDescriptorLayoutBuilder().build(_device);
+    _sharedDescriptorSets = _sharedDescriptorSetLayout->createInstance(_device, MAX_FRAMES_IN_FLIGHT);
+}
+
+void tpd::Renderer::createSharedObjectBuffers() const {
+    const auto alignment = _physicalDevice.getProperties().limits.minUniformBufferOffsetAlignment;
+
+    auto cameraObjectBufferBuilder = Buffer::Builder()
+        .bufferCount(MAX_FRAMES_IN_FLIGHT)
+        .usage(vk::BufferUsageFlagBits::eUniformBuffer);
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        cameraObjectBufferBuilder.buffer(i, sizeof(Camera::CameraObject), alignment);
+    }
+
+    Camera::_cameraObjectBuffer = cameraObjectBufferBuilder.build(*_allocator, ResourceType::Persistent);
+}
+
+void tpd::Renderer::writeSharedDescriptorSets() const {
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        auto cameraBufferInfo = vk::DescriptorBufferInfo{};
+        cameraBufferInfo.buffer = Camera::_cameraObjectBuffer->getBuffer();
+        cameraBufferInfo.offset = Camera::_cameraObjectBuffer->getOffsets()[i];
+        cameraBufferInfo.range  = sizeof(Camera::CameraObject);
+
+        _sharedDescriptorSets->setDescriptors(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, { cameraBufferInfo });
+    }
+}
+
+std::unique_ptr<tpd::View> tpd::Renderer::createView() const {
+    const auto [width, height] = getFramebufferSize();
+    const auto w = static_cast<float>(width);
+    const auto h = static_cast<float>(height);
+    const auto viewport = vk::Viewport{ 0.0f, 0.0f, w, h, 0.0f, 1.0f };
+    const auto scissor  = vk::Rect2D{ vk::Offset2D{ 0, 0 }, vk::Extent2D{ width, height } };
+    return std::make_unique<View>(viewport, scissor);
+}
+
 void tpd::Renderer::waitIdle() const noexcept {
     _device.waitIdle();
 }
 
 void tpd::Renderer::onDestroy(const vk::Instance instance) noexcept {
+    Camera::_cameraObjectBuffer->dispose(*_allocator);
+    _sharedDescriptorSets->dispose(_device);
+    _sharedDescriptorSetLayout->dispose(_device);
     _device.destroyCommandPool(_drawingCommandPool);
     _allocator = nullptr;
 }

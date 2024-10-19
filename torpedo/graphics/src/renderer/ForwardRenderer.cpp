@@ -282,27 +282,30 @@ std::vector<vk::ClearValue> tpd::renderer::ForwardRenderer::getClearValues() con
     };
 }
 
-void tpd::renderer::ForwardRenderer::onDrawBegin(const std::unique_ptr<View>& view, const uint32_t frameIndex) const {
+void tpd::renderer::ForwardRenderer::onDrawBegin(const View& view) const {
+    const auto cameraObject = Camera::CameraObject{ view.camera->getViewMatrix(), view.camera->getProjection() };
+    Camera::getCameraObjectBuffer()->updateBufferData(_currentFrame, &cameraObject, sizeof(Camera::CameraObject));
 }
 
-void tpd::renderer::ForwardRenderer::onDraw(
-    const std::unique_ptr<View>& view,
-    const vk::CommandBuffer buffer,
-    const uint32_t frameIndex) const
-{
-    for (const auto& graph = view->scene->getDrawableGraph(); const auto& [material, drawables] : graph) {
+void tpd::renderer::ForwardRenderer::onDraw(const View& view, const vk::CommandBuffer buffer) const {
+    for (const auto& graph = view.scene->getDrawableGraph(); const auto& [material, drawables] : graph) {
         // Bind the graphics pipeline for this material group
         buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, material->getVulkanPipeline());
 
         // Set dynamic viewport and scissor states
-        buffer.setViewport(0, view->viewport);
-        buffer.setScissor(0, view->scissor);
+        buffer.setViewport(0, view.viewport);
+        buffer.setScissor(0, view.scissor);
 
         // Set MSAA sample count
         _vkCmdSetRasterizationSamples(buffer, static_cast<VkSampleCountFlagBits>(_msaaSampleCount));
 
+        // Bind the shared descriptor set
+        buffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics, material->getVulkanPipelineLayout(),
+            /* first set */ 0, _sharedDescriptorSets->getDescriptorSets(_currentFrame), {});
+
         for (const auto& drawable : drawables) {
-            drawable->recordDrawCommands(buffer, frameIndex, _vkCmdSetVertexInput, _vkCmdSetPolygonMode);
+            drawable->recordDrawCommands(buffer, _currentFrame, _vkCmdSetVertexInput, _vkCmdSetPolygonMode);
         }
     }
 }

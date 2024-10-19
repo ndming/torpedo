@@ -42,6 +42,7 @@ namespace tpd {
         [[nodiscard]] std::unique_ptr<ShaderInstance> createInstance(
             vk::Device device,
             uint32_t instanceCount = 1,
+            uint32_t firstSet = 0,
             vk::DescriptorPoolCreateFlags flags = {}) const;
 
         [[nodiscard]] vk::PipelineLayout getPipelineLayout() const;

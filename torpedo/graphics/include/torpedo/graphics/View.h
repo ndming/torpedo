@@ -1,5 +1,6 @@
 #pragma once
 
+#include "torpedo/graphics/Camera.h"
 #include "torpedo/graphics/Scene.h"
 
 namespace tpd {
@@ -18,7 +19,9 @@ namespace tpd {
         void setScissor(uint32_t extentX, uint32_t extentY, int32_t offsetX = 0, int32_t offsetY = 0);
         vk::Rect2D scissor;
 
-        const std::unique_ptr<Scene> scene{ std::make_unique<Scene>() };
+        std::shared_ptr<Camera> camera;
+
+        std::shared_ptr<Scene> scene{ std::make_shared<Scene>() };
     };
 }
 
@@ -27,7 +30,8 @@ namespace tpd {
 // =====================================================================================================================
 
 inline tpd::View::View(const vk::Viewport& viewport, const vk::Rect2D scissor)
-    : viewport{ viewport }, scissor{ scissor } {
+    : viewport{ viewport } , scissor{ scissor }
+    , camera{ std::make_shared<Camera>(static_cast<uint32_t>(viewport.width), static_cast<uint32_t>(viewport.height)) } {
 }
 
 inline void tpd::View::setViewport(const float width, const float height, const float offsetX, const float offsetY) {

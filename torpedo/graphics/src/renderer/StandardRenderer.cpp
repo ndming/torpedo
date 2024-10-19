@@ -21,14 +21,6 @@ void tpd::renderer::StandardRenderer::framebufferResizeCallback(
     renderer->_framebufferResized = true;
 }
 
-std::unique_ptr<tpd::View> tpd::renderer::StandardRenderer::createView() const {
-    const auto width  = static_cast<float>(_swapChainImageExtent.width);
-    const auto height = static_cast<float>(_swapChainImageExtent.height);
-    const auto viewport = vk::Viewport{ 0.0f, 0.0f, width, height, 0.0f, 1.0f };
-    const auto scissor  = vk::Rect2D{ vk::Offset2D{ 0, 0 }, _swapChainImageExtent };
-    return std::make_unique<View>(viewport, scissor);
-}
-
 // =====================================================================================================================
 // INITIALIZATIONS
 // =====================================================================================================================
@@ -459,18 +451,18 @@ void tpd::renderer::StandardRenderer::destroyDrawingSyncObjects() const noexcept
 // RENDERING & DRAWING
 // =====================================================================================================================
 
-void tpd::renderer::StandardRenderer::render(const std::unique_ptr<View>& view) {
+void tpd::renderer::StandardRenderer::render(const View& view) {
     render(view, [](const uint32_t) {});
 }
 
-void tpd::renderer::StandardRenderer::render(const std::unique_ptr<View>& view, const std::function<void(uint32_t)>& onFrameReady) {
+void tpd::renderer::StandardRenderer::render(const View& view, const std::function<void(uint32_t)>& onFrameReady) {
     uint32_t imageIndex;
     if (!beginFrame(&imageIndex)) return;
     onFrameReady(_currentFrame);
 
-    onDrawBegin(view, _currentFrame);
+    onDrawBegin(view);
     beginRenderPass(imageIndex);
-    onDraw(view, _drawingCommandBuffers[_currentFrame], _currentFrame);
+    onDraw(view, _drawingCommandBuffers[_currentFrame]);
 
     endFrame(imageIndex);
     _currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;

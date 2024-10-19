@@ -1,9 +1,11 @@
 #pragma once
 
+#include "torpedo/graphics/Camera.h"
 #include "torpedo/graphics/View.h"
 
-#include <torpedo/foundation/ResourceAllocator.h>
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
+#include <torpedo/foundation/ResourceAllocator.h>
+#include <torpedo/foundation/ShaderLayout.h>
 
 #include <functional>
 
@@ -17,19 +19,24 @@ namespace tpd {
         Renderer(const Renderer&) = delete;
         Renderer& operator=(const Renderer&) = delete;
 
-        [[nodiscard]] virtual std::unique_ptr<View> createView() const = 0;
+        [[nodiscard]] std::unique_ptr<View> createView() const;
+
+        template<Projectable T = Camera>
+        [[nodiscard]] std::shared_ptr<T> createCamera() const;
 
         virtual void setOnFramebufferResize(const std::function<void(uint32_t, uint32_t)>& callback) = 0;
         virtual void setOnFramebufferResize(std::function<void(uint32_t, uint32_t)>&& callback) noexcept = 0;
-        [[nodiscard]] virtual float getFramebufferAspectRatio() const = 0;
+        [[nodiscard]] virtual std::pair<uint32_t, uint32_t> getFramebufferSize() const = 0;
 
-        virtual void render(const std::unique_ptr<View>& view) = 0;
-        virtual void render(const std::unique_ptr<View>& view, const std::function<void(uint32_t)>& onFrameReady) = 0;
+        virtual void render(const View& view) = 0;
+        virtual void render(const View& view, const std::function<void(uint32_t)>& onFrameReady) = 0;
 
         void waitIdle() const noexcept;
 
         [[nodiscard]] virtual vk::GraphicsPipelineCreateInfo getGraphicsPipelineInfo() const = 0;
         [[nodiscard]] vk::Device getVulkanDevice() const;
+
+        [[nodiscard]] static ShaderLayout::Builder getSharedDescriptorLayoutBuilder(uint32_t setCount = 0);
 
         static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -57,9 +64,12 @@ namespace tpd {
         template <typename T> void addFeature(const T& feature);
         [[nodiscard]] vk::PhysicalDeviceFeatures2 buildDeviceFeatures(const vk::PhysicalDeviceFeatures& features) const;
 
-        // Drawing command pool and resource allocator
+        const ResourceAllocator* _allocator{ nullptr };
+
         vk::CommandPool _drawingCommandPool{};
-        ResourceAllocator* _allocator{ nullptr };
+
+        // A ShaderInstance holding one shared descriptor set for each in-flight frames
+        std::unique_ptr<ShaderInstance> _sharedDescriptorSets{};
 
         vk::SampleCountFlagBits _msaaSampleCount{ vk::SampleCountFlagBits::e4 };
         float _minSampleShading{ 0.0f };
@@ -76,7 +86,14 @@ namespace tpd {
         void clearRendererFeatures() noexcept;
 
         void createDrawingCommandPool();
-        void setAllocator(ResourceAllocator* allocator);
+
+        void createSharedDescriptorSetLayout();
+        void createSharedObjectBuffers() const;
+        void writeSharedDescriptorSets() const;
+
+        std::unique_ptr<ShaderLayout> _sharedDescriptorSetLayout{};
+
+        void setAllocator(const ResourceAllocator* allocator);
 
         friend class Engine;
     };
@@ -86,16 +103,28 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS
 // =====================================================================================================================
 
+template<tpd::Projectable T>
+std::shared_ptr<T> tpd::Renderer::createCamera() const {
+    const auto [width, height] = getFramebufferSize();
+    return std::make_shared<T>(width, height);
+}
+
 template<typename T>
 void tpd::Renderer::addFeature(const T& feature) {
     const auto features = new T{ feature };
     _rendererFeatures.emplace_back(features, &features->pNext, [](void* it) { delete static_cast<T*>(it); });
 }
 
+inline void tpd::Renderer::setAllocator(const ResourceAllocator* const allocator) {
+    _allocator = allocator;
+}
+
 inline vk::Device tpd::Renderer::getVulkanDevice() const {
     return _device;
 }
 
-inline void tpd::Renderer::setAllocator(ResourceAllocator* const allocator) {
-    _allocator = allocator;
+inline tpd::ShaderLayout::Builder tpd::Renderer::getSharedDescriptorLayoutBuilder(const uint32_t setCount) {
+    return ShaderLayout::Builder()
+        .descriptorSetCount(setCount + 1)
+        .descriptor(0, 0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex);
 }

@@ -10,11 +10,9 @@ namespace tpd::renderer {
         StandardRenderer(const StandardRenderer&) = delete;
         StandardRenderer& operator=(const StandardRenderer&) = delete;
 
-        [[nodiscard]] std::unique_ptr<View> createView() const final;
-
         void setOnFramebufferResize(const std::function<void(uint32_t, uint32_t)> &callback) final;
         void setOnFramebufferResize(std::function<void(uint32_t, uint32_t)> &&callback) noexcept final;
-        [[nodiscard]] float getFramebufferAspectRatio() const final;
+        [[nodiscard]] std::pair<uint32_t, uint32_t> getFramebufferSize() const final;
 
     protected:
         explicit StandardRenderer(GLFWwindow* window);
@@ -62,14 +60,14 @@ namespace tpd::renderer {
 
         // Rendering
         uint32_t _currentFrame{ 0 };
-        void render(const std::unique_ptr<View>& view) override;
-        void render(const std::unique_ptr<View>& view, const std::function<void(uint32_t)>& onFrameReady) override;
+        void render(const View& view) override;
+        void render(const View& view, const std::function<void(uint32_t)>& onFrameReady) override;
 
         // Drawing
-        virtual void onDrawBegin(const std::unique_ptr<View>& view, uint32_t frameIndex) const = 0;
+        virtual void onDrawBegin(const View& view) const = 0;
         virtual void beginRenderPass(uint32_t imageIndex) const;
         [[nodiscard]] virtual std::vector<vk::ClearValue> getClearValues() const;
-        virtual void onDraw(const std::unique_ptr<View>& view, vk::CommandBuffer buffer, uint32_t frameIndex) const = 0;
+        virtual void onDraw(const View& view, vk::CommandBuffer buffer) const = 0;
 
         void onDestroy(vk::Instance instance) noexcept override;
 
@@ -129,6 +127,6 @@ inline void tpd::renderer::StandardRenderer::setOnFramebufferResize(std::functio
     _userFramebufferResizeCallback = std::move(callback);
 }
 
-inline float tpd::renderer::StandardRenderer::getFramebufferAspectRatio() const {
-    return static_cast<float>(_swapChainImageExtent.width) / static_cast<float>(_swapChainImageExtent.height);
+inline std::pair<uint32_t, uint32_t> tpd::renderer::StandardRenderer::getFramebufferSize() const {
+    return { _swapChainImageExtent.width, _swapChainImageExtent.height };
 }
