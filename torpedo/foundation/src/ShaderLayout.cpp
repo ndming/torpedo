@@ -1,13 +1,24 @@
 #include "torpedo/foundation/ShaderLayout.h"
 #include "torpedo/foundation/ShaderInstance.h"
 
-#include <fstream>
 #include <ranges>
 #include <unordered_map>
 
 std::unique_ptr<tpd::ShaderLayout> tpd::ShaderLayout::Builder::build(const vk::Device device) {
     // Descriptor layouts, one for each descriptor set
-    auto descriptorSetLayouts = createDescriptorSetLayouts(device);
+    auto descriptorSetLayouts = std::vector<vk::DescriptorSetLayout>(_descriptorSetLayoutBindingLists.size());
+    for (uint32_t i = 0; i < _descriptorSetLayoutBindingLists.size(); i++) {
+        auto bindingFlagInfo = vk::DescriptorSetLayoutBindingFlagsCreateInfo{};
+        bindingFlagInfo.bindingCount = static_cast<uint32_t>(_descriptorSetBindingFlagLists[i].size());
+        bindingFlagInfo.pBindingFlags = _descriptorSetBindingFlagLists[i].data();
+
+        auto layoutInfo = vk::DescriptorSetLayoutCreateInfo{};
+        layoutInfo.bindingCount = static_cast<uint32_t>(_descriptorSetLayoutBindingLists[i].size());
+        layoutInfo.pBindings = _descriptorSetLayoutBindingLists[i].data();
+        layoutInfo.pNext = &bindingFlagInfo;
+
+        descriptorSetLayouts[i] = device.createDescriptorSetLayout(layoutInfo);
+    }
 
     // Pipeline layout
     auto pipelineLayoutInfo = vk::PipelineLayoutCreateInfo{};
@@ -17,31 +28,7 @@ std::unique_ptr<tpd::ShaderLayout> tpd::ShaderLayout::Builder::build(const vk::D
     pipelineLayoutInfo.pPushConstantRanges = _pushConstantRanges.data();
     const auto pipelineLayout = device.createPipelineLayout(pipelineLayoutInfo);
 
-    return std::make_unique<ShaderLayout>(pipelineLayout, std::move(descriptorSetLayouts), std::move(_descriptorSetLayoutBindings));
-}
-
-std::vector<vk::DescriptorSetLayout> tpd::ShaderLayout::Builder::createDescriptorSetLayouts(const vk::Device device) const {
-    auto descriptorSetLayouts = std::vector<vk::DescriptorSetLayout>{};
-    for (const auto& bindings : _descriptorSetBindingLists) {
-        auto descriptorSetBindings = std::vector<vk::DescriptorSetLayoutBinding>{};
-        auto descriptorSetBindingFlags = std::vector<vk::DescriptorBindingFlags>{};
-        for (const auto binding : bindings) {
-            descriptorSetBindings.push_back(_descriptorSetLayoutBindings[binding]);
-            descriptorSetBindingFlags.push_back(_descriptorBindingFlags[binding]);
-        }
-
-        auto bindingFlagInfo = vk::DescriptorSetLayoutBindingFlagsCreateInfo{};
-        bindingFlagInfo.bindingCount = static_cast<uint32_t>(descriptorSetBindingFlags.size());
-        bindingFlagInfo.pBindingFlags = descriptorSetBindingFlags.data();
-
-        auto layoutInfo = vk::DescriptorSetLayoutCreateInfo{};
-        layoutInfo.bindingCount = static_cast<uint32_t>(descriptorSetBindings.size());
-        layoutInfo.pBindings = descriptorSetBindings.data();
-        layoutInfo.pNext = &bindingFlagInfo;
-
-        descriptorSetLayouts.push_back(device.createDescriptorSetLayout(layoutInfo));
-    }
-    return descriptorSetLayouts;
+    return std::make_unique<ShaderLayout>(pipelineLayout, std::move(descriptorSetLayouts), std::move(_descriptorSetLayoutBindingLists));
 }
 
 std::unique_ptr<tpd::ShaderInstance> tpd::ShaderLayout::createInstance(
@@ -54,22 +41,21 @@ std::unique_ptr<tpd::ShaderInstance> tpd::ShaderLayout::createInstance(
         return std::make_unique<ShaderInstance>();
     }
 
-    // Count how many descriptors of each type in this pipeline
-    auto descriptorTypeNumbers = std::unordered_map<vk::DescriptorType, uint32_t>{};
-    for (const auto binding : _descriptorSetLayoutBindings) {
-        descriptorTypeNumbers[binding.descriptorType] += binding.descriptorCount;
+    // Count how many descriptors of each type in this pipeline, ...
+    auto descriptorTypeCounts = std::unordered_map<vk::DescriptorType, uint32_t>{};
+    for (const auto binding : _descriptorSetLayoutBindingLists | std::views::join) {
+        descriptorTypeCounts[binding.descriptorType] += binding.descriptorCount;
     }
-
-    // Compute the pool size
+    // ... then compute the pool sizes for each descriptor type
     auto poolSizes = std::vector<vk::DescriptorPoolSize>{};
-    for (const auto& [descriptorType, descriptorCount] : descriptorTypeNumbers) {
+    for (const auto& [descriptorType, descriptorCount] : descriptorTypeCounts) {
         poolSizes.emplace_back(descriptorType, instanceCount * descriptorCount);
     }
 
     // Create a descriptor pool
     auto poolInfo = vk::DescriptorPoolCreateInfo{};
     poolInfo.flags = flags;
-    poolInfo.maxSets = instanceCount;
+    poolInfo.maxSets = instanceCount * _descriptorSetLayoutBindingLists.size();
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
     const auto descriptorPool = device.createDescriptorPool(poolInfo);
@@ -83,4 +69,11 @@ std::unique_ptr<tpd::ShaderInstance> tpd::ShaderLayout::createInstance(
 
     const auto perInstanceSetCount = static_cast<uint32_t>(_descriptorSetLayouts.size());
     return std::make_unique<ShaderInstance>(perInstanceSetCount, descriptorPool, device.allocateDescriptorSets(allocInfo));
+}
+
+void tpd::ShaderLayout::dispose(const vk::Device device) noexcept {
+    device.destroyPipelineLayout(_pipelineLayout);
+    std::ranges::for_each(_descriptorSetLayouts, [&device](const auto& it) { device.destroyDescriptorSetLayout(it); });
+    _descriptorSetLayouts.clear();
+    _descriptorSetLayoutBindingLists.clear();
 }

@@ -51,7 +51,9 @@ inline tpd::ShaderInstance::ShaderInstance(
 }
 
 inline std::span<const vk::DescriptorSet> tpd::ShaderInstance::getDescriptorSets(const uint32_t instance) const {
-    return empty() ? std::span<const vk::DescriptorSet>{} : std::span{ _descriptorSets.begin() + instance * _perInstanceSetCount, _perInstanceSetCount };
+    return empty()
+        ? std::span<const vk::DescriptorSet>{}
+        : std::span{ _descriptorSets.begin() + instance * _perInstanceSetCount, _perInstanceSetCount };
 }
 
 inline bool tpd::ShaderInstance::empty() const {
