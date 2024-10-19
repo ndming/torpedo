@@ -4,8 +4,6 @@
 set(TORPEDO_FOUNDATION_SOURCES
         src/Buffer.cpp
         src/Image.cpp
-        src/PipelineInstance.cpp
-        src/PipelineShader.cpp
         src/ResourceAllocator.cpp
         src/ShaderLayout.cpp
         src/ShaderInstance.cpp

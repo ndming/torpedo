@@ -1,10 +1,8 @@
 #pragma once
 
-#include <torpedo/foundation/VmaUsage.h>
+#include "torpedo/foundation/VmaUsage.h"
 
 #include <vulkan/vulkan.hpp>
-
-#include <memory>
 
 namespace tpd {
     enum class ResourceType {

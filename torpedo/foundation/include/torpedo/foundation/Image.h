@@ -2,8 +2,6 @@
 
 #include "torpedo/foundation/ResourceAllocator.h"
 
-#include <vulkan/vulkan.hpp>
-
 #include <functional>
 
 namespace tpd {
@@ -23,13 +21,13 @@ namespace tpd {
 
             [[nodiscard]] std::unique_ptr<Image> build(
                 vk::Device device,
-                const std::unique_ptr<ResourceAllocator>& allocator,
+                const ResourceAllocator& allocator,
                 ResourceType type,
                 vk::ImageCreateFlags flags = {}) const;
 
         private:
             [[nodiscard]] std::unique_ptr<Image> buildDedicated(
-                const std::unique_ptr<ResourceAllocator>& allocator,
+                const ResourceAllocator& allocator,
                 vk::Device device,
                 vk::ImageCreateFlags flags = {}) const;
 
@@ -59,15 +57,15 @@ namespace tpd {
         [[nodiscard]] vk::Image getImage() const;
         [[nodiscard]] vk::ImageView getImageView() const;
 
-        void dispose(vk::Device device, const std::unique_ptr<ResourceAllocator>& allocator) const noexcept;
-
         void transferImageData(
             const void* data,
             std::uint32_t dataByteSize,
             vk::ImageLayout finalLayout,
-            const std::unique_ptr<ResourceAllocator>& allocator,
+            const ResourceAllocator& allocator,
             const std::function<void(vk::ImageLayout, vk::ImageLayout, vk::Image)>& onLayoutTransition,
             const std::function<void(vk::Buffer, vk::Image)>& onBufferToImageCopy) const;
+
+        void dispose(vk::Device device, const ResourceAllocator& allocator) const noexcept;
 
     private:
         vk::Image _image;
@@ -134,9 +132,4 @@ inline vk::Image tpd::Image::getImage() const {
 
 inline vk::ImageView tpd::Image::getImageView() const {
     return _imageView;
-}
-
-inline void tpd::Image::dispose(const vk::Device device, const std::unique_ptr<ResourceAllocator>& allocator) const noexcept {
-    device.destroyImageView(_imageView);
-    allocator->freeImage(_image, _allocation);
 }

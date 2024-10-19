@@ -2,10 +2,7 @@
 
 #include "torpedo/foundation/ResourceAllocator.h"
 
-#include <vulkan/vulkan.hpp>
-
 #include <functional>
-#include <memory>
 
 namespace tpd {
     class Buffer final {
@@ -16,11 +13,11 @@ namespace tpd {
             Builder& usage(vk::BufferUsageFlags usage);
             Builder& buffer(uint32_t index, std::size_t byteSize, std::size_t alignment = 0);
 
-            [[nodiscard]] std::unique_ptr<Buffer> build(const std::unique_ptr<ResourceAllocator>& allocator, ResourceType type);
+            [[nodiscard]] std::unique_ptr<Buffer> build(const ResourceAllocator& allocator, ResourceType type);
 
         private:
-            [[nodiscard]] std::unique_ptr<Buffer> buildDedicated (const std::unique_ptr<ResourceAllocator>& allocator);
-            [[nodiscard]] std::unique_ptr<Buffer> buildPersistent(const std::unique_ptr<ResourceAllocator>& allocator);
+            [[nodiscard]] std::unique_ptr<Buffer> buildDedicated (const ResourceAllocator& allocator);
+            [[nodiscard]] std::unique_ptr<Buffer> buildPersistent(const ResourceAllocator& allocator);
             [[nodiscard]] vk::BufferCreateInfo populateBufferCreateInfo(vk::BufferUsageFlags internalUsage = {}) const;
 
             std::vector<std::size_t> _sizes{};
@@ -36,13 +33,13 @@ namespace tpd {
         [[nodiscard]] const std::vector<vk::DeviceSize>& getOffsets() const noexcept { return _offsets; }
         [[nodiscard]] uint32_t getBufferCount() const noexcept { return _offsets.size(); }
 
-        void dispose(const std::unique_ptr<ResourceAllocator>& allocator) noexcept;
+        void dispose(const ResourceAllocator& allocator) noexcept;
 
         void transferBufferData(
             uint32_t bufferIndex,
             const void* data,
             std::size_t dataByteSize,
-            const std::unique_ptr<ResourceAllocator>& allocator,
+            const ResourceAllocator& allocator,
             const std::function<void(vk::Buffer, vk::Buffer, vk::BufferCopy)>& onBufferCopy) const;
 
         void updateBufferData(uint32_t bufferIndex, const void* data, std::size_t dataByteSize) const;
@@ -90,9 +87,4 @@ inline tpd::Buffer::Buffer(const vk::Buffer buffer, VmaAllocation allocation, st
         size = cumulativeSum;
         cumulativeSum += temp;
     }
-}
-
-inline void tpd::Buffer::dispose(const std::unique_ptr<ResourceAllocator>& allocator) noexcept {
-    allocator->freeBuffer(_buffer, _allocation);
-    _pMappedData = nullptr;
 }

@@ -101,13 +101,13 @@ std::shared_ptr<tpd::Geometry> tpd::Geometry::Builder::build(const Engine& engin
     auto vbBuilder = _bindings.empty()
         ? getVertexBufferBuilder(_vertexCount, _maxInstanceCount, DEFAULT_BINDING_DESCRIPTIONS)
         : getVertexBufferBuilder(_vertexCount, _maxInstanceCount, _bindings);
-    auto vertexBuffer = vbBuilder.build(engine.getResourceAllocator(), ResourceType::Dedicated);
+    auto vertexBuffer = vbBuilder.build(*engine.getResourceAllocator(), ResourceType::Dedicated);
 
     auto indexBuffer = Buffer::Builder()
         .bufferCount(1)
         .usage(vk::BufferUsageFlagBits::eIndexBuffer)
         .buffer(0, sizeof(uint32_t) * _indexCount)
-        .build(engine.getResourceAllocator(), ResourceType::Dedicated);
+        .build(*engine.getResourceAllocator(), ResourceType::Dedicated);
 
     return std::make_shared<Geometry>(
         _vertexCount,
@@ -189,7 +189,7 @@ void tpd::Geometry::setVertexData(
     }
     const auto binding = std::distance(_attributeBindings.begin(), found);
     _vertexBuffer->transferBufferData(
-        binding, data, dataSize, engine.getResourceAllocator(),
+        binding, data, dataSize, *engine.getResourceAllocator(),
         [&engine](const auto src, const auto dst, const auto& bufferCopy) { engine.copyBuffer(src, dst, bufferCopy); });
 }
 
@@ -206,19 +206,19 @@ void tpd::Geometry::setVertexData(
     const auto binding  = DEFAULT_ATTRIBUTE_BINDINGS.at(attribute);
     const auto dataSize = DEFAULT_BINDING_DESCRIPTIONS[binding].stride * _vertexCount;
     _vertexBuffer->transferBufferData(
-        binding, data, dataSize, engine.getResourceAllocator(),
+        binding, data, dataSize, *engine.getResourceAllocator(),
         [&engine](const auto src, const auto dst, const auto& bufferCopy) { engine.copyBuffer(src, dst, bufferCopy); });
 }
 
 void tpd::Geometry::setIndexData(const void* const data, const std::size_t dataSize, const Engine& engine) const {
     _indexBuffer->transferBufferData(
-        0, data, dataSize, engine.getResourceAllocator(),
+        0, data, dataSize, *engine.getResourceAllocator(),
         [&engine](const auto src, const auto dst, const auto& bufferCopy) { engine.copyBuffer(src, dst, bufferCopy); });
 }
 
 void tpd::Geometry::dispose(const Engine& engine) noexcept {
-    _vertexBuffer->dispose(engine.getResourceAllocator());
-    _indexBuffer->dispose(engine.getResourceAllocator());
+    _vertexBuffer->dispose(*engine.getResourceAllocator());
+    _indexBuffer->dispose(*engine.getResourceAllocator());
     _vertexBuffer.reset();
     _indexBuffer.reset();
     _bindingDescriptions.clear();

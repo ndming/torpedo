@@ -3,7 +3,7 @@
 #include <numeric>
 #include <ranges>
 
-std::unique_ptr<tpd::Buffer> tpd::Buffer::Builder::build(const std::unique_ptr<ResourceAllocator>& allocator, const ResourceType type) {
+std::unique_ptr<tpd::Buffer> tpd::Buffer::Builder::build(const ResourceAllocator& allocator, const ResourceType type) {
     switch (type) {
         case ResourceType::Dedicated:  return buildDedicated(allocator);
         case ResourceType::Persistent: return buildPersistent(allocator);
@@ -11,16 +11,16 @@ std::unique_ptr<tpd::Buffer> tpd::Buffer::Builder::build(const std::unique_ptr<R
     }
 }
 
-std::unique_ptr<tpd::Buffer> tpd::Buffer::Builder::buildDedicated(const std::unique_ptr<ResourceAllocator>& allocator) {
+std::unique_ptr<tpd::Buffer> tpd::Buffer::Builder::buildDedicated(const ResourceAllocator& allocator) {
     auto allocation = VmaAllocation{};
-    const auto buffer = allocator->allocateDedicatedBuffer(populateBufferCreateInfo(vk::BufferUsageFlagBits::eTransferDst), &allocation);
+    const auto buffer = allocator.allocateDedicatedBuffer(populateBufferCreateInfo(vk::BufferUsageFlagBits::eTransferDst), &allocation);
     return std::make_unique<Buffer>(buffer, allocation, std::move(_sizes));
 }
 
-std::unique_ptr<tpd::Buffer> tpd::Buffer::Builder::buildPersistent(const std::unique_ptr<ResourceAllocator> &allocator) {
+std::unique_ptr<tpd::Buffer> tpd::Buffer::Builder::buildPersistent(const ResourceAllocator& allocator) {
     auto allocation = VmaAllocation{};          // allocation is a pointer
     auto allocationInfo = VmaAllocationInfo{};  // allocation info is a struct
-    const auto buffer = allocator->allocatePersistentBuffer(populateBufferCreateInfo(), &allocation, &allocationInfo);
+    const auto buffer = allocator.allocatePersistentBuffer(populateBufferCreateInfo(), &allocation, &allocationInfo);
     return std::make_unique<Buffer>(buffer, allocation, std::move(_sizes), static_cast<std::byte*>(allocationInfo.pMappedData));
 }
 
@@ -38,7 +38,7 @@ void tpd::Buffer::transferBufferData(
     const uint32_t bufferIndex,
     const void* const data,
     const std::size_t dataByteSize,
-    const std::unique_ptr<ResourceAllocator>& allocator,
+    const ResourceAllocator& allocator,
     const std::function<void(vk::Buffer, vk::Buffer, vk::BufferCopy)>& onBufferCopy) const
 {
     if (_pMappedData) {
@@ -47,13 +47,13 @@ void tpd::Buffer::transferBufferData(
 
     // Create a staging buffer and fill it with the data
     auto stagingAllocation = VmaAllocation{};
-    const auto stagingBuffer = allocator->allocateStagingBuffer(dataByteSize, &stagingAllocation);
-    allocator->mapAndCopyStagingBuffer(dataByteSize, data, stagingAllocation);
+    const auto stagingBuffer = allocator.allocateStagingBuffer(dataByteSize, &stagingAllocation);
+    allocator.mapAndCopyStagingBuffer(dataByteSize, data, stagingAllocation);
 
     // Copy the content from the staging buffer to the dedicated buffer
     onBufferCopy(stagingBuffer, _buffer, vk::BufferCopy{ 0, _offsets[bufferIndex], dataByteSize });
 
-    allocator->freeBuffer(stagingBuffer, stagingAllocation);
+    allocator.freeBuffer(stagingBuffer, stagingAllocation);
 }
 
 void tpd::Buffer::updateBufferData(const uint32_t bufferIndex, const void* const data, const std::size_t dataByteSize) const {
@@ -67,4 +67,9 @@ void tpd::Buffer::updateBufferData(const uint32_t bufferIndex, const void* const
     // Windows drivers from all 3 PC GPU vendors (AMD, Intel, NVIDIA) currently provide HOST_COHERENT flag on all
     // memory types that are HOST_VISIBLE, so on PC we may not need to bother.
     memcpy(_pMappedData + _offsets[bufferIndex], data, dataByteSize);
+}
+
+void tpd::Buffer::dispose(const ResourceAllocator& allocator) noexcept {
+    allocator.freeBuffer(_buffer, _allocation);
+    _pMappedData = nullptr;
 }

@@ -4,6 +4,8 @@
 
 #include <torpedo/foundation/ShaderLayout.h>
 
+#include <filesystem>
+
 namespace tpd {
     class Material {
     public:
