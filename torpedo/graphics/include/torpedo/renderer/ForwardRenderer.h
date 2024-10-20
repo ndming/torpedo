@@ -1,16 +1,18 @@
 #pragma once
 
-#include "renderer/StandardRenderer.h"
+#include "torpedo/renderer/StandardRenderer.h"
 
-namespace tpd::renderer {
+namespace tpd {
     class ForwardRenderer final : public StandardRenderer {
     public:
-        explicit ForwardRenderer(GLFWwindow* window) : StandardRenderer{ window } {}
+        explicit ForwardRenderer(void* window) : StandardRenderer{ static_cast<GLFWwindow*>(window) } {}
 
         [[nodiscard]] vk::GraphicsPipelineCreateInfo getGraphicsPipelineInfo() const override;
 
         ForwardRenderer(const ForwardRenderer&) = delete;
         ForwardRenderer& operator=(const ForwardRenderer&) = delete;
+
+        ~ForwardRenderer() override;
 
     private:
         void createFramebufferResources() override;

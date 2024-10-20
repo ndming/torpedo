@@ -1,4 +1,4 @@
-#include <torpedo/graphics/Engine.h>
+#include <torpedo/renderer/ForwardRenderer.h>
 #include <torpedo/graphics/Geometry.h>
 #include <torpedo/graphics/Material.h>
 #include <torpedo/graphics/Drawable.h>
@@ -38,20 +38,19 @@ int main() {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     const auto window = glfwCreateWindow(1280, 768, "Hello, Triangle!", nullptr, nullptr);
 
-    const auto engine = tpd::Engine::create();
-    const auto renderer = engine->createRenderer(tpd::RenderEngine::Forward, window);
+    auto renderer = tpd::createRenderer<tpd::ForwardRenderer>(window);
 
     const auto geometry = tpd::Geometry::Builder(3, indices.size(), 3)
         .attributeCount(3)
         .vertexAttribute(0, vk::Format::eR32G32B32Sfloat,    sizeof(float) * 3)
         .vertexAttribute(1, vk::Format::eR32G32B32A32Sfloat, sizeof(float) * 4)
         .instanceAttribute(2, vk::Format::eR16Uint,          sizeof(uint16_t))
-        .build(*engine);
+        .build(*renderer);
 
-    geometry->setVertexData(0, positions.data(), sizeof(float) *  9, *engine);
-    geometry->setVertexData(1, colors.data(),    sizeof(float) * 12, *engine);
-    geometry->setVertexData(2, instances.data(), sizeof(uint16_t) * 3, *engine);
-    geometry->setIndexData(indices.data(), sizeof(uint32_t) * indices.size(), *engine);
+    geometry->setVertexData(0, positions.data(), sizeof(float)    *  9, *renderer);
+    geometry->setVertexData(1, colors.data(),    sizeof(float)    * 12, *renderer);
+    geometry->setVertexData(2, instances.data(), sizeof(uint16_t) *  3, *renderer);
+    geometry->setIndexData(indices.data(), sizeof(uint32_t) * indices.size(), *renderer);
 
     const auto material = tpd::Material::Builder()
         .vertShader("assets/shaders/simple.vert.spv")
@@ -86,8 +85,6 @@ int main() {
 
     materialInstance->dispose(*renderer);
     material->dispose(*renderer);
-    geometry->dispose(*engine);
-    engine->destroyRenderer(renderer);
 
     glfwDestroyWindow(window);
     glfwTerminate();

@@ -70,6 +70,9 @@ void tpd::Buffer::updateBufferData(const uint32_t bufferIndex, const void* const
 }
 
 void tpd::Buffer::dispose(const ResourceAllocator& allocator) noexcept {
-    allocator.freeBuffer(_buffer, _allocation);
-    _pMappedData = nullptr;
+    if (_allocation) {
+        allocator.freeBuffer(_buffer, _allocation);
+        _allocation = nullptr;
+        _pMappedData = nullptr;
+    }
 }

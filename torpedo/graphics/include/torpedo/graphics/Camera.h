@@ -37,13 +37,14 @@ namespace tpd {
 
     private:
         static std::unique_ptr<Buffer> _cameraObjectBuffer;
-
         friend class Renderer;
     };
 
     template<typename T>
     concept Projectable = std::derived_from<T, Camera>;
 }
+
+inline std::unique_ptr<tpd::Buffer> tpd::Camera::_cameraObjectBuffer = {};
 
 // =====================================================================================================================
 // INLINE FUNCTION DEFINITIONS

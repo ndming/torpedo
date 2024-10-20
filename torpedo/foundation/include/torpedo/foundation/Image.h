@@ -65,7 +65,7 @@ namespace tpd {
             const std::function<void(vk::ImageLayout, vk::ImageLayout, vk::Image)>& onLayoutTransition,
             const std::function<void(vk::Buffer, vk::Image)>& onBufferToImageCopy) const;
 
-        void dispose(vk::Device device, const ResourceAllocator& allocator) const noexcept;
+        void dispose(vk::Device device, const ResourceAllocator& allocator) noexcept;
 
     private:
         vk::Image _image;

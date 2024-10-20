@@ -31,7 +31,6 @@ set(TORPEDO_GRAPHICS_SOURCES
         src/Camera.cpp
         src/Composable.cpp
         src/Drawable.cpp
-        src/Engine.cpp
         src/Geometry.cpp
         src/Material.cpp
         src/MaterialInstance.cpp
@@ -56,7 +55,6 @@ target_compile_definitions(${TARGET} PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
 
 # Where to look for header files
 target_include_directories(${TARGET} PUBLIC include)
-target_include_directories(${TARGET} PRIVATE src)
 
 # Dependencies
 target_link_libraries(${TARGET} PUBLIC torpedo::bootstrap)

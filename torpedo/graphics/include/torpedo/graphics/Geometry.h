@@ -1,12 +1,11 @@
 #pragma once
 
 #include <torpedo/foundation/Buffer.h>
+#include <torpedo/foundation/ResourceAllocator.h>
 
 #include <map>
 
 namespace tpd {
-    class Engine;
-
     enum class VertexAttribute : uint32_t {
         Position = 0,
         Normal   = 1,
@@ -14,7 +13,10 @@ namespace tpd {
         Color    = 3,
     };
 
-    class Geometry {
+    class Geometry final {
+        static const ResourceAllocator* _allocator;
+        friend class Renderer;
+
     public:
         class Builder {
         public:
@@ -75,11 +77,20 @@ namespace tpd {
             /**
              * Builds the Geometry.
              *
-             * @param engine The Engine that will manage this Geometry's resource allocation.
+             * @param renderer A Renderer, which will manage this Geometry's resources.
              * @param topology The topology that will be used to draw this Geometry, default to TriangleList.
              * @return A shared pointer to the constructed Geometry object.
              */
-            [[nodiscard]] std::shared_ptr<Geometry> build(const Engine& engine, vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList);
+            [[nodiscard]] std::shared_ptr<Geometry> build(const Renderer& renderer, vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList);
+
+            /**
+             * Builds the Geometry.
+             *
+             * @param allocator A ResourceAllocator, which can be retrieved from a Renderer or an independent one.
+             * @param topology The topology that will be used to draw this Geometry, default to TriangleList.
+             * @return A shared pointer to the constructed Geometry object.
+             */
+            [[nodiscard]] std::shared_ptr<Geometry> build(const ResourceAllocator& allocator, vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList);
 
         private:
             static Buffer::Builder getVertexBufferBuilder(
@@ -116,9 +127,9 @@ namespace tpd {
          * @param location The location declared for the vertex attribute in the shader.
          * @param data Pointer to the data array.
          * @param dataSize Total byte size of the data pointer. A value of stride * vertexCount will exhaust this attribute's buffer slot.
-         * @param engine The Engine that was used to create this Geometry.
+         * @param renderer The Renderer that was used to create this Geometry.
          */
-        void setVertexData(uint32_t location, const void* data, std::size_t dataSize, const Engine& engine) const;
+        void setVertexData(uint32_t location, const void* data, std::size_t dataSize, const Renderer& renderer) const;
 
         /**
          * Transfers vertex data to the vertex attribute specified by an attribute key. This method shall be used if the
@@ -129,18 +140,18 @@ namespace tpd {
          *
          * @param attribute A string key to one of the default attributes.
          * @param data Pointer to the data array.
-         * @param engine The Engine that was used to create this Geometry.
+         * @param renderer The Renderer that was used to create this Geometry.
          */
-        void setVertexData(std::string_view attribute, const void* data, const Engine& engine) const;
+        void setVertexData(std::string_view attribute, const void* data, const Renderer& renderer) const;
 
         /**
          * Transfers index data to the local device buffer associated with this Geometry.
          *
          * @param data Pointer to the data array. Note that Geometry uses uint32_t index data type.
          * @param dataSize Total byte size of the data pointer. Note that index values are uint32_t by default.
-         * @param engine The Engine that was used to create this Geometry.
+         * @param renderer The Renderer that was used to create this Geometry.
          */
-        void setIndexData(const void* data, std::size_t dataSize, const Engine& engine) const;
+        void setIndexData(const void* data, std::size_t dataSize, const Renderer& renderer) const;
 
         [[nodiscard]] uint32_t getVertexCount() const noexcept;
         [[nodiscard]] const std::unique_ptr<Buffer>& getVertexBuffer() const noexcept;
@@ -153,7 +164,21 @@ namespace tpd {
         [[nodiscard]] const std::vector<VkVertexInputBindingDescription2EXT>& getBindingDescriptions() const noexcept;
         [[nodiscard]] const std::vector<VkVertexInputAttributeDescription2EXT>& getAttributeDescriptions() const noexcept;
 
-        void dispose(const Engine& engine) noexcept;
+        /**
+         * Frees GPU-side memory associated with this Geometry.
+         *
+         * @param renderer the Renderer that was used to build this Geometry.
+         */
+        void dispose(const Renderer& renderer) noexcept;
+
+        /**
+         * Frees GPU-side memory associated with this Geometry.
+         *
+         * @param allocator the ResourceAllocator that was used to allocate this Geometry's resources.
+         */
+        void dispose(const ResourceAllocator& allocator) noexcept;
+
+        ~Geometry();
 
     private:
         uint32_t _vertexCount;
@@ -173,6 +198,8 @@ namespace tpd {
         static const std::map<std::string_view, uint32_t> DEFAULT_ATTRIBUTE_BINDINGS;
     };
 }
+
+inline const tpd::ResourceAllocator* tpd::Geometry::_allocator = nullptr;
 
 // =====================================================================================================================
 // INLINE FUNCTION DEFINITIONS

@@ -4,27 +4,30 @@
 
 #include <GLFW/glfw3.h>
 
-namespace tpd::renderer {
+namespace tpd {
     class StandardRenderer : public Renderer {
     public:
         StandardRenderer(const StandardRenderer&) = delete;
         StandardRenderer& operator=(const StandardRenderer&) = delete;
 
-        void setOnFramebufferResize(const std::function<void(uint32_t, uint32_t)> &callback) final;
-        void setOnFramebufferResize(std::function<void(uint32_t, uint32_t)> &&callback) noexcept final;
+        void render(const View& view);
+        void render(const View& view, const std::function<void(uint32_t)>& onFrameReady) override;
+
+        void setOnFramebufferResize(const std::function<void(uint32_t, uint32_t)> &callback);
+        void setOnFramebufferResize(std::function<void(uint32_t, uint32_t)> &&callback) noexcept;
         [[nodiscard]] std::pair<uint32_t, uint32_t> getFramebufferSize() const final;
+
+        ~StandardRenderer() override;
 
     protected:
         explicit StandardRenderer(GLFWwindow* window);
 
-        // Native window and Vulkan surface
         GLFWwindow* _window;
         vk::SurfaceKHR _surface{};
 
-        [[nodiscard]] PhysicalDeviceSelector getPhysicalDeviceSelector(std::initializer_list<const char*> deviceExtensions) const override;
-        [[nodiscard]] std::vector<const char*> getRendererExtensions() const override;
+        static std::vector<const char*> getDeviceExtensions();
 
-        void onFeaturesRegister() override;
+        void registerFeatures() override;
         [[nodiscard]] static vk::PhysicalDeviceFeatures getFeatures();
         [[nodiscard]] static vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT getVertexInputDynamicStateFeatures();
         [[nodiscard]] static vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT getExtendedDynamicStateFeatures();
@@ -60,8 +63,6 @@ namespace tpd::renderer {
 
         // Rendering
         uint32_t _currentFrame{ 0 };
-        void render(const View& view) override;
-        void render(const View& view, const std::function<void(uint32_t)>& onFrameReady) override;
 
         // Drawing
         virtual void onDrawBegin(const View& view) const = 0;
@@ -69,22 +70,21 @@ namespace tpd::renderer {
         [[nodiscard]] virtual std::vector<vk::ClearValue> getClearValues() const;
         virtual void onDraw(const View& view, vk::CommandBuffer buffer) const = 0;
 
-        void onDestroy(vk::Instance instance) noexcept override;
-
     private:
+        static std::vector<const char*> getRequiredExtensions();
+
         bool _framebufferResized{ false };
         std::function<void(uint32_t, uint32_t)> _userFramebufferResizeCallback{ [](uint32_t, uint32_t) {} };
         static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 
-        void createSurface(vk::Instance instance);
-        void onCreate(vk::Instance instance, std::initializer_list<const char*> deviceExtensions) final;
-        void onInitialize() final;
+        void createSurface();
+        void init() final;
 
         // Present queue family
         uint32_t _presentQueueFamily{};
         vk::Queue _presentQueue{};
-        void pickPhysicalDevice(vk::Instance instance, std::initializer_list<const char*> deviceExtensions) final;
-        void createDevice(std::initializer_list<const char*> deviceExtensions) final;
+        void pickPhysicalDevice() final;
+        void createDevice() final;
 
         // Swap chain infrastructure
         vk::SwapchainKHR _swapChain{};
@@ -112,21 +112,28 @@ namespace tpd::renderer {
         // Frame drawing
         bool beginFrame(uint32_t* imageIndex);
         void endFrame(uint32_t imageIndex);
+
+        template<Renderable R>
+        friend std::unique_ptr<R> createRenderer(void* nativeWindow);
     };
 }
+
+inline PFN_vkCmdSetVertexInputEXT tpd::StandardRenderer::_vkCmdSetVertexInput = nullptr;
+inline PFN_vkCmdSetPolygonModeEXT tpd::StandardRenderer::_vkCmdSetPolygonMode = nullptr;
+inline PFN_vkCmdSetRasterizationSamplesEXT tpd::StandardRenderer::_vkCmdSetRasterizationSamples = nullptr;
 
 // =====================================================================================================================
 // INLINE FUNCTION DEFINITIONS
 // =====================================================================================================================
 
-inline void tpd::renderer::StandardRenderer::setOnFramebufferResize(const std::function<void(uint32_t, uint32_t)>& callback) {
+inline void tpd::StandardRenderer::setOnFramebufferResize(const std::function<void(uint32_t, uint32_t)>& callback) {
     _userFramebufferResizeCallback = callback;
 }
 
-inline void tpd::renderer::StandardRenderer::setOnFramebufferResize(std::function<void(uint32_t, uint32_t)>&& callback) noexcept {
+inline void tpd::StandardRenderer::setOnFramebufferResize(std::function<void(uint32_t, uint32_t)>&& callback) noexcept {
     _userFramebufferResizeCallback = std::move(callback);
 }
 
-inline std::pair<uint32_t, uint32_t> tpd::renderer::StandardRenderer::getFramebufferSize() const {
+inline std::pair<uint32_t, uint32_t> tpd::StandardRenderer::getFramebufferSize() const {
     return { _swapChainImageExtent.width, _swapChainImageExtent.height };
 }

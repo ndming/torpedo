@@ -79,7 +79,10 @@ void tpd::Image::transferImageData(
     allocator.freeBuffer(stagingBuffer, stagingAllocation);
 }
 
-void tpd::Image::dispose(const vk::Device device, const ResourceAllocator& allocator) const noexcept {
+void tpd::Image::dispose(const vk::Device device, const ResourceAllocator& allocator) noexcept {
     device.destroyImageView(_imageView);
-    allocator.freeImage(_image, _allocation);
+    if (_allocation) {
+        allocator.freeImage(_image, _allocation);
+        _allocation = nullptr;
+    }
 }

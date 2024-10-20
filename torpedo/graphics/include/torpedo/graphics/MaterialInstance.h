@@ -17,6 +17,8 @@ namespace tpd {
 
         [[nodiscard]] const Material* getMaterial() const;
 
+        static const std::unique_ptr<ShaderInstance>& getSharedShaderInstance();
+
         vk::CullModeFlagBits cullMode{ vk::CullModeFlagBits::eBack };
         vk::PolygonMode polygonMode{ vk::PolygonMode::eFill };
         float lineWidth{ 1.0f };
@@ -29,8 +31,14 @@ namespace tpd {
         std::unique_ptr<ShaderInstance> _shaderInstance;
         const Material* _material;
         const uint32_t _firstSet;
+
+        // A ShaderInstance holding one shared descriptor set for each in-flight frames
+        static std::unique_ptr<ShaderInstance> _sharedShaderInstance;
+        friend class Renderer;
     };
 }
+
+inline std::unique_ptr<tpd::ShaderInstance> tpd::MaterialInstance::_sharedShaderInstance = {};
 
 // =====================================================================================================================
 // INLINE FUNCTION DEFINITIONS
@@ -47,4 +55,8 @@ inline tpd::MaterialInstance::MaterialInstance(
 
 inline const tpd::Material* tpd::MaterialInstance::getMaterial() const {
     return _material;
+}
+
+inline const std::unique_ptr<tpd::ShaderInstance>& tpd::MaterialInstance::getSharedShaderInstance() {
+    return _sharedShaderInstance;
 }

@@ -1,6 +1,5 @@
 #include "torpedo/graphics/Geometry.h"
-
-#include "torpedo/graphics/Engine.h"
+#include "torpedo/graphics/Renderer.h"
 
 tpd::Geometry::Builder& tpd::Geometry::Builder::attributeCount(const uint32_t count) {
     _bindings.reserve(count);
@@ -97,17 +96,21 @@ tpd::Geometry::Builder& tpd::Geometry::Builder::instanceAttribute(
     return *this;
 }
 
-std::shared_ptr<tpd::Geometry> tpd::Geometry::Builder::build(const Engine& engine, const vk::PrimitiveTopology topology) {
+std::shared_ptr<tpd::Geometry> tpd::Geometry::Builder::build(const Renderer& renderer, const vk::PrimitiveTopology topology) {
+    return build(renderer.getResourceAllocator(), topology);
+}
+
+std::shared_ptr<tpd::Geometry> tpd::Geometry::Builder::build(const ResourceAllocator& allocator, const vk::PrimitiveTopology topology) {
     auto vbBuilder = _bindings.empty()
         ? getVertexBufferBuilder(_vertexCount, _maxInstanceCount, DEFAULT_BINDING_DESCRIPTIONS)
         : getVertexBufferBuilder(_vertexCount, _maxInstanceCount, _bindings);
-    auto vertexBuffer = vbBuilder.build(*engine.getResourceAllocator(), ResourceType::Dedicated);
+    auto vertexBuffer = vbBuilder.build(allocator, ResourceType::Dedicated);
 
     auto indexBuffer = Buffer::Builder()
         .bufferCount(1)
         .usage(vk::BufferUsageFlagBits::eIndexBuffer)
         .buffer(0, sizeof(uint32_t) * _indexCount)
-        .build(*engine.getResourceAllocator(), ResourceType::Dedicated);
+        .build(allocator, ResourceType::Dedicated);
 
     return std::make_shared<Geometry>(
         _vertexCount,
@@ -179,7 +182,7 @@ void tpd::Geometry::setVertexData(
     const uint32_t location,
     const void* const data,
     const std::size_t dataSize,
-    const Engine& engine) const
+    const Renderer& renderer) const
 {
     const auto found = std::ranges::find(_attributeBindings, location);
     if (found == _attributeBindings.end()) {
@@ -188,15 +191,14 @@ void tpd::Geometry::setVertexData(
             "consider the overload that accepts an attribute key.");
     }
     const auto binding = std::distance(_attributeBindings.begin(), found);
-    _vertexBuffer->transferBufferData(
-        binding, data, dataSize, *engine.getResourceAllocator(),
-        [&engine](const auto src, const auto dst, const auto& bufferCopy) { engine.copyBuffer(src, dst, bufferCopy); });
+    _vertexBuffer->transferBufferData(binding, data, dataSize, renderer.getResourceAllocator(),
+        [&renderer](const auto src, const auto dst, const auto& bufferCopy) { renderer.copyBuffer(src, dst, bufferCopy); });
 }
 
 void tpd::Geometry::setVertexData(
     const std::string_view attribute,
     const void* const data,
-    const Engine& engine) const
+    const Renderer& renderer) const
 {
     if (!DEFAULT_ATTRIBUTE_BINDINGS.contains(attribute)) {
         throw std::runtime_error(
@@ -205,22 +207,33 @@ void tpd::Geometry::setVertexData(
     }
     const auto binding  = DEFAULT_ATTRIBUTE_BINDINGS.at(attribute);
     const auto dataSize = DEFAULT_BINDING_DESCRIPTIONS[binding].stride * _vertexCount;
-    _vertexBuffer->transferBufferData(
-        binding, data, dataSize, *engine.getResourceAllocator(),
-        [&engine](const auto src, const auto dst, const auto& bufferCopy) { engine.copyBuffer(src, dst, bufferCopy); });
+    _vertexBuffer->transferBufferData(binding, data, dataSize, renderer.getResourceAllocator(),
+        [&renderer](const auto src, const auto dst, const auto& bufferCopy) { renderer.copyBuffer(src, dst, bufferCopy); });
 }
 
-void tpd::Geometry::setIndexData(const void* const data, const std::size_t dataSize, const Engine& engine) const {
+void tpd::Geometry::setIndexData(const void* const data, const std::size_t dataSize, const Renderer& renderer) const {
     _indexBuffer->transferBufferData(
-        0, data, dataSize, *engine.getResourceAllocator(),
-        [&engine](const auto src, const auto dst, const auto& bufferCopy) { engine.copyBuffer(src, dst, bufferCopy); });
+        0, data, dataSize, renderer.getResourceAllocator(),
+        [&renderer](const auto src, const auto dst, const auto& bufferCopy) { renderer.copyBuffer(src, dst, bufferCopy); });
 }
 
-void tpd::Geometry::dispose(const Engine& engine) noexcept {
-    _vertexBuffer->dispose(*engine.getResourceAllocator());
-    _indexBuffer->dispose(*engine.getResourceAllocator());
-    _vertexBuffer.reset();
-    _indexBuffer.reset();
+void tpd::Geometry::dispose(const Renderer& renderer) noexcept {
+    dispose(renderer.getResourceAllocator());
+}
+
+void tpd::Geometry::dispose(const ResourceAllocator& allocator) noexcept {
+    if (_vertexBuffer) {
+        _vertexBuffer->dispose(allocator);
+        _vertexBuffer.reset();
+    }
+    if (_indexBuffer) {
+        _indexBuffer->dispose(allocator);
+        _indexBuffer.reset();
+    }
+}
+
+tpd::Geometry::~Geometry() {
+    if (_allocator) dispose(*_allocator);
     _bindingDescriptions.clear();
     _attributeDescriptions.clear();
     _attributeBindings.clear();

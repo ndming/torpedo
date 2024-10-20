@@ -19,7 +19,7 @@ std::unique_ptr<tpd::Material> tpd::Material::Builder::build(const Renderer& ren
     pipelineInfo.pStages = shaderStageInfos.data();
 
     // Pipeline layout
-    auto shaderLayout = layout ? std::move(layout) : Renderer::getSharedDescriptorLayoutBuilder().build(device);
+    auto shaderLayout = layout ? std::move(layout) : getPreconfiguredSharedLayoutBuilder().build(device);
     pipelineInfo.layout = shaderLayout->getPipelineLayout();
 
     // Create the graphics pipeline

@@ -1,22 +1,21 @@
-#include "renderer/ForwardRenderer.h"
-
+#include "torpedo/renderer/ForwardRenderer.h"
 #include "torpedo/graphics/Material.h"
 
 #include <ranges>
 
-void tpd::renderer::ForwardRenderer::createFramebufferResources() {
+void tpd::ForwardRenderer::createFramebufferResources() {
     createFramebufferColorResources();
     createFramebufferDepthResources();
 }
 
-void tpd::renderer::ForwardRenderer::destroyFramebufferResources() const noexcept {
+void tpd::ForwardRenderer::destroyFramebufferResources() const noexcept {
     _device.destroyImageView(_framebufferDepthImageView);
     _device.destroyImageView(_framebufferColorImageView);
     _allocator->freeImage(_framebufferDepthImage, _framebufferDepthImageAllocation);
     _allocator->freeImage(_framebufferColorImage, _framebufferColorImageAllocation);
 }
 
-void tpd::renderer::ForwardRenderer::createFramebufferColorResources() {
+void tpd::ForwardRenderer::createFramebufferColorResources() {
     using Usage = vk::ImageUsageFlagBits;
     constexpr auto mipLevels = 1;
 
@@ -52,7 +51,7 @@ void tpd::renderer::ForwardRenderer::createFramebufferColorResources() {
     _framebufferColorImageView = _device.createImageView(imageViewCreateInfo);
 }
 
-void tpd::renderer::ForwardRenderer::createFramebufferDepthResources() {
+void tpd::ForwardRenderer::createFramebufferDepthResources() {
     const auto formatCandidates = std::vector{
         vk::Format::eD32Sfloat,        // 32-bit float for depth
         vk::Format::eD32SfloatS8Uint,  // 32-bit signed float for depth and 8-bit stencil component
@@ -98,7 +97,7 @@ void tpd::renderer::ForwardRenderer::createFramebufferDepthResources() {
     _framebufferDepthImageView = _device.createImageView(imageViewCreateInfo);
 }
 
-vk::Format tpd::renderer::ForwardRenderer::findFramebufferDepthImageFormat(
+vk::Format tpd::ForwardRenderer::findFramebufferDepthImageFormat(
     const std::vector<vk::Format>& candidates,
     const vk::ImageTiling tiling,
     const vk::FormatFeatureFlags features) const
@@ -117,7 +116,7 @@ vk::Format tpd::renderer::ForwardRenderer::findFramebufferDepthImageFormat(
     throw std::runtime_error("ForwardRenderer: failed to find a supported framebuffer depth image format");
 }
 
-void tpd::renderer::ForwardRenderer::createRenderPass() {
+void tpd::ForwardRenderer::createRenderPass() {
     const auto colorAttachment = vk::AttachmentDescription{
         {}, _swapChainImageFormat,
         _msaaSampleCount,
@@ -197,7 +196,7 @@ void tpd::renderer::ForwardRenderer::createRenderPass() {
     _renderPass = _device.createRenderPass(renderPassInfo);
 }
 
-void tpd::renderer::ForwardRenderer::createFramebuffers() {
+void tpd::ForwardRenderer::createFramebuffers() {
     const auto toFramebuffer = [this](const auto& swapChainImageView) {
         // Specify the image views that should be bound to the respective attachment descriptions in the render pass
         const auto attachments = std::array{ _framebufferColorImageView, _framebufferDepthImageView, swapChainImageView };
@@ -218,7 +217,7 @@ void tpd::renderer::ForwardRenderer::createFramebuffers() {
     _framebuffers = _swapChainImageViews | std::ranges::views::transform(toFramebuffer) | std::ranges::to<std::vector>();
 }
 
-vk::GraphicsPipelineCreateInfo tpd::renderer::ForwardRenderer::getGraphicsPipelineInfo() const {
+vk::GraphicsPipelineCreateInfo tpd::ForwardRenderer::getGraphicsPipelineInfo() const {
     // Specify which properties will be able to change at runtime
     static constexpr auto dynamicStates = std::array{
         // Renderer
@@ -275,19 +274,19 @@ vk::GraphicsPipelineCreateInfo tpd::renderer::ForwardRenderer::getGraphicsPipeli
     return pipelineInfo;
 }
 
-std::vector<vk::ClearValue> tpd::renderer::ForwardRenderer::getClearValues() const {
+std::vector<vk::ClearValue> tpd::ForwardRenderer::getClearValues() const {
     return {
         vk::ClearColorValue{ 0.0f, 0.0f, 0.0f, 1.0f },                    // for the multi-sampled color attachment
         vk::ClearDepthStencilValue{ /* depth */ 1.0f, /* stencil */ 0 },  // for the depth/stencil attachment
     };
 }
 
-void tpd::renderer::ForwardRenderer::onDrawBegin(const View& view) const {
+void tpd::ForwardRenderer::onDrawBegin(const View& view) const {
     const auto cameraObject = Camera::CameraObject{ view.camera->getViewMatrix(), view.camera->getProjection() };
     Camera::getCameraObjectBuffer()->updateBufferData(_currentFrame, &cameraObject, sizeof(Camera::CameraObject));
 }
 
-void tpd::renderer::ForwardRenderer::onDraw(const View& view, const vk::CommandBuffer buffer) const {
+void tpd::ForwardRenderer::onDraw(const View& view, const vk::CommandBuffer buffer) const {
     for (const auto& graph = view.scene->getDrawableGraph(); const auto& [material, drawables] : graph) {
         // Bind the graphics pipeline for this material group
         buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, material->getVulkanPipeline());
@@ -302,10 +301,14 @@ void tpd::renderer::ForwardRenderer::onDraw(const View& view, const vk::CommandB
         // Bind the shared descriptor set
         buffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, material->getVulkanPipelineLayout(),
-            /* first set */ 0, _sharedDescriptorSets->getDescriptorSets(_currentFrame), {});
+            /* first set */ 0, MaterialInstance::getSharedShaderInstance()->getDescriptorSets(_currentFrame), {});
 
         for (const auto& drawable : drawables) {
             drawable->recordDrawCommands(buffer, _currentFrame, _vkCmdSetVertexInput, _vkCmdSetPolygonMode);
         }
     }
+}
+
+tpd::ForwardRenderer::~ForwardRenderer() {
+    destroyFramebufferResources();
 }

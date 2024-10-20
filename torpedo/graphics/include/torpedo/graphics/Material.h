@@ -41,12 +41,20 @@ namespace tpd {
 
         virtual ~Material() = default;
 
+    protected:
+        static ShaderLayout::Builder getPreconfiguredSharedLayoutBuilder(uint32_t setCount = 0);
+
     private:
         vk::Pipeline _pipeline;
         std::unique_ptr<ShaderLayout> _shaderLayout;
         bool _userDeclaredLayout;
+
+        static std::unique_ptr<ShaderLayout> _sharedShaderLayout;
+        friend class Renderer;
     };
 }
+
+inline std::unique_ptr<tpd::ShaderLayout> tpd::Material::_sharedShaderLayout = {};
 
 // =====================================================================================================================
 // INLINE FUNCTION DEFINITIONS
@@ -74,4 +82,10 @@ inline vk::Pipeline tpd::Material::getVulkanPipeline() const {
 
 inline vk::PipelineLayout tpd::Material::getVulkanPipelineLayout() const {
     return _shaderLayout->getPipelineLayout();
+}
+
+inline tpd::ShaderLayout::Builder tpd::Material::getPreconfiguredSharedLayoutBuilder(const uint32_t setCount) {
+    return ShaderLayout::Builder()
+        .descriptorSetCount(setCount + 1)
+        .descriptor(0, 0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex);
 }
