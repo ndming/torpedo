@@ -21,13 +21,25 @@ namespace tpd {
         class Builder {
         public:
             /**
-             * Constructs a new Builder with specified vertex, index, and instance counts.
+             * Specifies the number of vertices in the vertex buffer.
              *
-             * @param vertexCount The number of vertices in the geometry.
-             * @param indexCount The number of indices in the geometry.
-             * @param maxInstanceCount The maximum number of instances (for instanced rendering).
+             * @return This Builder object for chaining calls.
              */
-            Builder(uint32_t vertexCount, uint32_t indexCount, uint32_t maxInstanceCount = 1);
+            Builder& vertexCount(uint32_t count);
+
+            /**
+             * Specifies the number of indices in the index buffer.
+             *
+             * @return This Builder object for chaining calls.
+             */
+            Builder& indexCount(uint32_t count);
+
+            /**
+             * Specifies the maximum number of instances (for instanced rendering).
+             *
+             * @return This Builder object for chaining calls.
+             */
+            Builder& maxInstanceCount(uint32_t count);
 
             /**
              * Registers the number of manually-defined vertex attributes. This method should be called before chaining
@@ -77,7 +89,7 @@ namespace tpd {
             /**
              * Builds the Geometry.
              *
-             * @param renderer A Renderer, which will manage this Geometry's resources.
+             * @param renderer The Renderer that will manage this Geometry's resources.
              * @param topology The topology that will be used to draw this Geometry, default to TriangleList.
              * @return A shared pointer to the constructed Geometry object.
              */
@@ -100,9 +112,9 @@ namespace tpd {
             static vk::Format getDefaultVertexAttributeFormat(VertexAttribute attribute);
             static uint32_t getDefaultVertexAttributeStride(VertexAttribute attribute);
 
-            uint32_t _vertexCount;
-            uint32_t _indexCount;
-            uint32_t _maxInstanceCount;
+            uint32_t _vertexCount{ 0 };
+            uint32_t _indexCount{ 0 };
+            uint32_t _maxInstanceCount{ 1 };
 
             std::vector<VkVertexInputBindingDescription2EXT> _bindings{};
             std::vector<VkVertexInputAttributeDescription2EXT> _attributes{};
@@ -165,11 +177,10 @@ namespace tpd {
         [[nodiscard]] const std::vector<VkVertexInputAttributeDescription2EXT>& getAttributeDescriptions() const noexcept;
 
         /**
-         * Frees GPU-side memory associated with this Geometry.
-         *
-         * @param renderer the Renderer that was used to build this Geometry.
+         * Frees GPU-side memory of this Geometry, using the ResourceAllocator associated with
+         * the Renderer that was used to allocate this object's resources.
          */
-        void dispose(const Renderer& renderer) noexcept;
+        void dispose() noexcept;
 
         /**
          * Frees GPU-side memory associated with this Geometry.
@@ -205,8 +216,19 @@ inline const tpd::ResourceAllocator* tpd::Geometry::_allocator = nullptr;
 // INLINE FUNCTION DEFINITIONS
 // =====================================================================================================================
 
-inline tpd::Geometry::Builder::Builder(const uint32_t vertexCount, const uint32_t indexCount, const uint32_t maxInstanceCount)
-    : _vertexCount{ vertexCount }, _indexCount { indexCount }, _maxInstanceCount{ maxInstanceCount } {
+inline tpd::Geometry::Builder& tpd::Geometry::Builder::vertexCount(const uint32_t count) {
+    _vertexCount = count;
+    return *this;
+}
+
+inline tpd::Geometry::Builder& tpd::Geometry::Builder::indexCount(const uint32_t count) {
+    _indexCount = count;
+    return *this;
+}
+
+inline tpd::Geometry::Builder& tpd::Geometry::Builder::maxInstanceCount(const uint32_t count) {
+    _maxInstanceCount = count;
+    return *this;
 }
 
 inline tpd::Geometry::Geometry(

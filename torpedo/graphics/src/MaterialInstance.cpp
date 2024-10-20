@@ -12,7 +12,14 @@ void tpd::MaterialInstance::bindDescriptorSets(const vk::CommandBuffer buffer, c
     }
 }
 
-void tpd::MaterialInstance::dispose(const Renderer& renderer) noexcept {
-    _shaderInstance->dispose(renderer.getVulkanDevice());
+void tpd::MaterialInstance::dispose() noexcept {
+    if (_shaderInstance) {
+        _shaderInstance->dispose(_material->getVulkanDevice());
+        _shaderInstance.reset();
+    }
+}
+
+tpd::MaterialInstance::~MaterialInstance() {
+    dispose();
     _material = nullptr;
 }

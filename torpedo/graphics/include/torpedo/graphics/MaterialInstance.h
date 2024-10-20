@@ -23,9 +23,9 @@ namespace tpd {
         vk::PolygonMode polygonMode{ vk::PolygonMode::eFill };
         float lineWidth{ 1.0f };
 
-        void dispose(const Renderer& renderer) noexcept;
+        void dispose() noexcept;
 
-        virtual ~MaterialInstance() = default;
+        virtual ~MaterialInstance();
 
     private:
         std::unique_ptr<ShaderInstance> _shaderInstance;

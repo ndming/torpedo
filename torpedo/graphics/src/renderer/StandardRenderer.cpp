@@ -72,8 +72,8 @@ void tpd::StandardRenderer::pickPhysicalDevice() {
     _presentQueueFamily  = selector.getPresentQueueFamily();
 
     PLOGD << "StandardRenderer - Found a suitable device: " << _physicalDevice.getProperties().deviceName.data();
-    PLOGD << "StandardRenderer - Graphics queue family: " << _graphicsQueueFamily;
-    PLOGD << "StandardRenderer - Present queue family:  " << _presentQueueFamily;
+    PLOGD << "StandardRenderer - Graphics queue family: "   << _graphicsQueueFamily;
+    PLOGD << "StandardRenderer - Present  queue family: "   << _presentQueueFamily;
 }
 
 void tpd::StandardRenderer::createDevice() {

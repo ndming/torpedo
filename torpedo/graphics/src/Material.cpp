@@ -29,7 +29,7 @@ std::unique_ptr<tpd::Material> tpd::Material::Builder::build(const Renderer& ren
     device.destroyShaderModule(vertShaderModule);
     device.destroyShaderModule(fragShaderModule);
 
-    return std::make_unique<Material>(pipeline, std::move(shaderLayout));
+    return std::make_unique<Material>(device, pipeline, std::move(shaderLayout));
 }
 
 std::vector<std::byte> tpd::Material::Builder::readShaderFile(const std::filesystem::path& path) {
@@ -61,17 +61,22 @@ vk::ShaderModule tpd::Material::Builder::createShaderModule(const vk::Device dev
     return device.createShaderModule(shaderModuleCreateInfo);
 }
 
-std::shared_ptr<tpd::MaterialInstance> tpd::Material::createInstance(const Renderer& renderer) const {
+std::shared_ptr<tpd::MaterialInstance> tpd::Material::createInstance() const {
     // If this Material was not created with user-declared ShaderLayout, the first descriptor set (shared set)
     // has already been created and managed by the Renderer
     const auto firstSet = _userDeclaredLayout ? 0 : 1;
-    auto shaderInstance = _shaderLayout->createInstance(renderer.getVulkanDevice(), Renderer::MAX_FRAMES_IN_FLIGHT, firstSet);
+    auto shaderInstance = _shaderLayout->createInstance(_device, Renderer::MAX_FRAMES_IN_FLIGHT, firstSet);
     return std::make_shared<MaterialInstance>(std::move(shaderInstance), this, firstSet);
 }
 
-void tpd::Material::dispose(const Renderer& renderer) noexcept {
-    const auto device = renderer.getVulkanDevice();
-    device.destroyPipeline(_pipeline);
-    _shaderLayout->dispose(device);
-    _shaderLayout.reset();
+void tpd::Material::dispose() noexcept {
+    if (_shaderLayout) {
+        _device.destroyPipeline(_pipeline);
+        _shaderLayout->dispose(_device);
+        _shaderLayout.reset();
+    }
+}
+
+tpd::Material::~Material() {
+    dispose();
 }

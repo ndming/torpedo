@@ -27,24 +27,26 @@ namespace tpd {
             std::string _fragShaderEntryPoint{};
         };
 
-        Material(vk::Pipeline pipeline, std::unique_ptr<ShaderLayout> shaderLayout, bool userDeclaredLayout = false) noexcept;
+        Material(vk::Device device, vk::Pipeline pipeline, std::unique_ptr<ShaderLayout> shaderLayout, bool userDeclaredLayout = false) noexcept;
 
         Material(const Material&) = delete;
         Material& operator=(const Material&) = delete;
 
-        [[nodiscard]] std::shared_ptr<MaterialInstance> createInstance(const Renderer& renderer) const;
+        [[nodiscard]] std::shared_ptr<MaterialInstance> createInstance() const;
 
+        [[nodiscard]] vk::Device getVulkanDevice() const;
         [[nodiscard]] vk::Pipeline getVulkanPipeline() const;
         [[nodiscard]] vk::PipelineLayout getVulkanPipelineLayout() const;
 
-        void dispose(const Renderer& renderer) noexcept;
+        void dispose() noexcept;
 
-        virtual ~Material() = default;
+        virtual ~Material();
 
     protected:
         static ShaderLayout::Builder getPreconfiguredSharedLayoutBuilder(uint32_t setCount = 0);
 
     private:
+        vk::Device _device;
         vk::Pipeline _pipeline;
         std::unique_ptr<ShaderLayout> _shaderLayout;
         bool _userDeclaredLayout;
@@ -72,8 +74,19 @@ inline tpd::Material::Builder& tpd::Material::Builder::fragShader(const std::fil
     return *this;
 }
 
-inline tpd::Material::Material(const vk::Pipeline pipeline, std::unique_ptr<ShaderLayout> shaderLayout, const bool userDeclaredLayout) noexcept
-: _pipeline{ pipeline }, _shaderLayout{ std::move(shaderLayout) }, _userDeclaredLayout { userDeclaredLayout } {
+inline tpd::Material::Material(
+    const vk::Device device,
+    const vk::Pipeline pipeline,
+    std::unique_ptr<ShaderLayout> shaderLayout,
+    const bool userDeclaredLayout) noexcept
+    : _device{ device }
+    , _pipeline{ pipeline }
+    , _shaderLayout{ std::move(shaderLayout) }
+    , _userDeclaredLayout { userDeclaredLayout } {
+}
+
+inline vk::Device tpd::Material::getVulkanDevice() const {
+    return _device;
 }
 
 inline vk::Pipeline tpd::Material::getVulkanPipeline() const {

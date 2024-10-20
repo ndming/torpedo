@@ -38,9 +38,12 @@ int main() {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     const auto window = glfwCreateWindow(1280, 768, "Hello, Triangle!", nullptr, nullptr);
 
-    auto renderer = tpd::createRenderer<tpd::ForwardRenderer>(window);
+    const auto renderer = tpd::createRenderer<tpd::ForwardRenderer>(window);
 
-    const auto geometry = tpd::Geometry::Builder(3, indices.size(), 3)
+    const auto geometry = tpd::Geometry::Builder()
+        .vertexCount(3)
+        .indexCount(indices.size())
+        .maxInstanceCount(3)
         .attributeCount(3)
         .vertexAttribute(0, vk::Format::eR32G32B32Sfloat,    sizeof(float) * 3)
         .vertexAttribute(1, vk::Format::eR32G32B32A32Sfloat, sizeof(float) * 4)
@@ -57,7 +60,7 @@ int main() {
         .fragShader("assets/shaders/simple.frag.spv")
         .build(*renderer);
 
-    const auto materialInstance = material->createInstance(*renderer);
+    const auto materialInstance = material->createInstance();
     materialInstance->polygonMode = vk::PolygonMode::eLine;
 
     const auto drawable = tpd::Drawable::Builder()
@@ -82,9 +85,6 @@ int main() {
         renderer->render(*view);
     }
     renderer->waitIdle();
-
-    materialInstance->dispose(*renderer);
-    material->dispose(*renderer);
 
     glfwDestroyWindow(window);
     glfwTerminate();

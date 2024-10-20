@@ -1,6 +1,8 @@
 #include "torpedo/graphics/Geometry.h"
 #include "torpedo/graphics/Renderer.h"
 
+#include <plog/Log.h>
+
 tpd::Geometry::Builder& tpd::Geometry::Builder::attributeCount(const uint32_t count) {
     _bindings.reserve(count);
     _attributes.reserve(count);
@@ -101,6 +103,13 @@ std::shared_ptr<tpd::Geometry> tpd::Geometry::Builder::build(const Renderer& ren
 }
 
 std::shared_ptr<tpd::Geometry> tpd::Geometry::Builder::build(const ResourceAllocator& allocator, const vk::PrimitiveTopology topology) {
+    if (_vertexCount == 0) {
+        PLOGW << "Geometry::Builder - The Geometry is being built with 0 vertices, did you forget to call Builder::vertexCount?";
+    }
+    if (_indexCount == 0) {
+        PLOGW << "Geometry::Builder - The Geometry is being built with 0 indices, did you forget to call Builder::indexCount?";
+    }
+
     auto vbBuilder = _bindings.empty()
         ? getVertexBufferBuilder(_vertexCount, _maxInstanceCount, DEFAULT_BINDING_DESCRIPTIONS)
         : getVertexBufferBuilder(_vertexCount, _maxInstanceCount, _bindings);
@@ -217,8 +226,14 @@ void tpd::Geometry::setIndexData(const void* const data, const std::size_t dataS
         [&renderer](const auto src, const auto dst, const auto& bufferCopy) { renderer.copyBuffer(src, dst, bufferCopy); });
 }
 
-void tpd::Geometry::dispose(const Renderer& renderer) noexcept {
-    dispose(renderer.getResourceAllocator());
+void tpd::Geometry::dispose() noexcept {
+    if (_allocator) {
+        dispose(*_allocator);
+    } else {
+        PLOGW << "Could not dispose this Geometry - Either the Geometry was created with a custom ResourceAllocator,"
+                 "or the Renderer that was used to build this Geometry has been destroyed. For the former case, use"
+                 "the overload the accepts a ResourceAllocator instead.";
+    }
 }
 
 void tpd::Geometry::dispose(const ResourceAllocator& allocator) noexcept {
