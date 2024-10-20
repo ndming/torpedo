@@ -1,4 +1,5 @@
 #include "torpedo/renderer/ForwardRenderer.h"
+
 #include "torpedo/graphics/Material.h"
 
 #include <ranges>
@@ -282,8 +283,30 @@ std::vector<vk::ClearValue> tpd::ForwardRenderer::getClearValues() const {
 }
 
 void tpd::ForwardRenderer::onDrawBegin(const View& view) const {
-    const auto cameraObject = Camera::CameraObject{ view.camera->getViewMatrix(), view.camera->getProjection() };
+    updateCameraObject(*view.camera);
+    updateLightObject(*view.scene);
+}
+
+void tpd::ForwardRenderer::updateCameraObject(const Camera& camera) const {
+    const auto cameraObject = Camera::CameraObject{ camera.getViewMatrix(), camera.getNormMatrix(), camera.getProjection() };
     Camera::getCameraObjectBuffer()->updateBufferData(_currentFrame, &cameraObject, sizeof(Camera::CameraObject));
+}
+
+void tpd::ForwardRenderer::updateLightObject(const Scene& scene) const {
+    const auto& directionalLights = scene.getDirectionalLights();
+    const auto& pointLights = scene.getPointLights();
+    auto lightObject = Light::LightObject{};
+    lightObject.directionalLightCount = static_cast<uint32_t>(directionalLights.size());
+    lightObject.pointLightCount = static_cast<uint32_t>(pointLights.size());
+
+    std::ranges::transform(directionalLights, lightObject.directionalLights.begin(), [](const auto& it) {
+        return Light::DirectionalLight{ it->direction, it->color, it->intensity };
+    });
+    std::ranges::transform(pointLights, lightObject.pointLights.begin(), [](const auto& it) {
+        return Light::PointLight{ it->position, it->color, it->intensity, it->decay };
+    });
+
+    Light::getLightObjectBuffer()->updateBufferData(_currentFrame, &lightObject, sizeof(Light::LightObject));
 }
 
 void tpd::ForwardRenderer::onDraw(const View& view, const vk::CommandBuffer buffer) const {
@@ -304,7 +327,44 @@ void tpd::ForwardRenderer::onDraw(const View& view, const vk::CommandBuffer buff
             /* first set */ 0, MaterialInstance::getSharedShaderInstance()->getDescriptorSets(_currentFrame), {});
 
         for (const auto& drawable : drawables) {
-            drawable->recordDrawCommands(buffer, _currentFrame, _vkCmdSetVertexInput, _vkCmdSetPolygonMode);
+            // Update the Drawable uniform object
+            const auto normalMat = transpose(inverse(view.camera->getViewMatrix() * drawable->getTransformWorld()));
+            const auto drawableObject = Drawable::DrawableObject{ drawable->getTransformWorld(), normalMat };
+            Drawable::getDrawableObjectBuffer()->updateBufferData(_currentFrame, &drawableObject, sizeof(Drawable::DrawableObject));
+
+            // Get the Geometry and MaterialInstance from this Drawable
+            const auto& geometry = drawable->getGeometry();
+            const auto& instance = drawable->getMaterialInstance();
+
+            // Set all dynamic states specific for this Geometry and MaterialInstance
+            buffer.setPrimitiveTopology(geometry->getPrimitiveTopology());
+            buffer.setCullMode(instance->cullMode);
+            _vkCmdSetPolygonMode(buffer, static_cast<VkPolygonMode>(instance->polygonMode));
+            buffer.setLineWidth(instance->lineWidth);
+
+            const auto& bindings   = geometry->getBindingDescriptions();
+            const auto& attributes = geometry->getAttributeDescriptions();
+            _vkCmdSetVertexInput(buffer,
+                static_cast<uint32_t>(bindings.size()), bindings.data(),
+                static_cast<uint32_t>(attributes.size()), attributes.data());
+
+            // Bind vertex and index buffers
+            const auto& vertexBuffer = geometry->getVertexBuffer();
+            const auto& indexBuffer  = geometry->getIndexBuffer();
+            const auto vertexBuffers = std::vector(vertexBuffer->getBufferCount(), vertexBuffer->getBuffer());
+            buffer.bindVertexBuffers(0, vertexBuffers, vertexBuffer->getOffsets());
+            buffer.bindIndexBuffer(indexBuffer->getBuffer(), 0, vk::IndexType::eUint32);
+
+            // Bind descriptor sets
+            instance->bindDescriptorSets(buffer, _currentFrame);
+
+            // Draw this drawable
+            buffer.drawIndexed(
+                drawable->getIndexCount(),
+                drawable->instanceCount,
+                drawable->firstIndex,
+                drawable->vertexOffset,
+                drawable->firstInstance);
         }
     }
 }

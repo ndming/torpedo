@@ -149,12 +149,12 @@ tpd::Buffer::Builder tpd::Geometry::Builder::getVertexBufferBuilder(
 }
 
 const std::vector<VkVertexInputBindingDescription2EXT> tpd::Geometry::DEFAULT_BINDING_DESCRIPTIONS{
-    VkVertexInputBindingDescription2EXT{  // positions
+    VkVertexInputBindingDescription2EXT{  // position
         VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT, nullptr,
         /* binding */ 0, /* stride */ sizeof(float) * 3,
         VK_VERTEX_INPUT_RATE_VERTEX, /* divisor */ 1,
     },
-    VkVertexInputBindingDescription2EXT{  // normals
+    VkVertexInputBindingDescription2EXT{  // normal
         VK_STRUCTURE_TYPE_VERTEX_INPUT_BINDING_DESCRIPTION_2_EXT, nullptr,
         /* binding */ 1, /* stride */ sizeof(float) * 3,
         VK_VERTEX_INPUT_RATE_VERTEX, /* divisor */ 1,
@@ -167,11 +167,11 @@ const std::vector<VkVertexInputBindingDescription2EXT> tpd::Geometry::DEFAULT_BI
 };
 
 const std::vector<VkVertexInputAttributeDescription2EXT> tpd::Geometry::DEFAULT_ATTRIBUTE_DESCRIPTIONS{
-    VkVertexInputAttributeDescription2EXT{  // positions
+    VkVertexInputAttributeDescription2EXT{  // position
         VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr,
         /* location */ 0, /* binding */ 0, VK_FORMAT_R32G32B32_SFLOAT, /* offset */ 0,
     },
-    VkVertexInputAttributeDescription2EXT{  // normals
+    VkVertexInputAttributeDescription2EXT{  // normal
         VK_STRUCTURE_TYPE_VERTEX_INPUT_ATTRIBUTE_DESCRIPTION_2_EXT, nullptr,
         /* location */ 1, /* binding */ 1, VK_FORMAT_R32G32B32_SFLOAT, /* offset */ 0,
     },

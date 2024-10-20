@@ -39,7 +39,11 @@ namespace tpd {
         void createFramebuffers() override;
 
         [[nodiscard]] std::vector<vk::ClearValue> getClearValues() const override;
+        
         void onDrawBegin(const View& view) const override;
+        void updateCameraObject(const Camera& camera) const;
+        void updateLightObject(const Scene& scene) const;
+
         void onDraw(const View& view, vk::CommandBuffer buffer) const override;
     };
 }

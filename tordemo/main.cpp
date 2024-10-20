@@ -1,7 +1,5 @@
 #include <torpedo/renderer/ForwardRenderer.h>
-#include <torpedo/graphics/Geometry.h>
 #include <torpedo/graphics/Material.h>
-#include <torpedo/graphics/Drawable.h>
 #include <torpedo/camera/PerspectiveCamera.h>
 
 #include <GLFW/glfw3.h>
@@ -61,15 +59,24 @@ int main() {
         .build(*renderer);
 
     const auto materialInstance = material->createInstance();
-    materialInstance->polygonMode = vk::PolygonMode::eLine;
 
     const auto drawable = tpd::Drawable::Builder()
-        .instanceCount(3)
+        .instanceCount(1)
         .build(geometry, materialInstance);
+
+    const auto light = tpd::PointLight::Builder()
+        .color(1.0f, 1.0f, 0.0f)
+        .build();
+
+    const auto light2 = tpd::PointLight::Builder()
+        .color(0.0f, 1.0f, 1.0f)
+        .build();
 
     const auto camera = renderer->createCamera<tpd::PerspectiveCamera>();
     const auto view = renderer->createView();
     view->scene->insert(drawable);
+    view->scene->insert(light);
+    view->scene->insert(light2);
     view->camera = camera;
 
     camera->lookAt({ 2.0f, -2.0f, 2.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 1.0f });

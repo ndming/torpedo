@@ -24,17 +24,18 @@ namespace tpd {
         [[nodiscard]] const glm::mat4& getTransform() const;
         [[nodiscard]] const glm::mat4& getTransformWorld() const;
 
-        virtual ~Composable();
+        ~Composable();
 
     protected:
         Composable() = default;
 
+    private:
         std::weak_ptr<Composable> _parent{};
         std::unordered_set<std::shared_ptr<Composable>> _children{};
 
         void updateWorldTransform();
-        glm::mat4 _transform{};
-        glm::mat4 _transformWorld{};
+        glm::mat4 _transform{ 1.0f };
+        glm::mat4 _transformWorld{ 1.0f };
     };
 }
 

@@ -77,11 +77,6 @@ namespace tpd {
         Drawable(const Drawable&) = delete;
         Drawable& operator=(const Drawable&) = delete;
 
-        void recordDrawCommands(
-            vk::CommandBuffer buffer, uint32_t frameIndex,
-            PFN_vkCmdSetVertexInputEXT vkCmdSetVertexInput,
-            PFN_vkCmdSetPolygonModeEXT vkCmdSetPolygonMode) const;
-
         /**
          * Sets the number of indices to be used for indexed drawing. An indexCount of zero will take all indices
          * in the index buffer to draw the Drawable. Use instanceCount instead to temporarily disable the drawing
@@ -113,6 +108,13 @@ namespace tpd {
 
         [[nodiscard]] const std::shared_ptr<Geometry>& getGeometry() const;
         [[nodiscard]] const std::shared_ptr<MaterialInstance>& getMaterialInstance() const;
+        [[nodiscard]] uint32_t getIndexCount() const;
+        [[nodiscard]] static const std::unique_ptr<Buffer>& getDrawableObjectBuffer();
+
+        struct DrawableObject {
+            alignas(16) glm::mat4 transform;
+            alignas(16) glm::mat4 normalMat;
+        };
 
     private:
         std::shared_ptr<Geometry> _geometry;
@@ -121,8 +123,17 @@ namespace tpd {
         // The actual number of indices to draw. This may not be the same as the number of indices
         // in the Geometry's index buffer.
         uint32_t _indexCount;
+
+        static std::unique_ptr<Buffer> _drawableObjectBuffer;
+        friend class Renderer;
     };
 }
+
+inline std::unique_ptr<tpd::Buffer> tpd::Drawable::_drawableObjectBuffer = {};
+
+// =====================================================================================================================
+// INLINE FUNCTION DEFINITIONS
+// =====================================================================================================================
 
 inline tpd::Drawable::Builder& tpd::Drawable::Builder::indexCount(const uint32_t count) {
     _indexCount = count;
@@ -176,4 +187,12 @@ inline const std::shared_ptr<tpd::Geometry>& tpd::Drawable::getGeometry() const 
 
 inline const std::shared_ptr<tpd::MaterialInstance>& tpd::Drawable::getMaterialInstance() const {
     return _materialInstance;
+}
+
+inline uint32_t tpd::Drawable::getIndexCount() const {
+    return _indexCount;
+}
+
+inline const std::unique_ptr<tpd::Buffer>& tpd::Drawable::getDrawableObjectBuffer() {
+    return _drawableObjectBuffer;
 }

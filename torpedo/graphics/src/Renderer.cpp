@@ -1,20 +1,20 @@
 #include "torpedo/graphics/Renderer.h"
-
-#include "torpedo/graphics/Geometry.h"
 #include "torpedo/graphics/Material.h"
 
 #include <torpedo/bootstrap/DeviceBuilder.h>
 #include <torpedo/bootstrap/InstanceBuilder.h>
+
+#include <plog/Log.h>
 
 tpd::Renderer::Renderer(std::vector<const char*>&& requiredExtensions) {
     createInstance(std::move(requiredExtensions));
 #ifndef NDEBUG
     createDebugMessenger();
 #endif
+    PLOGD << "Assets directory: " << TORPEDO_ASSETS_DIR;
 }
 
 #ifndef NDEBUG
-#include <plog/Log.h>
 // =====================================================================================================================
 // DEBUG MESSENGER
 // =====================================================================================================================
@@ -145,25 +145,49 @@ void tpd::Renderer::createSharedDescriptorSetLayout() const {
 void tpd::Renderer::createSharedObjectBuffers() const {
     const auto alignment = _physicalDevice.getProperties().limits.minUniformBufferOffsetAlignment;
 
+    auto drawableObjectBufferBuilder = Buffer::Builder()
+        .bufferCount(MAX_FRAMES_IN_FLIGHT)
+        .usage(vk::BufferUsageFlagBits::eUniformBuffer);
+
     auto cameraObjectBufferBuilder = Buffer::Builder()
         .bufferCount(MAX_FRAMES_IN_FLIGHT)
         .usage(vk::BufferUsageFlagBits::eUniformBuffer);
 
+    auto lightObjectBufferBuilder = Buffer::Builder()
+        .bufferCount(MAX_FRAMES_IN_FLIGHT)
+        .usage(vk::BufferUsageFlagBits::eUniformBuffer);
+
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        drawableObjectBufferBuilder.buffer(i, sizeof(Drawable::DrawableObject), alignment);
         cameraObjectBufferBuilder.buffer(i, sizeof(Camera::CameraObject), alignment);
+        lightObjectBufferBuilder.buffer(i, sizeof(Light::LightObject), alignment);
     }
 
+    Drawable::_drawableObjectBuffer = drawableObjectBufferBuilder.build(*_allocator, ResourceType::Persistent);
     Camera::_cameraObjectBuffer = cameraObjectBufferBuilder.build(*_allocator, ResourceType::Persistent);
+    Light::_lightObjectBuffer = lightObjectBufferBuilder.build(*_allocator, ResourceType::Persistent);
 }
 
 void tpd::Renderer::writeSharedDescriptorSets() const {
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        auto drawableBufferInfo = vk::DescriptorBufferInfo{};
+        drawableBufferInfo.buffer = Drawable::_drawableObjectBuffer->getBuffer();
+        drawableBufferInfo.offset = Drawable::_drawableObjectBuffer->getOffsets()[i];
+        drawableBufferInfo.range  = sizeof(Drawable::DrawableObject);
+
         auto cameraBufferInfo = vk::DescriptorBufferInfo{};
         cameraBufferInfo.buffer = Camera::_cameraObjectBuffer->getBuffer();
         cameraBufferInfo.offset = Camera::_cameraObjectBuffer->getOffsets()[i];
         cameraBufferInfo.range  = sizeof(Camera::CameraObject);
 
-        MaterialInstance::_sharedShaderInstance->setDescriptors(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, { cameraBufferInfo });
+        auto lightBufferInfo = vk::DescriptorBufferInfo{};
+        lightBufferInfo.buffer = Light::_lightObjectBuffer->getBuffer();
+        lightBufferInfo.offset = Light::_lightObjectBuffer->getOffsets()[i];
+        lightBufferInfo.range  = sizeof(Light::LightObject);
+
+        MaterialInstance::_sharedShaderInstance->setDescriptors(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, { drawableBufferInfo });
+        MaterialInstance::_sharedShaderInstance->setDescriptors(i, 0, 1, vk::DescriptorType::eUniformBuffer, _device, { cameraBufferInfo });
+        MaterialInstance::_sharedShaderInstance->setDescriptors(i, 0, 2, vk::DescriptorType::eUniformBuffer, _device, { lightBufferInfo });
     }
 }
 
@@ -202,7 +226,9 @@ void tpd::Renderer::endOneShotCommands(const vk::CommandBuffer commandBuffer) co
 }
 
 tpd::Renderer::~Renderer() {
+    Light::_lightObjectBuffer->dispose(*_allocator);
     Camera::_cameraObjectBuffer->dispose(*_allocator);
+    Drawable::_drawableObjectBuffer->dispose(*_allocator);
     MaterialInstance::_sharedShaderInstance->dispose(_device);
     Material::_sharedShaderLayout->dispose(_device);
     _device.destroyCommandPool(_drawingCommandPool);

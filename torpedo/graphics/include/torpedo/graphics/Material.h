@@ -98,7 +98,10 @@ inline vk::PipelineLayout tpd::Material::getVulkanPipelineLayout() const {
 }
 
 inline tpd::ShaderLayout::Builder tpd::Material::getPreconfiguredSharedLayoutBuilder(const uint32_t setCount) {
+    using enum vk::ShaderStageFlagBits;
     return ShaderLayout::Builder()
         .descriptorSetCount(setCount + 1)
-        .descriptor(0, 0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex);
+        .descriptor(0, 0, vk::DescriptorType::eUniformBuffer, 1, eVertex)              // drawable
+        .descriptor(0, 1, vk::DescriptorType::eUniformBuffer, 1, eVertex | eFragment)  // camera
+        .descriptor(0, 2, vk::DescriptorType::eUniformBuffer, 1, eFragment);           // light
 }

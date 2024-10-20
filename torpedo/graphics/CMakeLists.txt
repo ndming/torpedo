@@ -32,12 +32,16 @@ set(TORPEDO_GRAPHICS_SOURCES
         src/Composable.cpp
         src/Drawable.cpp
         src/Geometry.cpp
+        src/Light.cpp
         src/Material.cpp
         src/MaterialInstance.cpp
         src/Renderer.cpp
         src/Scene.cpp
         src/View.cpp
         src/camera/PerspectiveCamera.cpp
+        src/light/DirectionalLight.cpp
+        src/light/PointLight.cpp
+        src/material/PhongMaterial.cpp
         src/renderer/ForwardRenderer.cpp
         src/renderer/StandardRenderer.cpp
 )
@@ -50,8 +54,7 @@ add_library(${TARGET} STATIC)
 add_library(torpedo::graphics ALIAS ${TARGET})
 set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS OFF COMPILE_WARNING_AS_ERROR ON)
 target_sources(${TARGET} PRIVATE ${TORPEDO_GRAPHICS_SOURCES})
-target_compile_definitions(${TARGET} PUBLIC GLFW_INCLUDE_NONE)
-target_compile_definitions(${TARGET} PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
+target_compile_definitions(${TARGET} PUBLIC GLFW_INCLUDE_NONE GLM_FORCE_DEPTH_ZERO_TO_ONE)
 
 # Where to look for header files
 target_include_directories(${TARGET} PUBLIC include)
