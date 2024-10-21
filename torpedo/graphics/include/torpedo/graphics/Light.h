@@ -5,13 +5,13 @@
 namespace tpd {
     class Light {
     public:
-        template <typename T, typename Light>
+        template <typename T, typename L>
         class Builder {
         public:
             T& color(float r, float g, float b);
             T& intensity(float intensity);
 
-            virtual std::shared_ptr<Light> build() const = 0;
+            virtual std::shared_ptr<L> build() const = 0;
             virtual ~Builder() = default;
 
         protected:
@@ -28,8 +28,14 @@ namespace tpd {
         std::array<float, 3> color;
         float intensity;
 
+        static constexpr uint32_t MAX_AMBIENT_LIGHTS = 1;
         static constexpr uint32_t MAX_DISTANT_LIGHTS = 8;
         static constexpr uint32_t MAX_POINT_LIGHTS   = 64;
+
+        struct AmbientLight {
+            alignas(16) std::array<float, 3> color;
+            alignas(4)  float intensity;
+        };
 
         struct DistantLight {
             alignas(16) std::array<float, 3> direction;
@@ -45,8 +51,10 @@ namespace tpd {
         };
 
         struct LightObject {
+            alignas(4)  uint32_t ambientLightCount;
             alignas(4)  uint32_t distantLightCount;
             alignas(4)  uint32_t pointLightCount;
+            alignas(16) std::array<AmbientLight, MAX_AMBIENT_LIGHTS> ambientLights;
             alignas(16) std::array<DistantLight, MAX_DISTANT_LIGHTS> distantLights;
             alignas(16) std::array<PointLight, MAX_POINT_LIGHTS> pointLights;
         };
@@ -65,16 +73,16 @@ inline std::unique_ptr<tpd::Buffer> tpd::Light::_lightObjectBuffer = {};
 // INLINE FUNCTION DEFINITIONS
 // =====================================================================================================================
 
-template<typename T, typename Light>
-T& tpd::Light::Builder<T, Light>::color(const float r, const float g, const float b) {
+template<typename T, typename L>
+T& tpd::Light::Builder<T, L>::color(const float r, const float g, const float b) {
     _r = r;
     _g = g;
     _b = b;
     return *static_cast<T*>(this);
 }
 
-template<typename T, typename Light>
-T& tpd::Light::Builder<T, Light>::intensity(const float intensity) {
+template<typename T, typename L>
+T& tpd::Light::Builder<T, L>::intensity(const float intensity) {
     _intensity = intensity;
     return *static_cast<T*>(this);
 }

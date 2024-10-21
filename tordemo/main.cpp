@@ -64,19 +64,14 @@ int main() {
         .instanceCount(1)
         .build(geometry, materialInstance);
 
-    const auto light = tpd::PointLight::Builder()
+    const auto light = tpd::AmbientLight::Builder()
         .color(1.0f, 1.0f, 0.0f)
-        .build();
-
-    const auto light2 = tpd::PointLight::Builder()
-        .color(0.0f, 1.0f, 1.0f)
         .build();
 
     const auto camera = renderer->createCamera<tpd::PerspectiveCamera>();
     const auto view = renderer->createView();
     view->scene->insert(drawable);
     view->scene->insert(light);
-    view->scene->insert(light2);
     view->camera = camera;
 
     camera->lookAt({ 2.0f, -2.0f, 2.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 1.0f });

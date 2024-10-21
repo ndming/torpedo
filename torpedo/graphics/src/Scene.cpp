@@ -10,6 +10,18 @@ void tpd::Scene::remove(const std::shared_ptr<Drawable>& drawable) {
     _drawableGraph[drawable->getMaterialInstance()->getMaterial()].erase(drawable);
 }
 
+void tpd::Scene::insert(const std::shared_ptr<AmbientLight>& light) {
+    if (_ambientLights.size() >= Light::MAX_AMBIENT_LIGHTS) {
+        PLOGW << "Scene - Could not add AmbientLight: maximum number of ambient light has been reached";
+    } else {
+        _ambientLights.insert(light);
+    }
+}
+
+void tpd::Scene::remove(const std::shared_ptr<AmbientLight>& light) {
+    _ambientLights.erase(light);
+}
+
 void tpd::Scene::insert(const std::shared_ptr<DistantLight>& light) {
     if (_distantLights.size() >= Light::MAX_DISTANT_LIGHTS) {
         PLOGW << "Scene - Could not add DistantLight: maximum number of distant light has been reached";
@@ -22,7 +34,7 @@ void tpd::Scene::remove(const std::shared_ptr<DistantLight>& light) {
     _distantLights.erase(light);
 }
 
-void tpd::Scene::insert(const std::shared_ptr<PointLight> &light) {
+void tpd::Scene::insert(const std::shared_ptr<PointLight>& light) {
     if (_pointLights.size() >= Light::MAX_POINT_LIGHTS) {
         PLOGW << "Scene - Could not add PointLight: maximum number of point light has been reached";
     } else {
