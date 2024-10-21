@@ -28,10 +28,10 @@ namespace tpd {
         std::array<float, 3> color;
         float intensity;
 
-        static constexpr uint32_t MAX_DIRECTIONAL_LIGHTS = 8;
-        static constexpr uint32_t MAX_POINT_LIGHTS       = 64;
+        static constexpr uint32_t MAX_DISTANT_LIGHTS = 8;
+        static constexpr uint32_t MAX_POINT_LIGHTS   = 64;
 
-        struct DirectionalLight {
+        struct DistantLight {
             alignas(16) std::array<float, 3> direction;
             alignas(16) std::array<float, 3> color;
             alignas(4)  float intensity;
@@ -45,9 +45,9 @@ namespace tpd {
         };
 
         struct LightObject {
-            alignas(4)  uint32_t directionalLightCount;
+            alignas(4)  uint32_t distantLightCount;
             alignas(4)  uint32_t pointLightCount;
-            alignas(16) std::array<DirectionalLight, MAX_DIRECTIONAL_LIGHTS> directionalLights;
+            alignas(16) std::array<DistantLight, MAX_DISTANT_LIGHTS> distantLights;
             alignas(16) std::array<PointLight, MAX_POINT_LIGHTS> pointLights;
         };
 

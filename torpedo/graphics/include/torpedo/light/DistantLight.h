@@ -3,13 +3,13 @@
 #include "torpedo/graphics/Light.h"
 
 namespace tpd {
-    class DirectionalLight final : public Light {
+    class DistantLight final : public Light {
     public:
-        class Builder final : public Light::Builder<Builder, DirectionalLight> {
+        class Builder final : public Light::Builder<Builder, DistantLight> {
         public:
             Builder& direction(float x, float y, float z);
 
-            [[nodiscard]] std::shared_ptr<DirectionalLight> build() const override;
+            [[nodiscard]] std::shared_ptr<DistantLight> build() const override;
 
         private:
             float _dirX{  0.0f };
@@ -17,7 +17,7 @@ namespace tpd {
             float _dirZ{ -1.0f };
         };
 
-        DirectionalLight(std::array<float, 3> direction, std::array<float, 3> color, float intensity);
+        DistantLight(std::array<float, 3> direction, std::array<float, 3> color, float intensity);
 
         void setDirection(float x, float y, float z);
         std::array<float, 3> direction;
@@ -28,14 +28,14 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS
 // =====================================================================================================================
 
-inline tpd::DirectionalLight::Builder& tpd::DirectionalLight::Builder::direction(const float x, const float y, const float z) {
+inline tpd::DistantLight::Builder& tpd::DistantLight::Builder::direction(const float x, const float y, const float z) {
     _dirX = x;
     _dirY = y;
     _dirZ = z;
     return *this;
 }
 
-inline tpd::DirectionalLight::DirectionalLight(
+inline tpd::DistantLight::DistantLight(
     const std::array<float, 3> direction,
     const std::array<float, 3> color,
     const float intensity)
@@ -43,7 +43,7 @@ inline tpd::DirectionalLight::DirectionalLight(
     , direction{ direction } {
 }
 
-inline void tpd::DirectionalLight::setDirection(const float x, const float y, const float z) {
+inline void tpd::DistantLight::setDirection(const float x, const float y, const float z) {
     direction[0] = x;
     direction[1] = y;
     direction[2] = z;

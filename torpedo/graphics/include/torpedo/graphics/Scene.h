@@ -1,7 +1,7 @@
 #pragma once
 
 #include "torpedo/graphics/Drawable.h"
-#include "torpedo/light/DirectionalLight.h"
+#include "torpedo/light/DistantLight.h"
 #include "torpedo/light/PointLight.h"
 
 #include <unordered_map>
@@ -18,8 +18,8 @@ namespace tpd {
         void insert(const std::shared_ptr<Drawable>& drawable);
         void remove(const std::shared_ptr<Drawable>& drawable);
 
-        void insert(const std::shared_ptr<DirectionalLight>& light);
-        void remove(const std::shared_ptr<DirectionalLight>& light);
+        void insert(const std::shared_ptr<DistantLight>& light);
+        void remove(const std::shared_ptr<DistantLight>& light);
 
         void insert(const std::shared_ptr<PointLight>& light);
         void remove(const std::shared_ptr<PointLight>& light);
@@ -27,13 +27,13 @@ namespace tpd {
         using DrawableGraph = std::unordered_map<const Material*, std::unordered_set<std::shared_ptr<Drawable>>>;
         [[nodiscard]] const DrawableGraph& getDrawableGraph() const;
 
-        [[nodiscard]] const std::unordered_set<std::shared_ptr<DirectionalLight>>& getDirectionalLights() const;
+        [[nodiscard]] const std::unordered_set<std::shared_ptr<DistantLight>>& getDistantLights() const;
         [[nodiscard]] const std::unordered_set<std::shared_ptr<PointLight>>& getPointLights() const;
 
     private:
         DrawableGraph _drawableGraph{};
 
-        std::unordered_set<std::shared_ptr<DirectionalLight>> _directionalLights{};
+        std::unordered_set<std::shared_ptr<DistantLight>> _distantLights{};
         std::unordered_set<std::shared_ptr<PointLight>> _pointLights{};
     };
 }
@@ -46,8 +46,8 @@ inline const tpd::Scene::DrawableGraph& tpd::Scene::getDrawableGraph() const {
     return _drawableGraph;
 }
 
-inline const std::unordered_set<std::shared_ptr<tpd::DirectionalLight>>& tpd::Scene::getDirectionalLights() const {
-    return _directionalLights;
+inline const std::unordered_set<std::shared_ptr<tpd::DistantLight>>& tpd::Scene::getDistantLights() const {
+    return _distantLights;
 }
 
 inline const std::unordered_set<std::shared_ptr<tpd::PointLight>>& tpd::Scene::getPointLights() const {

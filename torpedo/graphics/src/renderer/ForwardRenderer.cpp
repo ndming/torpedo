@@ -293,14 +293,14 @@ void tpd::ForwardRenderer::updateCameraObject(const Camera& camera) const {
 }
 
 void tpd::ForwardRenderer::updateLightObject(const Scene& scene) const {
-    const auto& directionalLights = scene.getDirectionalLights();
+    const auto& distantLights = scene.getDistantLights();
     const auto& pointLights = scene.getPointLights();
     auto lightObject = Light::LightObject{};
-    lightObject.directionalLightCount = static_cast<uint32_t>(directionalLights.size());
+    lightObject.distantLightCount = static_cast<uint32_t>(distantLights.size());
     lightObject.pointLightCount = static_cast<uint32_t>(pointLights.size());
 
-    std::ranges::transform(directionalLights, lightObject.directionalLights.begin(), [](const auto& it) {
-        return Light::DirectionalLight{ it->direction, it->color, it->intensity };
+    std::ranges::transform(distantLights, lightObject.distantLights.begin(), [](const auto& it) {
+        return Light::DistantLight{ it->direction, it->color, it->intensity };
     });
     std::ranges::transform(pointLights, lightObject.pointLights.begin(), [](const auto& it) {
         return Light::PointLight{ it->position, it->color, it->intensity, it->decay };

@@ -6,7 +6,7 @@ layout(location = 0) in vec4 fragColor;
 
 layout(location = 0) out vec4 outColor;
 
-struct DirectionalLight {
+struct DistantLight {
     vec3 direction;
     vec3 color;
     float intensity;
@@ -20,12 +20,12 @@ struct PointLight {
 };
 
 layout(std430, set = 0, binding = 2) uniform LightObject {
-    float directionalLightCount;
+    float distantLightCount;
     float pointLightCount;
-    DirectionalLight directionalLights[8];
+    DistantLight distantLights[8];
     PointLight pointLights[64];
 } light;
 
 void main() {
-    outColor = vec4(light.pointLights[0].color, 1.0);
+    outColor = vec4(light.pointLights[1].color, 1.0);
 }

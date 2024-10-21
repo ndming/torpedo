@@ -39,7 +39,7 @@ set(TORPEDO_GRAPHICS_SOURCES
         src/Scene.cpp
         src/View.cpp
         src/camera/PerspectiveCamera.cpp
-        src/light/DirectionalLight.cpp
+        src/light/DistantLight.cpp
         src/light/PointLight.cpp
         src/material/PhongMaterial.cpp
         src/renderer/ForwardRenderer.cpp
