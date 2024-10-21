@@ -20,7 +20,7 @@ namespace tpd {
         [[nodiscard]] std::span<const vk::DescriptorSet> getDescriptorSets(uint32_t instance) const;
 
         void setDescriptors(
-            uint32_t instance, uint32_t set, uint32_t binding, vk::DescriptorType type, vk::Device device,
+            uint32_t instance, uint32_t setIndex, uint32_t binding, vk::DescriptorType type, vk::Device device,
             const std::vector<vk::DescriptorBufferInfo>& bufferInfos) const;
 
         void setDescriptors(

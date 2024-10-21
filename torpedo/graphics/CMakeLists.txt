@@ -37,6 +37,7 @@ set(TORPEDO_GRAPHICS_SOURCES
         src/MaterialInstance.cpp
         src/Renderer.cpp
         src/Scene.cpp
+        src/Texture.cpp
         src/View.cpp
         src/camera/PerspectiveCamera.cpp
         src/geometry/CubeGeometryBuilder.cpp
@@ -44,6 +45,7 @@ set(TORPEDO_GRAPHICS_SOURCES
         src/light/DistantLight.cpp
         src/light/PointLight.cpp
         src/material/PhongMaterial.cpp
+        src/material/PhongMaterialInstance.cpp
         src/renderer/ForwardRenderer.cpp
         src/renderer/StandardRenderer.cpp
 )
@@ -60,6 +62,25 @@ target_compile_definitions(${TARGET} PUBLIC GLFW_INCLUDE_NONE GLM_FORCE_DEPTH_ZE
 
 # Where to look for header files
 target_include_directories(${TARGET} PUBLIC include)
+
+# Where to look for internal assets
+if(CMAKE_CONFIGURATION_TYPES)
+    # Multi-configuration generators (Visual Studio, Xcode)
+    set(TORPEDO_GRAPHICS_ASSETS_DIR "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/assets")
+else()
+    # Single-configuration generators (Makefiles, Ninja)
+    set(TORPEDO_GRAPHICS_ASSETS_DIR "${CMAKE_CURRENT_BINARY_DIR}/assets")
+endif()
+target_compile_definitions(${TARGET} PRIVATE TORPEDO_ASSETS_DIR=\"${TORPEDO_GRAPHICS_ASSETS_DIR}\")
+
+# Shader assets
+set(TORPEDO_SHADER_ASSETS_DIR "${TORPEDO_GRAPHICS_ASSETS_DIR}/shaders")
+set(TORPEDO_SHADER_FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/graphics.vert
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/phong.frag
+)
+compile_glsl(${TARGET} ${TORPEDO_SHADER_ASSETS_DIR} "${TORPEDO_SHADER_FILES}")
+target_link_libraries(${TARGET} PRIVATE "${TARGET}_spirv_binaries")
 
 # Dependencies
 target_link_libraries(${TARGET} PUBLIC torpedo::bootstrap)

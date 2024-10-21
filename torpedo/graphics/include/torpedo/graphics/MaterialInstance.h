@@ -1,6 +1,8 @@
 #pragma once
 
+#include <torpedo/foundation/ResourceAllocator.h>
 #include <torpedo/foundation/ShaderInstance.h>
+#include <torpedo/foundation/Image.h>
 
 namespace tpd {
     class Material;
@@ -8,12 +10,12 @@ namespace tpd {
 
     class MaterialInstance {
     public:
-        MaterialInstance(std::unique_ptr<ShaderInstance> shaderInstance, const Material* material, uint32_t firstSet = 0) noexcept;
+        MaterialInstance(std::unique_ptr<ShaderInstance> shaderInstance, const Material* material) noexcept;
 
         MaterialInstance(const MaterialInstance& material) = delete;
         MaterialInstance& operator=(const MaterialInstance& material) = delete;
 
-        virtual void bindDescriptorSets(vk::CommandBuffer buffer, uint32_t frameIndex) const;
+        virtual void activate(vk::CommandBuffer buffer, uint32_t frameIndex) const;
 
         [[nodiscard]] const Material* getMaterial() const;
 
@@ -23,34 +25,34 @@ namespace tpd {
         vk::PolygonMode polygonMode{ vk::PolygonMode::eFill };
         float lineWidth{ 1.0f };
 
-        void dispose() noexcept;
+        virtual void dispose() noexcept;
 
         virtual ~MaterialInstance();
 
-    private:
+    protected:
         std::unique_ptr<ShaderInstance> _shaderInstance;
         const Material* _material;
-        const uint32_t _firstSet;
 
+        static const ResourceAllocator* _allocator;
+        static std::unique_ptr<Image> _dummyImage;
+
+    private:
         // A ShaderInstance holding one shared descriptor set for each in-flight frames
         static std::unique_ptr<ShaderInstance> _sharedShaderInstance;
         friend class Renderer;
     };
 }
 
+inline const tpd::ResourceAllocator* tpd::MaterialInstance::_allocator = nullptr;
+inline std::unique_ptr<tpd::Image> tpd::MaterialInstance::_dummyImage = {};
 inline std::unique_ptr<tpd::ShaderInstance> tpd::MaterialInstance::_sharedShaderInstance = {};
 
 // =====================================================================================================================
 // INLINE FUNCTION DEFINITIONS
 // =====================================================================================================================
 
-inline tpd::MaterialInstance::MaterialInstance(
-    std::unique_ptr<ShaderInstance> shaderInstance,
-    const Material* material,
-    const uint32_t firstSet) noexcept
-    : _shaderInstance{ std::move(shaderInstance) }
-    , _material { material }
-    , _firstSet{ firstSet } {
+inline tpd::MaterialInstance::MaterialInstance(std::unique_ptr<ShaderInstance> shaderInstance, const Material* material) noexcept
+    : _shaderInstance{ std::move(shaderInstance) }, _material { material } {
 }
 
 inline const tpd::Material* tpd::MaterialInstance::getMaterial() const {

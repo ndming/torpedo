@@ -197,7 +197,7 @@ void tpd::Geometry::dispose() noexcept {
     } else {
         PLOGW << "Could not dispose this Geometry - Either the Geometry was created with a custom ResourceAllocator,"
                  "or the Renderer that was used to build this Geometry has been destroyed. For the former case, use"
-                 "the overload the accepts a ResourceAllocator instead.";
+                 "the overload that accepts a ResourceAllocator instead.";
     }
 }
 

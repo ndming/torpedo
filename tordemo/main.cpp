@@ -1,5 +1,5 @@
 #include <torpedo/renderer/ForwardRenderer.h>
-#include <torpedo/graphics/Material.h>
+#include <torpedo/material/PhongMaterial.h>
 #include <torpedo/camera/PerspectiveCamera.h>
 #include <torpedo/geometry/CubeGeometryBuilder.h>
 
@@ -23,18 +23,13 @@ int main() {
 
     const auto renderer = tpd::createRenderer<tpd::ForwardRenderer>(window);
     const auto geometry = tpd::CubeGeometryBuilder().build(*renderer);
+    const auto phong = tpd::PhongMaterial::Builder().build(*renderer);
+    const auto phongInstance = phong->createInstance(*renderer);
 
-    const auto material = tpd::Material::Builder()
-        .vertShader("assets/shaders/simple.vert.spv")
-        .fragShader("assets/shaders/simple.frag.spv")
-        .build(*renderer);
-
-    const auto materialInstance = material->createInstance();
-
-    const auto drawable = tpd::Drawable::Builder().build(geometry, materialInstance);
+    const auto drawable = tpd::Drawable::Builder().build(geometry, phongInstance);
 
     const auto light = tpd::PointLight::Builder()
-        .position(2.0f, 2.0f, 2.0f)
+        .position(1.5f, 1.5f, 1.5f)
         .intensity(10.0f)
         .build();
 

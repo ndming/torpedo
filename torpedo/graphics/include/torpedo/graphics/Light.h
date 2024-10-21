@@ -5,23 +5,10 @@
 namespace tpd {
     class Light {
     public:
-        template <typename T, typename L>
-        class Builder {
-        public:
-            T& color(float r, float g, float b);
-            T& intensity(float intensity);
-
-            virtual std::shared_ptr<L> build() const = 0;
-            virtual ~Builder() = default;
-
-        protected:
-            float _r{ 1.0f };
-            float _g{ 1.0f };
-            float _b{ 1.0f };
-            float _intensity{ 1.0f };
-        };
-
         Light(std::array<float, 3> color, float intensity);
+
+        Light(const Light&) = delete;
+        Light& operator=(const Light&) = delete;
 
         void setColor(float r, float g, float b);
 
@@ -60,6 +47,23 @@ namespace tpd {
         };
 
         static const std::unique_ptr<Buffer>& getLightObjectBuffer();
+
+    protected:
+        template <typename T, typename L>
+        class Builder {
+        public:
+            T& color(float r, float g, float b);
+            T& intensity(float intensity);
+
+            virtual std::shared_ptr<L> build() const = 0;
+            virtual ~Builder() = default;
+
+        protected:
+            float _r{ 1.0f };
+            float _g{ 1.0f };
+            float _b{ 1.0f };
+            float _intensity{ 1.0f };
+        };
 
     private:
         static std::unique_ptr<Buffer> _lightObjectBuffer;

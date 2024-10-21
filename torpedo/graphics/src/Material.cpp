@@ -4,32 +4,8 @@
 #include <fstream>
 #include <ranges>
 
-std::unique_ptr<tpd::Material> tpd::Material::Builder::build(const Renderer& renderer, std::unique_ptr<ShaderLayout> layout) const {
-    auto pipelineInfo = renderer.getGraphicsPipelineInfo();
-    const auto device = renderer.getVulkanDevice();
-
-    // Shader stages
-    const auto vertShaderModule = createShaderModule(device, _vertShaderCode);
-    const auto fragShaderModule = createShaderModule(device, _fragShaderCode);
-    const auto shaderStageInfos = std::array{
-        vk::PipelineShaderStageCreateInfo{ {}, vk::ShaderStageFlagBits::eVertex,   vertShaderModule, _vertShaderEntryPoint.c_str() },
-        vk::PipelineShaderStageCreateInfo{ {}, vk::ShaderStageFlagBits::eFragment, fragShaderModule, _fragShaderEntryPoint.c_str() },
-    };
-    pipelineInfo.stageCount = static_cast<uint32_t>(shaderStageInfos.size());
-    pipelineInfo.pStages = shaderStageInfos.data();
-
-    // Pipeline layout
-    auto shaderLayout = layout ? std::move(layout) : getPreconfiguredSharedLayoutBuilder().build(device);
-    pipelineInfo.layout = shaderLayout->getPipelineLayout();
-
-    // Create the graphics pipeline
-    const auto pipeline = device.createGraphicsPipeline(nullptr, pipelineInfo).value;
-
-    // We no longer need the shader modules once the pipeline is created
-    device.destroyShaderModule(vertShaderModule);
-    device.destroyShaderModule(fragShaderModule);
-
-    return std::make_unique<Material>(device, pipeline, std::move(shaderLayout));
+std::filesystem::path tpd::Material::getShaderFilePath(const std::string_view file) {
+    return std::filesystem::path(TORPEDO_ASSETS_DIR) / "shaders" / file;
 }
 
 std::vector<std::byte> tpd::Material::Builder::readShaderFile(const std::filesystem::path& path) {
@@ -64,9 +40,9 @@ vk::ShaderModule tpd::Material::Builder::createShaderModule(const vk::Device dev
 std::shared_ptr<tpd::MaterialInstance> tpd::Material::createInstance() const {
     // If this Material was not created with user-declared ShaderLayout, the first descriptor set (shared set)
     // has already been created and managed by the Renderer
-    const auto firstSet = _userDeclaredLayout ? 0 : 1;
+    const auto firstSet = static_cast<uint32_t>(_withSharedLayout);
     auto shaderInstance = _shaderLayout->createInstance(_device, Renderer::MAX_FRAMES_IN_FLIGHT, firstSet);
-    return std::make_shared<MaterialInstance>(std::move(shaderInstance), this, firstSet);
+    return std::make_shared<MaterialInstance>(std::move(shaderInstance), this);
 }
 
 void tpd::Material::dispose() noexcept {

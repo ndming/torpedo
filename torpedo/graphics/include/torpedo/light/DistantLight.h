@@ -19,6 +19,9 @@ namespace tpd {
 
         DistantLight(std::array<float, 3> direction, std::array<float, 3> color, float intensity);
 
+        DistantLight(const DistantLight&) = delete;
+        DistantLight& operator=(const DistantLight&) = delete;
+
         void setDirection(float x, float y, float z);
         std::array<float, 3> direction;
     };

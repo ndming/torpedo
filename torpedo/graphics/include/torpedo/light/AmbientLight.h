@@ -11,6 +11,9 @@ namespace tpd {
         };
 
         AmbientLight(std::array<float, 3> color, float intensity);
+
+        AmbientLight(const AmbientLight&) = delete;
+        AmbientLight& operator=(const AmbientLight&) = delete;
     };
 }
 

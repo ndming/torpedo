@@ -22,6 +22,9 @@ namespace tpd {
 
         PointLight(std::array<float, 3> position, float decay, std::array<float, 3> color, float intensity);
 
+        PointLight(const PointLight&) = delete;
+        PointLight& operator=(const PointLight&) = delete;
+
         void setPosition(float x, float y, float z);
 
         std::array<float, 3> position;

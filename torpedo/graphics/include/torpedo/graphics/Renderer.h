@@ -34,12 +34,16 @@ namespace tpd {
 
         void copyBuffer(vk::Buffer src, vk::Buffer dst, const vk::BufferCopy& copyInfo) const;
 
+        void transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::Image image) const;
+
         void waitIdle() const noexcept;
 
         [[nodiscard]] vk::Device getVulkanDevice() const;
         [[nodiscard]] const ResourceAllocator& getResourceAllocator() const;
+        [[nodiscard]] std::size_t getMinUniformBufferOffsetAlignment() const;
 
-        [[nodiscard]] virtual vk::GraphicsPipelineCreateInfo getGraphicsPipelineInfo() const = 0;
+        [[nodiscard]] virtual vk::GraphicsPipelineCreateInfo getGraphicsPipelineInfo() const;
+        [[nodiscard]] virtual vk::GraphicsPipelineCreateInfo getGraphicsPipelineInfo(float minSampleShading) const = 0;
 
         static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -70,7 +74,6 @@ namespace tpd {
         vk::CommandPool _oneShotCommandPool{};
 
         vk::SampleCountFlagBits _msaaSampleCount{ vk::SampleCountFlagBits::e4 };
-        float _minSampleShading{ 0.0f };
 
     private:
         void createInstance(std::vector<const char*>&& requiredExtensions);
@@ -97,6 +100,8 @@ namespace tpd {
         void createSharedDescriptorSetLayout() const;
         void createSharedObjectBuffers() const;
         void writeSharedDescriptorSets() const;
+
+        void createDefaultResources() const;
 
         [[nodiscard]] vk::CommandBuffer beginOneShotCommands() const;
         void endOneShotCommands(vk::CommandBuffer commandBuffer) const;
@@ -136,4 +141,12 @@ inline vk::Device tpd::Renderer::getVulkanDevice() const {
 
 inline const tpd::ResourceAllocator& tpd::Renderer::getResourceAllocator() const {
     return *_allocator;
+}
+
+inline std::size_t tpd::Renderer::getMinUniformBufferOffsetAlignment() const {
+    return _physicalDevice.getProperties().limits.minUniformBufferOffsetAlignment;
+}
+
+inline vk::GraphicsPipelineCreateInfo tpd::Renderer::getGraphicsPipelineInfo() const {
+    return getGraphicsPipelineInfo(0.0f);
 }

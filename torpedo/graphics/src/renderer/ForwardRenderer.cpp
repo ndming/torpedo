@@ -218,7 +218,7 @@ void tpd::ForwardRenderer::createFramebuffers() {
     _framebuffers = _swapChainImageViews | std::ranges::views::transform(toFramebuffer) | std::ranges::to<std::vector>();
 }
 
-vk::GraphicsPipelineCreateInfo tpd::ForwardRenderer::getGraphicsPipelineInfo() const {
+vk::GraphicsPipelineCreateInfo tpd::ForwardRenderer::getGraphicsPipelineInfo(float minSampleShading) const {
     // Specify which properties will be able to change at runtime
     static constexpr auto dynamicStates = std::array{
         // Renderer
@@ -252,7 +252,7 @@ vk::GraphicsPipelineCreateInfo tpd::ForwardRenderer::getGraphicsPipelineInfo() c
                                           vk::ColorComponentFlagBits::eA;
     static const auto colorBlending = vk::PipelineColorBlendStateCreateInfo{ {}, vk::False, {}, colorBlendAttachment };
     static const auto multisampling = vk::PipelineMultisampleStateCreateInfo{
-        {}, /* MSAA */ _msaaSampleCount, /* Sample Shading */ vk::True, _minSampleShading };
+        {}, /* MSAA */ _msaaSampleCount, /* Sample Shading */ vk::True, minSampleShading };
 
     auto pipelineInfo = vk::GraphicsPipelineCreateInfo{};
     pipelineInfo.pDynamicState       = &dynamicStateInfo;
@@ -329,7 +329,7 @@ void tpd::ForwardRenderer::onDraw(const View& view, const vk::CommandBuffer buff
             buffer.bindIndexBuffer(indexBuffer->getBuffer(), 0, vk::IndexType::eUint32);
 
             // Bind descriptor sets
-            instance->bindDescriptorSets(buffer, _currentFrame);
+            instance->activate(buffer, _currentFrame);
 
             // Draw this drawable
             buffer.drawIndexed(

@@ -7,7 +7,7 @@ namespace tpd {
     public:
         explicit ForwardRenderer(void* window) : StandardRenderer{ static_cast<GLFWwindow*>(window) } {}
 
-        [[nodiscard]] vk::GraphicsPipelineCreateInfo getGraphicsPipelineInfo() const override;
+        [[nodiscard]] vk::GraphicsPipelineCreateInfo getGraphicsPipelineInfo(float minSampleShading) const override;
 
         ForwardRenderer(const ForwardRenderer&) = delete;
         ForwardRenderer& operator=(const ForwardRenderer&) = delete;
