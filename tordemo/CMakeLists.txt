@@ -79,6 +79,7 @@ endfunction()
 # Texture assets
 set(TORDEMO_TEXTURE_OUTPUT_DIR "${TORDEMO_ASSETS_OUTPUT_DIR}/textures")
 set(TORDEMO_TEXTURE_FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/textures/owl.jpg
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/textures/container_diffuse.png
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/textures/container_specular.png
 )
 copy_resource("texture" ${TORDEMO_TEXTURE_OUTPUT_DIR} "${TORDEMO_TEXTURE_FILES}")

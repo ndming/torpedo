@@ -166,7 +166,7 @@ void tpd::Geometry::setVertexData(
     }
     const auto binding = std::distance(_attributeBindings.begin(), found);
     _vertexBuffer->transferBufferData(binding, data, dataSize, renderer.getResourceAllocator(),
-        [&renderer](const auto src, const auto dst, const auto& bufferCopy) { renderer.copyBuffer(src, dst, bufferCopy); });
+        [&renderer](const auto src, const auto dst, const auto& bufferCopy) { renderer.copyBufferToBuffer(src, dst, bufferCopy); });
 }
 
 void tpd::Geometry::setVertexData(
@@ -182,13 +182,13 @@ void tpd::Geometry::setVertexData(
     const auto binding  = DEFAULT_ATTRIBUTE_BINDINGS.at(attribute);
     const auto dataSize = DEFAULT_BINDING_DESCRIPTIONS[binding].stride * _vertexCount;
     _vertexBuffer->transferBufferData(binding, data, dataSize, renderer.getResourceAllocator(),
-        [&renderer](const auto src, const auto dst, const auto& bufferCopy) { renderer.copyBuffer(src, dst, bufferCopy); });
+        [&renderer](const auto src, const auto dst, const auto& bufferCopy) { renderer.copyBufferToBuffer(src, dst, bufferCopy); });
 }
 
 void tpd::Geometry::setIndexData(const void* const data, const std::size_t dataSize, const Renderer& renderer) const {
     _indexBuffer->transferBufferData(
         0, data, dataSize, renderer.getResourceAllocator(),
-        [&renderer](const auto src, const auto dst, const auto& bufferCopy) { renderer.copyBuffer(src, dst, bufferCopy); });
+        [&renderer](const auto src, const auto dst, const auto& bufferCopy) { renderer.copyBufferToBuffer(src, dst, bufferCopy); });
 }
 
 void tpd::Geometry::dispose() noexcept {

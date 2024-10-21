@@ -44,6 +44,28 @@ void tpd::PhongMaterialInstance::activate(const vk::CommandBuffer buffer, const 
         1, _shaderInstance->getDescriptorSets(frameIndex), {});
 }
 
+void tpd::PhongMaterialInstance::setDiffuse(const Texture& texture) {
+    for (uint32_t i = 0; i < Renderer::MAX_FRAMES_IN_FLIGHT; ++i) {
+        auto imageInfo = vk::DescriptorImageInfo{};
+        imageInfo.imageView = texture.getImage()->getImageView();
+        imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        imageInfo.sampler = texture.getSampler();
+        _shaderInstance->setDescriptors(i, 0, 1, vk::DescriptorType::eCombinedImageSampler, _material->getVulkanDevice(), { imageInfo });
+    }
+    _materialObject.useDiffuseMap = 1;
+}
+
+void tpd::PhongMaterialInstance::setSpecular(const Texture& texture) {
+    for (uint32_t i = 0; i < Renderer::MAX_FRAMES_IN_FLIGHT; ++i) {
+        auto imageInfo = vk::DescriptorImageInfo{};
+        imageInfo.imageView = texture.getImage()->getImageView();
+        imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        imageInfo.sampler = texture.getSampler();
+        _shaderInstance->setDescriptors(i, 0, 2, vk::DescriptorType::eCombinedImageSampler, _material->getVulkanDevice(), { imageInfo });
+    }
+    _materialObject.useSpecularMap = 1;
+}
+
 void tpd::PhongMaterialInstance::dispose() noexcept {
     if (_allocator && _materialObjectBuffer) {
         _materialObjectBuffer->dispose(*_allocator);

@@ -19,8 +19,10 @@ namespace tpd {
         void activate(vk::CommandBuffer buffer, uint32_t frameIndex) const override;
 
         void setDiffuse(float r, float g, float b);
+        void setDiffuse(const Texture& texture);
 
         void setSpecular(float r, float g, float b);
+        void setSpecular(const Texture& texture);
 
         void setShininess(float s);
 

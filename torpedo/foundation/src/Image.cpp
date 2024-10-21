@@ -81,8 +81,6 @@ void tpd::Image::transferImageData(
 
 void tpd::Image::dispose(const vk::Device device, const ResourceAllocator& allocator) noexcept {
     device.destroyImageView(_imageView);
-    if (_allocation) {
-        allocator.freeImage(_image, _allocation);
-        _allocation = nullptr;
-    }
+    allocator.freeImage(_image, _allocation);
+    _allocation = nullptr;
 }

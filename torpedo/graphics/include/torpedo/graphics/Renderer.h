@@ -32,7 +32,8 @@ namespace tpd {
 
         virtual void render(const View& view, const std::function<void(uint32_t)>& onFrameReady) = 0;
 
-        void copyBuffer(vk::Buffer src, vk::Buffer dst, const vk::BufferCopy& copyInfo) const;
+        void copyBufferToBuffer(vk::Buffer src, vk::Buffer dst, const vk::BufferCopy& copyInfo) const;
+        void copyBufferToImage(vk::Buffer buffer, vk::Image image, const vk::BufferImageCopy& copyInfo) const;
 
         void transitionImageLayout(vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::Image image) const;
 
@@ -41,6 +42,7 @@ namespace tpd {
         [[nodiscard]] vk::Device getVulkanDevice() const;
         [[nodiscard]] const ResourceAllocator& getResourceAllocator() const;
         [[nodiscard]] std::size_t getMinUniformBufferOffsetAlignment() const;
+        [[nodiscard]] float getMaxSamplerAnisotropy() const;
 
         [[nodiscard]] virtual vk::GraphicsPipelineCreateInfo getGraphicsPipelineInfo() const;
         [[nodiscard]] virtual vk::GraphicsPipelineCreateInfo getGraphicsPipelineInfo(float minSampleShading) const = 0;
@@ -145,6 +147,10 @@ inline const tpd::ResourceAllocator& tpd::Renderer::getResourceAllocator() const
 
 inline std::size_t tpd::Renderer::getMinUniformBufferOffsetAlignment() const {
     return _physicalDevice.getProperties().limits.minUniformBufferOffsetAlignment;
+}
+
+inline float tpd::Renderer::getMaxSamplerAnisotropy() const {
+    return _physicalDevice.getProperties().limits.maxSamplerAnisotropy;
 }
 
 inline vk::GraphicsPipelineCreateInfo tpd::Renderer::getGraphicsPipelineInfo() const {

@@ -4,6 +4,7 @@
 
 #include <torpedo/bootstrap/DeviceBuilder.h>
 #include <torpedo/bootstrap/InstanceBuilder.h>
+#include <torpedo/bootstrap/SamplerBuilder.h>
 
 #include <plog/Log.h>
 
@@ -122,9 +123,10 @@ void tpd::Renderer::createResourceAllocator() {
         .vulkanApiVersion(vk::makeApiVersion(0, 1, 3, 0))
         .build(_instance, _physicalDevice, _device);
 
-    // Tell Geometry and MaterialInstance which allocator to use
+    // Tell resource owner classes which allocator to use
     Geometry::_allocator = _allocator.get();
     MaterialInstance::_allocator = _allocator.get();
+    Texture::_allocator = _allocator.get();
 }
 
 void tpd::Renderer::createDrawingCommandPool() {
@@ -205,7 +207,10 @@ void tpd::Renderer::createDefaultResources() const {
         .build(_device, *_allocator, ResourceType::Dedicated);
     transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eShaderReadOnlyOptimal, MaterialInstance::_dummyImage->getImage());
 
-    Texture::_defaultSampler = SamplerBuilder().build(_device);
+    Texture::_defaultSampler = SamplerBuilder()
+        .anisotropyEnabled(true)
+        .maxAnisotropy(8.0f)
+        .build(_device);
 }
 
 std::unique_ptr<tpd::View> tpd::Renderer::createView() const {
@@ -217,9 +222,15 @@ std::unique_ptr<tpd::View> tpd::Renderer::createView() const {
     return std::make_unique<View>(viewport, scissor);
 }
 
-void tpd::Renderer::copyBuffer(const vk::Buffer src, const vk::Buffer dst, const vk::BufferCopy& copyInfo) const {
+void tpd::Renderer::copyBufferToBuffer(const vk::Buffer src, const vk::Buffer dst, const vk::BufferCopy& copyInfo) const {
     const auto cmdBuffer = beginOneShotCommands();
     cmdBuffer.copyBuffer(src, dst, copyInfo);
+    endOneShotCommands(cmdBuffer);
+}
+
+void tpd::Renderer::copyBufferToImage(const vk::Buffer buffer, const vk::Image image, const vk::BufferImageCopy& copyInfo) const {
+    const auto cmdBuffer = beginOneShotCommands();
+    cmdBuffer.copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, copyInfo);
     endOneShotCommands(cmdBuffer);
 }
 
@@ -302,6 +313,7 @@ tpd::Renderer::~Renderer() {
     Material::_sharedShaderLayout->dispose(_device);
     _device.destroyCommandPool(_drawingCommandPool);
     _device.destroyCommandPool(_oneShotCommandPool);
+    Texture::_allocator = nullptr;
     MaterialInstance::_allocator = nullptr;
     Geometry::_allocator = nullptr;
     _allocator.reset();
