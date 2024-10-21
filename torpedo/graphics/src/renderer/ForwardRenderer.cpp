@@ -282,38 +282,6 @@ std::vector<vk::ClearValue> tpd::ForwardRenderer::getClearValues() const {
     };
 }
 
-void tpd::ForwardRenderer::onDrawBegin(const View& view) const {
-    updateCameraObject(*view.camera);
-    updateLightObject(*view.scene);
-}
-
-void tpd::ForwardRenderer::updateCameraObject(const Camera& camera) const {
-    const auto cameraObject = Camera::CameraObject{ camera.getViewMatrix(), camera.getNormMatrix(), camera.getProjection() };
-    Camera::getCameraObjectBuffer()->updateBufferData(_currentFrame, &cameraObject, sizeof(Camera::CameraObject));
-}
-
-void tpd::ForwardRenderer::updateLightObject(const Scene& scene) const {
-    const auto& ambientLights = scene.getAmbientLights();
-    const auto& distantLights = scene.getDistantLights();
-    const auto& pointLights = scene.getPointLights();
-    auto lightObject = Light::LightObject{};
-    lightObject.ambientLightCount = static_cast<uint32_t>(ambientLights.size());
-    lightObject.distantLightCount = static_cast<uint32_t>(distantLights.size());
-    lightObject.pointLightCount = static_cast<uint32_t>(pointLights.size());
-
-    std::ranges::transform(ambientLights, lightObject.ambientLights.begin(), [](const auto& it) {
-        return Light::AmbientLight{ it->color, it->intensity };
-    });
-    std::ranges::transform(distantLights, lightObject.distantLights.begin(), [](const auto& it) {
-        return Light::DistantLight{ it->direction, it->color, it->intensity };
-    });
-    std::ranges::transform(pointLights, lightObject.pointLights.begin(), [](const auto& it) {
-        return Light::PointLight{ it->position, it->color, it->intensity, it->decay };
-    });
-
-    Light::getLightObjectBuffer()->updateBufferData(_currentFrame, &lightObject, sizeof(Light::LightObject));
-}
-
 void tpd::ForwardRenderer::onDraw(const View& view, const vk::CommandBuffer buffer) const {
     for (const auto& graph = view.scene->getDrawableGraph(); const auto& [material, drawables] : graph) {
         // Bind the graphics pipeline for this material group

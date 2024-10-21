@@ -65,7 +65,6 @@ namespace tpd {
         uint32_t _currentFrame{ 0 };
 
         // Drawing
-        virtual void onDrawBegin(const View& view) const = 0;
         virtual void beginRenderPass(uint32_t imageIndex) const;
         [[nodiscard]] virtual std::vector<vk::ClearValue> getClearValues() const;
         virtual void onDraw(const View& view, vk::CommandBuffer buffer) const = 0;
@@ -112,6 +111,10 @@ namespace tpd {
         // Frame drawing
         bool beginFrame(uint32_t* imageIndex);
         void endFrame(uint32_t imageIndex);
+
+        void updateSharedObjects(const View& view) const;
+        void updateCameraObject(const Camera& camera) const;
+        void updateLightObject(const Scene& scene) const;
 
         template<Renderable R>
         friend std::unique_ptr<R> createRenderer(void* nativeWindow);

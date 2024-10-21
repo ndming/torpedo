@@ -36,41 +36,6 @@ tpd::Geometry::Builder& tpd::Geometry::Builder::vertexAttribute(
     return *this;
 }
 
-tpd::Geometry::Builder& tpd::Geometry::Builder::vertexAttribute(const VertexAttribute attribute) {
-    return vertexAttribute(
-        std::to_underlying(attribute),
-        getDefaultVertexAttributeFormat(attribute),
-        getDefaultVertexAttributeStride(attribute));
-}
-
-vk::Format tpd::Geometry::Builder::getDefaultVertexAttributeFormat(const VertexAttribute attribute) {
-    switch (attribute) {
-        case VertexAttribute::Position:
-        case VertexAttribute::Normal:
-            return vk::Format::eR32G32B32Sfloat;
-        case VertexAttribute::UV:
-            return vk::Format::eR32G32Sfloat;
-        case VertexAttribute::Color:
-            return vk::Format::eR32G32B32A32Sfloat;
-        default:
-            throw std::runtime_error("Geometry::Builder - Unrecognized vertex attribute");
-    }
-}
-
-uint32_t tpd::Geometry::Builder::getDefaultVertexAttributeStride(const VertexAttribute attribute) {
-    switch (attribute) {
-        case VertexAttribute::Position:
-        case VertexAttribute::Normal:
-            return sizeof(float) * 3;
-        case VertexAttribute::UV:
-            return sizeof(float) * 2;
-        case VertexAttribute::Color:
-            return sizeof(float) * 4;
-        default:
-            throw std::runtime_error("Geometry::Builder - Unrecognized vertex attribute");
-    }
-}
-
 tpd::Geometry::Builder& tpd::Geometry::Builder::instanceAttribute(
     const uint32_t location,
     const vk::Format format,
