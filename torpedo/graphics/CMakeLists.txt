@@ -30,6 +30,7 @@ FetchContent_MakeAvailable(plog)
 set(TORPEDO_GRAPHICS_SOURCES
         src/Camera.cpp
         src/Composable.cpp
+        src/Context.cpp
         src/Drawable.cpp
         src/Geometry.cpp
         src/Light.cpp

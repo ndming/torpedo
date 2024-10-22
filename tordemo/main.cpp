@@ -1,29 +1,15 @@
+#include <torpedo/graphics/Context.h>
 #include <torpedo/renderer/ForwardRenderer.h>
 #include <torpedo/material/PhongMaterial.h>
 #include <torpedo/camera/PerspectiveCamera.h>
 #include <torpedo/geometry/CubeGeometryBuilder.h>
 
-#include <GLFW/glfw3.h>
-
-#include <plog/Init.h>
-#include <plog/Appenders/ColorConsoleAppender.h>
-#include <plog/Formatters/TxtFormatter.h>
-
 #include "stb.h"
 
 int main() {
-    auto appender = plog::ColorConsoleAppender<plog::TxtFormatter>();
-#ifdef NDEBUG
-    init(plog::info, &appender);
-#else
-    init(plog::debug, &appender);
-#endif
+    const auto context = tpd::Context::create("Hello, Container!");
+    const auto renderer = tpd::createRenderer<tpd::ForwardRenderer>(context->getWindow());
 
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    const auto window = glfwCreateWindow(1280, 768, "Hello, Triangle!", nullptr, nullptr);
-
-    const auto renderer = tpd::createRenderer<tpd::ForwardRenderer>(window);
     const auto geometry = tpd::CubeGeometryBuilder().build(*renderer);
     const auto phong = tpd::PhongMaterial::Builder().build(*renderer);
 
@@ -77,12 +63,8 @@ int main() {
         view->setSize(width, height);
     });
 
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
+    context->loop([&] {
         renderer->render(*view);
-    }
+    });
     renderer->waitIdle();
-
-    glfwDestroyWindow(window);
-    glfwTerminate();
 }
