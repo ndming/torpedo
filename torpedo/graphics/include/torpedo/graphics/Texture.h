@@ -1,14 +1,9 @@
 #pragma once
 
-#include <torpedo/foundation/Image.h>
+#include "torpedo/graphics/Renderer.h"
 
 namespace tpd {
     class Texture final {
-        static vk::Sampler _defaultSampler;
-        static const ResourceAllocator* _allocator;
-
-        friend class Renderer;
-
     public:
         class Builder {
         public:
@@ -30,14 +25,17 @@ namespace tpd {
             float _maxAnisotropy{ 1.0f };
         };
 
-        Texture(vk::Device device,std::unique_ptr<Image> image, vk::Sampler sampler = {});
+        Texture(
+            vk::Device device,
+            const ResourceAllocator* allocator,
+            std::unique_ptr<Image> image,
+            vk::Sampler sampler,
+            bool separateSampler = false);
 
         void setImageData(const void* data, uint32_t width, uint32_t height, const Renderer& renderer) const;
 
         [[nodiscard]] const std::unique_ptr<Image>& getImage() const;
         [[nodiscard]] vk::Sampler getSampler() const;
-
-        static vk::Sampler getDefaultSampler();
 
         void dispose() noexcept;
 
@@ -45,13 +43,13 @@ namespace tpd {
 
     private:
         vk::Device _device;
+        const ResourceAllocator* _allocator;
+
         std::unique_ptr<Image> _image;
         vk::Sampler _sampler;
+        bool _separateSampler;
     };
 }
-
-inline vk::Sampler tpd::Texture::_defaultSampler = {};
-inline const tpd::ResourceAllocator* tpd::Texture::_allocator = nullptr;
 
 // =====================================================================================================================
 // INLINE FUNCTION DEFINITIONS
@@ -79,8 +77,17 @@ inline tpd::Texture::Builder &tpd::Texture::Builder::maxAnisotropy(const float v
     return *this;
 }
 
-inline tpd::Texture::Texture(const vk::Device device, std::unique_ptr<Image> image, const vk::Sampler sampler)
-    : _device{ device }, _image{ std::move(image) }, _sampler{ sampler } {
+inline tpd::Texture::Texture(
+    const vk::Device device,
+    const ResourceAllocator* allocator,
+    std::unique_ptr<Image> image,
+    const vk::Sampler sampler,
+    const bool separateSampler)
+    : _device{ device }
+    , _allocator{ allocator }
+    , _image{ std::move(image) }
+    , _sampler{ sampler }
+    , _separateSampler{ separateSampler } {
 }
 
 inline const std::unique_ptr<tpd::Image>& tpd::Texture::getImage() const {
@@ -88,9 +95,5 @@ inline const std::unique_ptr<tpd::Image>& tpd::Texture::getImage() const {
 }
 
 inline vk::Sampler tpd::Texture::getSampler() const {
-    return _sampler ? _sampler : _defaultSampler;
-}
-
-inline vk::Sampler tpd::Texture::getDefaultSampler() {
-    return _defaultSampler;
+    return _sampler;
 }

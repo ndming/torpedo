@@ -1,6 +1,7 @@
 #pragma once
 
-#include <torpedo/foundation/Buffer.h>
+#include <array>
+#include <memory>
 
 namespace tpd {
     class Light {
@@ -46,8 +47,6 @@ namespace tpd {
             alignas(16) std::array<PointLight, MAX_POINT_LIGHTS> pointLights;
         };
 
-        static const std::unique_ptr<Buffer>& getLightObjectBuffer();
-
     protected:
         template <typename T, typename L>
         class Builder {
@@ -64,14 +63,8 @@ namespace tpd {
             float _b{ 1.0f };
             float _intensity{ 1.0f };
         };
-
-    private:
-        static std::unique_ptr<Buffer> _lightObjectBuffer;
-        friend class Renderer;
     };
 }
-
-inline std::unique_ptr<tpd::Buffer> tpd::Light::_lightObjectBuffer = {};
 
 // =====================================================================================================================
 // INLINE FUNCTION DEFINITIONS
@@ -98,8 +91,4 @@ inline void tpd::Light::setColor(const float r, const float g, const float b) {
     color[0] = r;
     color[1] = g;
     color[2] = b;
-}
-
-inline const std::unique_ptr<tpd::Buffer>& tpd::Light::getLightObjectBuffer() {
-    return _lightObjectBuffer;
 }

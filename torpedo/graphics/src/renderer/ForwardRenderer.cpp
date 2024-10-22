@@ -297,13 +297,13 @@ void tpd::ForwardRenderer::onDraw(const View& view, const vk::CommandBuffer buff
         // Bind the shared descriptor set
         buffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, material->getVulkanPipelineLayout(),
-            /* first set */ 0, MaterialInstance::getSharedShaderInstance()->getDescriptorSets(_currentFrame), {});
+            /* first set */ 0, _sharedShaderInstance->getDescriptorSets(_currentFrame), {});
 
         for (const auto& drawable : drawables) {
             // Update the Drawable uniform object
             const auto normalMat = transpose(inverse(view.camera->getViewMatrix() * drawable->getTransformWorld()));
             const auto drawableObject = Drawable::DrawableObject{ drawable->getTransformWorld(), normalMat };
-            Drawable::getDrawableObjectBuffer()->updateBufferData(_currentFrame, &drawableObject, sizeof(Drawable::DrawableObject));
+            _drawableObjectBuffer->updateBufferData(_currentFrame, &drawableObject, sizeof(Drawable::DrawableObject));
 
             // Get the Geometry and MaterialInstance from this Drawable
             const auto& geometry = drawable->getGeometry();

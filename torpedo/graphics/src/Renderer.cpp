@@ -1,6 +1,5 @@
 #include "torpedo/graphics/Renderer.h"
 #include "torpedo/graphics/Material.h"
-#include "torpedo/graphics/Texture.h"
 
 #include <torpedo/bootstrap/DeviceBuilder.h>
 #include <torpedo/bootstrap/InstanceBuilder.h>
@@ -122,11 +121,6 @@ void tpd::Renderer::createResourceAllocator() {
         .flags(VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT | VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT)
         .vulkanApiVersion(vk::makeApiVersion(0, 1, 3, 0))
         .build(_instance, _physicalDevice, _device);
-
-    // Tell resource owner classes which allocator to use
-    Geometry::_allocator = _allocator.get();
-    MaterialInstance::_allocator = _allocator.get();
-    Texture::_allocator = _allocator.get();
 }
 
 void tpd::Renderer::createDrawingCommandPool() {
@@ -143,12 +137,12 @@ void tpd::Renderer::createOneShotCommandPool() {
     _oneShotCommandPool = _device.createCommandPool(transferPoolInfo);
 }
 
-void tpd::Renderer::createSharedDescriptorSetLayout() const {
-    Material::_sharedShaderLayout = Material::getSharedLayoutBuilder().build(_device);
-    MaterialInstance::_sharedShaderInstance = Material::_sharedShaderLayout->createInstance(_device, MAX_FRAMES_IN_FLIGHT);
+void tpd::Renderer::createSharedDescriptorSetLayout() {
+    _sharedShaderLayout = Material::getSharedLayoutBuilder().build(_device);
+    _sharedShaderInstance = _sharedShaderLayout->createInstance(_device, MAX_FRAMES_IN_FLIGHT);
 }
 
-void tpd::Renderer::createSharedObjectBuffers() const {
+void tpd::Renderer::createSharedObjectBuffers() {
     auto drawableObjectBufferBuilder = Buffer::Builder()
         .bufferCount(MAX_FRAMES_IN_FLIGHT)
         .usage(vk::BufferUsageFlagBits::eUniformBuffer);
@@ -168,36 +162,36 @@ void tpd::Renderer::createSharedObjectBuffers() const {
         lightObjectBufferBuilder.buffer(i, sizeof(Light::LightObject), alignment);
     }
 
-    Drawable::_drawableObjectBuffer = drawableObjectBufferBuilder.build(*_allocator, ResourceType::Persistent);
-    Camera::_cameraObjectBuffer = cameraObjectBufferBuilder.build(*_allocator, ResourceType::Persistent);
-    Light::_lightObjectBuffer = lightObjectBufferBuilder.build(*_allocator, ResourceType::Persistent);
+    _drawableObjectBuffer = drawableObjectBufferBuilder.build(*_allocator, ResourceType::Persistent);
+    _cameraObjectBuffer = cameraObjectBufferBuilder.build(*_allocator, ResourceType::Persistent);
+    _lightObjectBuffer = lightObjectBufferBuilder.build(*_allocator, ResourceType::Persistent);
 }
 
 void tpd::Renderer::writeSharedDescriptorSets() const {
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         auto drawableBufferInfo = vk::DescriptorBufferInfo{};
-        drawableBufferInfo.buffer = Drawable::_drawableObjectBuffer->getBuffer();
-        drawableBufferInfo.offset = Drawable::_drawableObjectBuffer->getOffsets()[i];
+        drawableBufferInfo.buffer = _drawableObjectBuffer->getBuffer();
+        drawableBufferInfo.offset = _drawableObjectBuffer->getOffsets()[i];
         drawableBufferInfo.range  = sizeof(Drawable::DrawableObject);
 
         auto cameraBufferInfo = vk::DescriptorBufferInfo{};
-        cameraBufferInfo.buffer = Camera::_cameraObjectBuffer->getBuffer();
-        cameraBufferInfo.offset = Camera::_cameraObjectBuffer->getOffsets()[i];
+        cameraBufferInfo.buffer = _cameraObjectBuffer->getBuffer();
+        cameraBufferInfo.offset = _cameraObjectBuffer->getOffsets()[i];
         cameraBufferInfo.range  = sizeof(Camera::CameraObject);
 
         auto lightBufferInfo = vk::DescriptorBufferInfo{};
-        lightBufferInfo.buffer = Light::_lightObjectBuffer->getBuffer();
-        lightBufferInfo.offset = Light::_lightObjectBuffer->getOffsets()[i];
+        lightBufferInfo.buffer = _lightObjectBuffer->getBuffer();
+        lightBufferInfo.offset = _lightObjectBuffer->getOffsets()[i];
         lightBufferInfo.range  = sizeof(Light::LightObject);
 
-        MaterialInstance::_sharedShaderInstance->setDescriptors(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, { drawableBufferInfo });
-        MaterialInstance::_sharedShaderInstance->setDescriptors(i, 0, 1, vk::DescriptorType::eUniformBuffer, _device, { cameraBufferInfo });
-        MaterialInstance::_sharedShaderInstance->setDescriptors(i, 0, 2, vk::DescriptorType::eUniformBuffer, _device, { lightBufferInfo });
+        _sharedShaderInstance->setDescriptors(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, { drawableBufferInfo });
+        _sharedShaderInstance->setDescriptors(i, 0, 1, vk::DescriptorType::eUniformBuffer, _device, { cameraBufferInfo });
+        _sharedShaderInstance->setDescriptors(i, 0, 2, vk::DescriptorType::eUniformBuffer, _device, { lightBufferInfo });
     }
 }
 
-void tpd::Renderer::createDefaultResources() const {
-    MaterialInstance::_dummyImage = Image::Builder()
+void tpd::Renderer::createDefaultResources() {
+    _defaultShaderReadImage = Image::Builder()
         .dimensions(1, 1, 1)
         .type(vk::ImageType::e2D)
         .format(vk::Format::eR8G8B8A8Srgb)
@@ -205,9 +199,11 @@ void tpd::Renderer::createDefaultResources() const {
         .imageViewType(vk::ImageViewType::e2D)
         .imageViewAspects(vk::ImageAspectFlagBits::eColor)
         .build(_device, *_allocator, ResourceType::Dedicated);
-    transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eShaderReadOnlyOptimal, MaterialInstance::_dummyImage->getImage());
 
-    Texture::_defaultSampler = SamplerBuilder()
+    using enum vk::ImageLayout;
+    transitionImageLayout(eUndefined, eShaderReadOnlyOptimal, _defaultShaderReadImage->getImage());
+
+    _defaultSampler = SamplerBuilder()
         .anisotropyEnabled(true)
         .maxAnisotropy(8.0f)
         .build(_device);
@@ -304,18 +300,15 @@ void tpd::Renderer::endOneShotCommands(const vk::CommandBuffer commandBuffer) co
 }
 
 tpd::Renderer::~Renderer() {
-    _device.destroySampler(Texture::_defaultSampler);
-    MaterialInstance::_dummyImage->dispose(_device, *_allocator);
-    Light::_lightObjectBuffer->dispose(*_allocator);
-    Camera::_cameraObjectBuffer->dispose(*_allocator);
-    Drawable::_drawableObjectBuffer->dispose(*_allocator);
-    MaterialInstance::_sharedShaderInstance->dispose(_device);
-    Material::_sharedShaderLayout->dispose(_device);
+    _device.destroySampler(_defaultSampler);
+    _defaultShaderReadImage->dispose(_device, *_allocator);
+    _lightObjectBuffer->dispose(*_allocator);
+    _cameraObjectBuffer->dispose(*_allocator);
+    _drawableObjectBuffer->dispose(*_allocator);
+    _sharedShaderInstance->dispose(_device);
+    _sharedShaderLayout->dispose(_device);
     _device.destroyCommandPool(_drawingCommandPool);
     _device.destroyCommandPool(_oneShotCommandPool);
-    Texture::_allocator = nullptr;
-    MaterialInstance::_allocator = nullptr;
-    Geometry::_allocator = nullptr;
     _allocator.reset();
     _device.destroy();
 #ifndef NDEBUG

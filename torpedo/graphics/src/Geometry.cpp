@@ -87,6 +87,7 @@ std::shared_ptr<tpd::Geometry> tpd::Geometry::Builder::build(const ResourceAlloc
         .build(allocator, ResourceType::Dedicated);
 
     return std::make_shared<Geometry>(
+        &allocator,
         _vertexCount,
         std::move(vertexBuffer),
         _indexCount,
@@ -219,28 +220,18 @@ void tpd::Geometry::setIndexData(const void* const data, const Renderer& rendere
 }
 
 void tpd::Geometry::dispose() noexcept {
-    if (_allocator) {
-        dispose(*_allocator);
-    } else {
-        PLOGW << "Could not dispose this Geometry - Either the Geometry was created with a custom ResourceAllocator,"
-                 "or the Renderer that was used to build this Geometry has been destroyed. For the former case, use"
-                 "the overload that accepts a ResourceAllocator instead.";
-    }
-}
-
-void tpd::Geometry::dispose(const ResourceAllocator& allocator) noexcept {
     if (_vertexBuffer) {
-        _vertexBuffer->dispose(allocator);
+        _vertexBuffer->dispose(*_allocator);
         _vertexBuffer.reset();
     }
     if (_indexBuffer) {
-        _indexBuffer->dispose(allocator);
+        _indexBuffer->dispose(*_allocator);
         _indexBuffer.reset();
     }
 }
 
 tpd::Geometry::~Geometry() {
-    if (_allocator) dispose(*_allocator);
+    if (_allocator) dispose();
     _bindingDescriptions.clear();
     _attributeDescriptions.clear();
     _attributeBindings.clear();

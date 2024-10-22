@@ -1,7 +1,5 @@
 #pragma once
 
-#include <torpedo/foundation/Buffer.h>
-
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -29,7 +27,6 @@ namespace tpd {
             alignas(16) glm::mat4 norm;
             alignas(16) glm::mat4 proj;
         };
-        static const std::unique_ptr<Buffer>& getCameraObjectBuffer();
 
         virtual ~Camera() = default;
 
@@ -40,16 +37,11 @@ namespace tpd {
     private:
         void updateNormalMatrix();
         glm::mat4 _norm{ 1.0f };
-
-        static std::unique_ptr<Buffer> _cameraObjectBuffer;
-        friend class Renderer;
     };
 
     template<typename T>
     concept Projectable = std::derived_from<T, Camera>;
 }
-
-inline std::unique_ptr<tpd::Buffer> tpd::Camera::_cameraObjectBuffer = {};
 
 // =====================================================================================================================
 // INLINE FUNCTION DEFINITIONS
@@ -88,8 +80,4 @@ inline const glm::mat4& tpd::Camera::getNormMatrix() const {
 
 inline const glm::mat4& tpd::Camera::getProjection() const {
     return _proj;
-}
-
-inline const std::unique_ptr<tpd::Buffer>& tpd::Camera::getCameraObjectBuffer() {
-    return _cameraObjectBuffer;
 }

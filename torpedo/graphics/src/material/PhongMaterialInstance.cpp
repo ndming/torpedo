@@ -25,9 +25,9 @@ tpd::PhongMaterialInstance::PhongMaterialInstance(
 
         // Set a dummy image to the combined image sampler descriptors, otherwise, the validation layer will complain
         auto imageInfo = vk::DescriptorImageInfo{};
-        imageInfo.imageView = _dummyImage->getImageView();
+        imageInfo.imageView = renderer.getDefaultShaderReadImage()->getImageView();
         imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        imageInfo.sampler = Texture::getDefaultSampler();
+        imageInfo.sampler = renderer.getDefaultSampler();
 
         // Although MaterialObject is at descriptor set 1, we didn't include set 0 when we create the ShaderInstance.
         // Therefore, MaterialObject is now the first set (set 0) in the ShaderInstance.
@@ -35,6 +35,8 @@ tpd::PhongMaterialInstance::PhongMaterialInstance(
         _shaderInstance->setDescriptors(i, 0, 1, vk::DescriptorType::eCombinedImageSampler, material->getVulkanDevice(), { imageInfo });
         _shaderInstance->setDescriptors(i, 0, 2, vk::DescriptorType::eCombinedImageSampler, material->getVulkanDevice(), { imageInfo });
     }
+
+    _allocator = &renderer.getResourceAllocator();
 }
 
 void tpd::PhongMaterialInstance::activate(const vk::CommandBuffer buffer, const uint32_t frameIndex) const {
@@ -67,7 +69,7 @@ void tpd::PhongMaterialInstance::setSpecular(const Texture& texture) {
 }
 
 void tpd::PhongMaterialInstance::dispose() noexcept {
-    if (_allocator && _materialObjectBuffer) {
+    if (_materialObjectBuffer) {
         _materialObjectBuffer->dispose(*_allocator);
         _materialObjectBuffer.reset();
     }

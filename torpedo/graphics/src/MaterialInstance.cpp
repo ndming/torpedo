@@ -24,6 +24,5 @@ void tpd::MaterialInstance::dispose() noexcept {
 }
 
 tpd::MaterialInstance::~MaterialInstance() {
-    dispose();
-    _material = nullptr;
+    MaterialInstance::dispose();
 }

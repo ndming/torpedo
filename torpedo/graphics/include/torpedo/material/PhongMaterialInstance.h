@@ -41,19 +41,27 @@ namespace tpd {
 
         std::unique_ptr<Buffer> _materialObjectBuffer;
         MaterialObject _materialObject{};
+
+        const ResourceAllocator* _allocator;
     };
 }
+
+// =====================================================================================================================
+// INLINE FUNCTION DEFINITIONS
+// =====================================================================================================================
 
 inline void tpd::PhongMaterialInstance::setDiffuse(const float r, const float g, const float b) {
     _materialObject.diffuse[0] = r;
     _materialObject.diffuse[1] = g;
     _materialObject.diffuse[2] = b;
+    _materialObject.useDiffuseMap = 0;
 }
 
 inline void tpd::PhongMaterialInstance::setSpecular(const float r, const float g, const float b) {
     _materialObject.specular[0] = r;
     _materialObject.specular[1] = g;
     _materialObject.specular[2] = b;
+    _materialObject.useSpecularMap = 0;
 }
 
 inline void tpd::PhongMaterialInstance::setShininess(const float s) {

@@ -4,7 +4,9 @@
 #include "torpedo/graphics/View.h"
 
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
+#include <torpedo/foundation/Image.h>
 #include <torpedo/foundation/ResourceAllocator.h>
+#include <torpedo/foundation/ShaderLayout.h>
 
 #include <functional>
 #include <type_traits>
@@ -47,6 +49,9 @@ namespace tpd {
         [[nodiscard]] virtual vk::GraphicsPipelineCreateInfo getGraphicsPipelineInfo() const;
         [[nodiscard]] virtual vk::GraphicsPipelineCreateInfo getGraphicsPipelineInfo(float minSampleShading) const = 0;
 
+        [[nodiscard]] const std::unique_ptr<Image>& getDefaultShaderReadImage() const;
+        [[nodiscard]] vk::Sampler getDefaultSampler() const;
+
         static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
         virtual ~Renderer();
@@ -77,6 +82,12 @@ namespace tpd {
 
         vk::SampleCountFlagBits _msaaSampleCount{ vk::SampleCountFlagBits::e4 };
 
+        std::unique_ptr<ShaderInstance> _sharedShaderInstance{};
+
+        std::unique_ptr<Buffer> _drawableObjectBuffer{};
+        std::unique_ptr<Buffer> _cameraObjectBuffer{};
+        std::unique_ptr<Buffer> _lightObjectBuffer{};
+
     private:
         void createInstance(std::vector<const char*>&& requiredExtensions);
 
@@ -99,11 +110,15 @@ namespace tpd {
         void createDrawingCommandPool();
         void createOneShotCommandPool();
 
-        void createSharedDescriptorSetLayout() const;
-        void createSharedObjectBuffers() const;
+        void createSharedDescriptorSetLayout();
+        std::unique_ptr<ShaderLayout> _sharedShaderLayout{};
+
+        void createSharedObjectBuffers();
         void writeSharedDescriptorSets() const;
 
-        void createDefaultResources() const;
+        void createDefaultResources();
+        std::unique_ptr<Image> _defaultShaderReadImage{};
+        vk::Sampler _defaultSampler{};
 
         [[nodiscard]] vk::CommandBuffer beginOneShotCommands() const;
         void endOneShotCommands(vk::CommandBuffer commandBuffer) const;
@@ -155,4 +170,12 @@ inline float tpd::Renderer::getMaxSamplerAnisotropy() const {
 
 inline vk::GraphicsPipelineCreateInfo tpd::Renderer::getGraphicsPipelineInfo() const {
     return getGraphicsPipelineInfo(0.0f);
+}
+
+inline const std::unique_ptr<tpd::Image>& tpd::Renderer::getDefaultShaderReadImage() const {
+    return _defaultShaderReadImage;
+}
+
+inline vk::Sampler tpd::Renderer::getDefaultSampler() const {
+    return _defaultSampler;
 }

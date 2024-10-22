@@ -12,6 +12,9 @@ namespace tpd {
         static std::unique_ptr<Context> create(std::string_view name, bool plantLogger = true);
         explicit Context(GLFWwindow* window, void* appender = nullptr);
 
+        Context(const Context&) = delete;
+        Context& operator=(const Context&) = delete;
+
         [[nodiscard]] void* getWindow() const;
 
         void loop(const std::function<void()>& onRender) const;

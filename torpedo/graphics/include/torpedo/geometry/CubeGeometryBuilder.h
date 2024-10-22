@@ -14,6 +14,10 @@ namespace tpd {
     };
 }
 
+// =====================================================================================================================
+// INLINE FUNCTION DEFINITIONS
+// =====================================================================================================================
+
 inline tpd::CubeGeometryBuilder& tpd::CubeGeometryBuilder::halfExtent(const float extent) {
     _halfExtent = extent;
     return *this;

@@ -17,7 +17,7 @@ std::unique_ptr<tpd::Texture> tpd::Texture::Builder::build(const Renderer& rende
         .filter(_magFilter, _minFilter)
         .anisotropyEnabled(true)
         .maxAnisotropy(_maxAnisotropy > anisotropyLimit ? anisotropyLimit : _maxAnisotropy)
-        .build(device) : vk::Sampler{};
+        .build(device) : renderer.getDefaultSampler();
 
     auto image = Image::Builder()
         .dimensions(_width, _height, 1)
@@ -30,7 +30,7 @@ std::unique_ptr<tpd::Texture> tpd::Texture::Builder::build(const Renderer& rende
 
     renderer.transitionImageLayout(vk::ImageLayout::eUndefined, vk::ImageLayout::eShaderReadOnlyOptimal, image->getImage());
 
-    return std::make_unique<Texture>(device, std::move(image), sampler);
+    return std::make_unique<Texture>(device, &renderer.getResourceAllocator(), std::move(image), sampler);
 }
 
 void tpd::Texture::setImageData(const void* data, const uint32_t width, const uint32_t height, const Renderer& renderer) const {
@@ -55,8 +55,10 @@ void tpd::Texture::setImageData(const void* data, const uint32_t width, const ui
 }
 
 void tpd::Texture::dispose() noexcept {
-    _device.destroySampler(_sampler);
-    if (_allocator && _image) {
+    if (_separateSampler) {
+        _device.destroySampler(_sampler);
+    }
+    if (_image) {
         _image->dispose(_device, *_allocator);
         _image.reset();
     }

@@ -109,7 +109,6 @@ namespace tpd {
         [[nodiscard]] const std::shared_ptr<Geometry>& getGeometry() const;
         [[nodiscard]] const std::shared_ptr<MaterialInstance>& getMaterialInstance() const;
         [[nodiscard]] uint32_t getIndexCount() const;
-        [[nodiscard]] static const std::unique_ptr<Buffer>& getDrawableObjectBuffer();
 
         struct DrawableObject {
             alignas(16) glm::mat4 transform;
@@ -123,13 +122,8 @@ namespace tpd {
         // The actual number of indices to draw. This may not be the same as the number of indices
         // in the Geometry's index buffer.
         uint32_t _indexCount;
-
-        static std::unique_ptr<Buffer> _drawableObjectBuffer;
-        friend class Renderer;
     };
 }
-
-inline std::unique_ptr<tpd::Buffer> tpd::Drawable::_drawableObjectBuffer = {};
 
 // =====================================================================================================================
 // INLINE FUNCTION DEFINITIONS
@@ -191,8 +185,4 @@ inline const std::shared_ptr<tpd::MaterialInstance>& tpd::Drawable::getMaterialI
 
 inline uint32_t tpd::Drawable::getIndexCount() const {
     return _indexCount;
-}
-
-inline const std::unique_ptr<tpd::Buffer>& tpd::Drawable::getDrawableObjectBuffer() {
-    return _drawableObjectBuffer;
 }

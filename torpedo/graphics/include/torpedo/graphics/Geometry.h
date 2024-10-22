@@ -6,10 +6,9 @@
 #include <map>
 
 namespace tpd {
-    class Geometry final {
-        static const ResourceAllocator* _allocator;
-        friend class Renderer;
+    class Renderer;
 
+    class Geometry final {
     public:
         class Builder {
         public:
@@ -109,6 +108,7 @@ namespace tpd {
         };
 
         Geometry(
+            const ResourceAllocator* allocator,
             uint32_t vertexCount, std::unique_ptr<Buffer> vertexBuffer,
             uint32_t indexCount, std::unique_ptr<Buffer> indexBuffer,
             vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList,
@@ -188,21 +188,15 @@ namespace tpd {
         [[nodiscard]] const std::vector<VkVertexInputAttributeDescription2EXT>& getAttributeDescriptions() const noexcept;
 
         /**
-         * Frees GPU-side memory of this Geometry, using the ResourceAllocator associated with
-         * the Renderer that was used to allocate this object's resources.
+         * Frees GPU-side memory of this Geometry, using the allocator that was used to allocate this object's resources.
          */
         void dispose() noexcept;
-
-        /**
-         * Frees GPU-side memory associated with this Geometry.
-         *
-         * @param allocator the ResourceAllocator that was used to allocate this Geometry's resources.
-         */
-        void dispose(const ResourceAllocator& allocator) noexcept;
 
         ~Geometry();
 
     private:
+        const ResourceAllocator* _allocator;
+
         uint32_t _vertexCount;
         std::unique_ptr<Buffer> _vertexBuffer;
 
@@ -221,8 +215,6 @@ namespace tpd {
         static const std::map<std::string_view, uint32_t> DEFAULT_ATTRIBUTE_BINDINGS;
     };
 }
-
-inline const tpd::ResourceAllocator* tpd::Geometry::_allocator = nullptr;
 
 // =====================================================================================================================
 // INLINE FUNCTION DEFINITIONS
@@ -249,6 +241,7 @@ inline tpd::Geometry::Builder& tpd::Geometry::Builder::indexType(const vk::Index
 }
 
 inline tpd::Geometry::Geometry(
+    const ResourceAllocator* allocator,
     const uint32_t vertexCount,
     std::unique_ptr<Buffer> vertexBuffer,
     const uint32_t indexCount,
@@ -258,7 +251,8 @@ inline tpd::Geometry::Geometry(
     std::vector<VkVertexInputBindingDescription2EXT>&& bindingDescriptions,
     std::vector<VkVertexInputAttributeDescription2EXT>&& attributeDescriptions,
     std::vector<uint32_t>&& attributeBindings) noexcept
-    : _vertexCount{ vertexCount }
+    : _allocator{ allocator }
+    , _vertexCount{ vertexCount }
     , _vertexBuffer{ std::move(vertexBuffer) }
     , _indexCount{ indexCount }
     , _indexBuffer{ std::move(indexBuffer) }

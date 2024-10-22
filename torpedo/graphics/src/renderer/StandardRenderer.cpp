@@ -496,7 +496,7 @@ void tpd::StandardRenderer::updateSharedObjects(const View& view) const {
 
 void tpd::StandardRenderer::updateCameraObject(const Camera& camera) const {
     const auto cameraObject = Camera::CameraObject{ camera.getViewMatrix(), camera.getNormMatrix(), camera.getProjection() };
-    Camera::getCameraObjectBuffer()->updateBufferData(_currentFrame, &cameraObject, sizeof(Camera::CameraObject));
+    _cameraObjectBuffer->updateBufferData(_currentFrame, &cameraObject, sizeof(Camera::CameraObject));
 }
 
 void tpd::StandardRenderer::updateLightObject(const Scene &scene) const {
@@ -518,7 +518,7 @@ void tpd::StandardRenderer::updateLightObject(const Scene &scene) const {
         return Light::PointLight{ it->position, it->color, it->intensity, it->decay };
     });
 
-    Light::getLightObjectBuffer()->updateBufferData(_currentFrame, &lightObject, sizeof(Light::LightObject));
+    _lightObjectBuffer->updateBufferData(_currentFrame, &lightObject, sizeof(Light::LightObject));
 }
 
 void tpd::StandardRenderer::beginRenderPass(const uint32_t imageIndex) const {

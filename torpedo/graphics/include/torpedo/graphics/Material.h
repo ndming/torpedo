@@ -65,14 +65,8 @@ namespace tpd {
         vk::Pipeline _pipeline;
         std::unique_ptr<ShaderLayout> _shaderLayout;
         bool _withSharedLayout;
-
-    private:
-        static std::unique_ptr<ShaderLayout> _sharedShaderLayout;
-        friend class Renderer;
     };
 }
-
-inline std::unique_ptr<tpd::ShaderLayout> tpd::Material::_sharedShaderLayout = {};
 
 // =====================================================================================================================
 // INLINE FUNCTION DEFINITIONS
