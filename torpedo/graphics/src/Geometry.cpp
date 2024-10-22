@@ -83,7 +83,7 @@ std::shared_ptr<tpd::Geometry> tpd::Geometry::Builder::build(const ResourceAlloc
     auto indexBuffer = Buffer::Builder()
         .bufferCount(1)
         .usage(vk::BufferUsageFlagBits::eIndexBuffer)
-        .buffer(0, sizeof(uint32_t) * _indexCount)
+        .buffer(0, getIndexByteSize(_indexType) * _indexCount)
         .build(allocator, ResourceType::Dedicated);
 
     return std::make_shared<Geometry>(
@@ -92,6 +92,7 @@ std::shared_ptr<tpd::Geometry> tpd::Geometry::Builder::build(const ResourceAlloc
         _indexCount,
         std::move(indexBuffer),
         topology,
+        _indexType,
         std::move(_bindings),
         std::move(_attributes),
         std::move(_attributeBindings));
@@ -111,6 +112,15 @@ tpd::Buffer::Builder tpd::Geometry::Builder::getVertexBufferBuilder(
     }
 
     return builder;
+}
+
+std::size_t tpd::Geometry::Builder::getIndexByteSize(const vk::IndexType type) {
+    using enum vk::IndexType;
+    switch (type) {
+        case eUint16: return sizeof(uint16_t);
+        case eUint32: return sizeof(uint32_t);
+        default: throw std::runtime_error("Geometry::Builder - Unsupported index type");
+    }
 }
 
 const std::vector<VkVertexInputBindingDescription2EXT> tpd::Geometry::DEFAULT_BINDING_DESCRIPTIONS{
@@ -152,6 +162,19 @@ const std::map<std::string_view, uint32_t> tpd::Geometry::DEFAULT_ATTRIBUTE_BIND
     { "uv",       2 },
 };
 
+void tpd::Geometry::setVertexData(const uint32_t location, const void* const data, const Renderer& renderer) const {
+    const auto found = std::ranges::find(_attributeBindings, location);
+    if (found == _attributeBindings.end()) {
+        throw std::runtime_error(
+            "Geometry - Unregistered location: if you're not using manually-defined vertex attributes, "
+            "consider the overload that accepts an attribute key.");
+    }
+    const auto binding  = std::distance(_attributeBindings.begin(), found);
+    const auto dataSize = _bindingDescriptions[binding].stride * _vertexCount;
+    _vertexBuffer->transferBufferData(binding, data, dataSize, renderer.getResourceAllocator(),
+        [&renderer](const auto src, const auto dst, const auto& bufferCopy) { renderer.copyBufferToBuffer(src, dst, bufferCopy); });
+}
+
 void tpd::Geometry::setVertexData(
     const uint32_t location,
     const void* const data,
@@ -189,6 +212,10 @@ void tpd::Geometry::setIndexData(const void* const data, const std::size_t dataS
     _indexBuffer->transferBufferData(
         0, data, dataSize, renderer.getResourceAllocator(),
         [&renderer](const auto src, const auto dst, const auto& bufferCopy) { renderer.copyBufferToBuffer(src, dst, bufferCopy); });
+}
+
+void tpd::Geometry::setIndexData(const void* const data, const Renderer& renderer) const {
+    setIndexData(data, sizeof(uint32_t) * _indexCount, renderer);
 }
 
 void tpd::Geometry::dispose() noexcept {

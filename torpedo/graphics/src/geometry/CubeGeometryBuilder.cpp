@@ -101,7 +101,7 @@ std::shared_ptr<tpd::Geometry> tpd::CubeGeometryBuilder::build(const Renderer& r
         1.0f, 1.0f,
     };
 
-    auto indices = std::vector<uint32_t>{};
+    auto indices = std::vector<uint16_t>{};
     indices.reserve(36);
     for (auto i = 0; i < 6; ++i) {
         const auto it = i * 4;
@@ -112,13 +112,14 @@ std::shared_ptr<tpd::Geometry> tpd::CubeGeometryBuilder::build(const Renderer& r
     auto geometry = Geometry::Builder()
         .vertexCount(positions.size() / 3)
         .indexCount(indices.size())
+        .indexType(vk::IndexType::eUint16)
         .build(renderer.getResourceAllocator());
 
     geometry->setVertexData("position", positions.data(), renderer);
     geometry->setVertexData("normal",   normals.data(),   renderer);
     geometry->setVertexData("uv",       texCoords.data(), renderer);
 
-    geometry->setIndexData(indices.data(), sizeof(uint32_t) * indices.size(), renderer);
+    geometry->setIndexData(indices.data(), sizeof(uint16_t) * indices.size(), renderer);
 
     return geometry;
 }

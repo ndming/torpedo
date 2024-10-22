@@ -67,6 +67,13 @@ namespace tpd {
             Builder& instanceAttribute(uint32_t location, vk::Format format, uint32_t stride, uint32_t divisor = 1);
 
             /**
+             * Specifies the index type, default to uint32_t.
+             *
+             * @return This Builder object for chaining calls.
+             */
+            Builder& indexType(vk::IndexType type);
+
+            /**
              * Builds the Geometry.
              *
              * @param renderer The Renderer that will manage this Geometry's resources.
@@ -89,9 +96,12 @@ namespace tpd {
                 uint32_t vertexCount, uint32_t instanceCount,
                 const std::vector<VkVertexInputBindingDescription2EXT>& bindings);
 
+            static std::size_t getIndexByteSize(vk::IndexType type);
+
             uint32_t _vertexCount{ 0 };
             uint32_t _indexCount{ 0 };
             uint32_t _maxInstanceCount{ 1 };
+            vk::IndexType _indexType{ vk::IndexType::eUint32 };
 
             std::vector<VkVertexInputBindingDescription2EXT> _bindings{};
             std::vector<VkVertexInputAttributeDescription2EXT> _attributes{};
@@ -102,6 +112,7 @@ namespace tpd {
             uint32_t vertexCount, std::unique_ptr<Buffer> vertexBuffer,
             uint32_t indexCount, std::unique_ptr<Buffer> indexBuffer,
             vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList,
+            vk::IndexType indexType = vk::IndexType::eUint32,
             std::vector<VkVertexInputBindingDescription2EXT>&& bindingDescriptions = {},
             std::vector<VkVertexInputAttributeDescription2EXT>&& attributeDescriptions = {},
             std::vector<uint32_t>&& attributeBindings = {}) noexcept;
@@ -114,9 +125,21 @@ namespace tpd {
          * Geometry was created with manually-defined vertex attributes.
          *
          * @param location The location declared for the vertex attribute in the shader.
+         * @param data Pointer to the data array whose size exhausts this attribute's buffer slot.
+         * @param renderer The Renderer that was used/owning the ResourceAllocator when creating this Geometry.
+         */
+        void setVertexData(uint32_t location, const void* data, const Renderer& renderer) const;
+
+        /**
+         * Transfers vertex data to the vertex attribute specified at location. This method shall be used if the
+         * Geometry was created with manually-defined vertex attributes.
+         *
+         * This overload accepts an additional dataSize parameter to designate the size of the data pointer.
+         *
+         * @param location The location declared for the vertex attribute in the shader.
          * @param data Pointer to the data array.
          * @param dataSize Total byte size of the data pointer. A value of stride * vertexCount will exhaust this attribute's buffer slot.
-         * @param renderer The Renderer that was used to create this Geometry.
+         * @param renderer The Renderer that was used/owning the ResourceAllocator when creating this Geometry.
          */
         void setVertexData(uint32_t location, const void* data, std::size_t dataSize, const Renderer& renderer) const;
 
@@ -129,18 +152,28 @@ namespace tpd {
          *
          * @param attribute A string key to one of the default attributes.
          * @param data Pointer to the data array.
-         * @param renderer The Renderer that was used to create this Geometry.
+         * @param renderer The Renderer that was used/owning the ResourceAllocator when creating this Geometry.
          */
         void setVertexData(std::string_view attribute, const void* data, const Renderer& renderer) const;
 
         /**
          * Transfers index data to the local device buffer associated with this Geometry.
          *
-         * @param data Pointer to the data array. Note that Geometry uses uint32_t index data type.
-         * @param dataSize Total byte size of the data pointer. Note that index values are uint32_t by default.
-         * @param renderer The Renderer that was used to create this Geometry.
+         * @param data Pointer to the data array.
+         * @param dataSize Total byte size of the data pointer. Note that index values are uint32_t by default, unless
+         * specified otherwise with Geometry::Builder::indexType().
+         * @param renderer The Renderer that was used/owning the ResourceAllocator when creating this Geometry.
          */
         void setIndexData(const void* data, std::size_t dataSize, const Renderer& renderer) const;
+
+        /**
+         * Transfers index data to the local device buffer associated with this Geometry. This overload assumes the
+         * Geometry was built with 4-byte index element type (uint32_t).
+         *
+         * @param data Pointer to the data array.
+         * @param renderer The Renderer that was used/owning the ResourceAllocator when creating this Geometry.
+         */
+        void setIndexData(const void* data, const Renderer& renderer) const;
 
         [[nodiscard]] uint32_t getVertexCount() const noexcept;
         [[nodiscard]] const std::unique_ptr<Buffer>& getVertexBuffer() const noexcept;
@@ -149,6 +182,7 @@ namespace tpd {
         [[nodiscard]] const std::unique_ptr<Buffer>& getIndexBuffer() const noexcept;
 
         [[nodiscard]] vk::PrimitiveTopology getPrimitiveTopology() const noexcept;
+        [[nodiscard]] vk::IndexType getIndexType() const noexcept;
 
         [[nodiscard]] const std::vector<VkVertexInputBindingDescription2EXT>& getBindingDescriptions() const noexcept;
         [[nodiscard]] const std::vector<VkVertexInputAttributeDescription2EXT>& getAttributeDescriptions() const noexcept;
@@ -176,6 +210,7 @@ namespace tpd {
         std::unique_ptr<Buffer> _indexBuffer;
 
         vk::PrimitiveTopology _primitiveTopology;
+        vk::IndexType _indexType;
 
         std::vector<VkVertexInputBindingDescription2EXT> _bindingDescriptions;
         std::vector<VkVertexInputAttributeDescription2EXT> _attributeDescriptions;
@@ -208,12 +243,18 @@ inline tpd::Geometry::Builder& tpd::Geometry::Builder::maxInstanceCount(const ui
     return *this;
 }
 
+inline tpd::Geometry::Builder& tpd::Geometry::Builder::indexType(const vk::IndexType type) {
+    _indexType = type;
+    return *this;
+}
+
 inline tpd::Geometry::Geometry(
     const uint32_t vertexCount,
     std::unique_ptr<Buffer> vertexBuffer,
     const uint32_t indexCount,
     std::unique_ptr<Buffer> indexBuffer,
     const vk::PrimitiveTopology topology,
+    const vk::IndexType indexType,
     std::vector<VkVertexInputBindingDescription2EXT>&& bindingDescriptions,
     std::vector<VkVertexInputAttributeDescription2EXT>&& attributeDescriptions,
     std::vector<uint32_t>&& attributeBindings) noexcept
@@ -222,6 +263,7 @@ inline tpd::Geometry::Geometry(
     , _indexCount{ indexCount }
     , _indexBuffer{ std::move(indexBuffer) }
     , _primitiveTopology{ topology }
+    , _indexType{ indexType }
     , _bindingDescriptions{ std::move(bindingDescriptions) }
     , _attributeDescriptions{ std::move(attributeDescriptions) }
     , _attributeBindings{ std::move(attributeBindings) } {
@@ -245,6 +287,10 @@ inline const std::unique_ptr<tpd::Buffer>& tpd::Geometry::getIndexBuffer() const
 
 inline vk::PrimitiveTopology tpd::Geometry::getPrimitiveTopology() const noexcept {
     return _primitiveTopology;
+}
+
+inline vk::IndexType tpd::Geometry::getIndexType() const noexcept {
+    return _indexType;
 }
 
 inline const std::vector<VkVertexInputBindingDescription2EXT>& tpd::Geometry::getBindingDescriptions() const noexcept {

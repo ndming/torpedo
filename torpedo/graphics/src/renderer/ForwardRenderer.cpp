@@ -326,7 +326,7 @@ void tpd::ForwardRenderer::onDraw(const View& view, const vk::CommandBuffer buff
             const auto& indexBuffer  = geometry->getIndexBuffer();
             const auto vertexBuffers = std::vector(vertexBuffer->getBufferCount(), vertexBuffer->getBuffer());
             buffer.bindVertexBuffers(0, vertexBuffers, vertexBuffer->getOffsets());
-            buffer.bindIndexBuffer(indexBuffer->getBuffer(), 0, vk::IndexType::eUint32);
+            buffer.bindIndexBuffer(indexBuffer->getBuffer(), 0, geometry->getIndexType());
 
             // Bind descriptor sets
             instance->activate(buffer, _currentFrame);
