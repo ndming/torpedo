@@ -18,7 +18,7 @@ namespace tpd {
     concept Renderable = std::is_base_of_v<Renderer, T> && std::is_final_v<T>;
 
     template<Renderable R>
-    std::unique_ptr<R> createRenderer(void* nativeWindow = nullptr);
+    std::unique_ptr<R> createRenderer();
 
     class Renderer {
     public:
@@ -124,8 +124,8 @@ namespace tpd {
         void endOneShotCommands(vk::CommandBuffer commandBuffer) const;
 
         template<Renderable R>
-        friend std::unique_ptr<R> createRenderer(void* nativeWindow) {
-            auto renderer = std::make_unique<R>(nativeWindow);
+        friend std::unique_ptr<R> createRenderer() {
+            auto renderer = std::make_unique<R>();
             renderer->init();
             return renderer;
         }

@@ -3,12 +3,13 @@
 #include <torpedo/material/PhongMaterial.h>
 #include <torpedo/camera/PerspectiveCamera.h>
 #include <torpedo/geometry/CubeGeometryBuilder.h>
+#include <torpedo/control/OrbitControl.h>
 
 #include "stb.h"
 
 int main() {
     const auto context = tpd::Context::create("Hello, Container!");
-    const auto renderer = tpd::createRenderer<tpd::ForwardRenderer>(context->getWindow());
+    const auto renderer = tpd::createRenderer<tpd::ForwardRenderer>(*context);
 
     const auto geometry = tpd::CubeGeometryBuilder().build(*renderer);
     const auto phong = tpd::PhongMaterial::Builder().build(*renderer);
@@ -57,14 +58,19 @@ int main() {
 
     camera->lookAt({ 4.0f, 4.0f, 4.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 1.0f });
 
+    const auto control = tpd::OrbitControl::Builder()
+        .initialRadius(6.0f)
+        .build(*context);
+
     renderer->setOnFramebufferResize([&view, &camera](const uint32_t width, const uint32_t height) {
         const auto aspect = static_cast<float>(width) / static_cast<float>(height);
-        camera->setProjection(45.0f, aspect, 0.1f, 32.0f);
+        camera->setProjection(45.0f, aspect, 0.1f, 200.0f);
         view->setSize(width, height);
     });
 
-    context->loop([&] {
+    context->loop([&](const float deltaTimeMillis) {
         renderer->render(*view);
+        control->update(*view, deltaTimeMillis);
     });
     renderer->waitIdle();
 }

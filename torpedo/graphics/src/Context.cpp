@@ -31,15 +31,20 @@ void tpd::Context::loop(const std::function<void()>& onRender) const {
 }
 
 void tpd::Context::loop(const std::function<void(float)>& onRender) const {
-    const auto startTime = std::chrono::high_resolution_clock::now();
+    auto lastTime = std::chrono::high_resolution_clock::now();;
 
     while (!glfwWindowShouldClose(_window)) {
         glfwPollEvents();
 
         const auto currentTime = std::chrono::high_resolution_clock::now();
-        const float frameTimeMillis = std::chrono::duration<float, std::milli>(currentTime - startTime).count();
-        onRender(frameTimeMillis);
+        const float deltaTimeMillis = std::chrono::duration<float, std::milli>(currentTime - lastTime).count();
+        onRender(deltaTimeMillis);
+
+        lastTime = currentTime;
     }
+
+    glfwSetFramebufferSizeCallback(_window, nullptr);
+    glfwSetMouseButtonCallback(_window, nullptr);
 }
 
 tpd::Context::~Context() {
@@ -48,4 +53,5 @@ tpd::Context::~Context() {
     if (_appender) {
         delete static_cast<plog::ColorConsoleAppender<plog::TxtFormatter>*>(_appender);
     }
+    delete _contextPointer;
 }

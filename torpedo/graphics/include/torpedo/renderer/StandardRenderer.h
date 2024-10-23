@@ -1,10 +1,17 @@
 #pragma once
 
 #include "torpedo/graphics/Renderer.h"
-
-#include <GLFW/glfw3.h>
+#include "torpedo/graphics/Context.h"
 
 namespace tpd {
+    class StandardRenderer;
+
+    template<typename T>
+    concept Presentable = std::is_base_of_v<StandardRenderer, T> && std::is_final_v<T>;
+
+    template<Presentable P>
+    std::unique_ptr<P> createRenderer(const Context& context);
+
     class StandardRenderer : public Renderer {
     public:
         StandardRenderer(const StandardRenderer&) = delete;
@@ -20,9 +27,9 @@ namespace tpd {
         ~StandardRenderer() override;
 
     protected:
-        explicit StandardRenderer(GLFWwindow* window);
+        explicit StandardRenderer(const Context& context);
 
-        GLFWwindow* _window;
+        const Context* _context;
         vk::SurfaceKHR _surface{};
 
         static std::vector<const char*> getDeviceExtensions();
@@ -116,8 +123,12 @@ namespace tpd {
         void updateCameraObject(const Camera& camera) const;
         void updateLightObject(const Scene& scene) const;
 
-        template<Renderable R>
-        friend std::unique_ptr<R> createRenderer(void* nativeWindow);
+        template<Presentable P>
+        friend std::unique_ptr<P> createRenderer(const Context& context) {
+            auto renderer = std::make_unique<P>(context);
+            renderer->init();
+            return renderer;
+        }
     };
 }
 

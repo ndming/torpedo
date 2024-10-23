@@ -31,6 +31,7 @@ set(TORPEDO_GRAPHICS_SOURCES
         src/Camera.cpp
         src/Composable.cpp
         src/Context.cpp
+        src/Control.cpp
         src/Drawable.cpp
         src/Geometry.cpp
         src/Light.cpp
@@ -41,6 +42,7 @@ set(TORPEDO_GRAPHICS_SOURCES
         src/Texture.cpp
         src/View.cpp
         src/camera/PerspectiveCamera.cpp
+        src/control/OrbitControl.cpp
         src/geometry/CubeGeometryBuilder.cpp
         src/light/AmbientLight.cpp
         src/light/DistantLight.cpp

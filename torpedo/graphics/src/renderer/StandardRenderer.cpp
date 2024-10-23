@@ -7,9 +7,12 @@
 
 #include <ranges>
 
-tpd::StandardRenderer::StandardRenderer(GLFWwindow* const window) : Renderer{ getRequiredExtensions() }, _window{ window } {
-    glfwSetWindowUserPointer(window, this);
-    glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+tpd::StandardRenderer::StandardRenderer(const Context& context)
+    : Renderer{ getRequiredExtensions() }
+    , _context{ &context }
+{
+    context.addPointer(this);
+    glfwSetFramebufferSizeCallback(_context->getWindow(), framebufferResizeCallback);
 }
 
 std::vector<const char*> tpd::StandardRenderer::getRequiredExtensions() {
@@ -23,8 +26,9 @@ void tpd::StandardRenderer::framebufferResizeCallback(
     [[maybe_unused]] const int width,
     [[maybe_unused]] const int height)
 {
-    const auto renderer = static_cast<StandardRenderer*>(glfwGetWindowUserPointer(window));
-    renderer->_framebufferResized = true;
+    for (const auto pointer = static_cast<Context::ContextPointer*>(glfwGetWindowUserPointer(window)); const auto renderer : pointer->renderers) {
+        renderer->_framebufferResized = true;
+    }
 }
 
 // =====================================================================================================================
@@ -51,7 +55,7 @@ void tpd::StandardRenderer::init() {
 }
 
 void tpd::StandardRenderer::createSurface() {
-    if (glfwCreateWindowSurface(_instance, _window, nullptr, reinterpret_cast<VkSurfaceKHR*>(&_surface)) != VK_SUCCESS) {
+    if (glfwCreateWindowSurface(_instance, _context->getWindow(), nullptr, reinterpret_cast<VkSurfaceKHR*>(&_surface)) != VK_SUCCESS) {
         throw std::runtime_error("StandardRenderer: failed to create a Vulkan surface");
     }
 }
@@ -214,7 +218,7 @@ vk::Extent2D tpd::StandardRenderer::chooseSwapExtent() const {
     }
 
     int width, height;
-    glfwGetFramebufferSize(_window, &width, &height);
+    glfwGetFramebufferSize(_context->getWindow(), &width, &height);
 
     auto actualExtent = vk::Extent2D{ static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
     actualExtent.width = std::clamp(
@@ -259,9 +263,9 @@ void tpd::StandardRenderer::createSwapChainImageViews() {
 void tpd::StandardRenderer::recreateSwapChain() {
     // We won't recreate while the window is being minimized
     int width = 0, height = 0;
-    glfwGetFramebufferSize(_window, &width, &height);
+    glfwGetFramebufferSize(_context->getWindow(), &width, &height);
     while (width == 0 || height == 0) {
-        glfwGetFramebufferSize(_window, &width, &height);
+        glfwGetFramebufferSize(_context->getWindow(), &width, &height);
         glfwWaitEvents();
     }
 
@@ -544,4 +548,5 @@ tpd::StandardRenderer::~StandardRenderer() {
     _device.destroyRenderPass(_renderPass);
     cleanupSwapChain();
     _instance.destroySurfaceKHR(_surface);
+    _context->removePointer(this);
 }
