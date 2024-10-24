@@ -51,7 +51,7 @@ tpd::Context::~Context() {
     glfwDestroyWindow(_window);
     glfwTerminate();
     if (_appender) {
-        delete static_cast<plog::ColorConsoleAppender<plog::TxtFormatter>*>(_appender);
+        delete static_cast<plog::IAppender*>(_appender);
     }
     delete _contextPointer;
 }
