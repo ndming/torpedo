@@ -7,11 +7,11 @@
 #include <chrono>
 
 std::unique_ptr<tpd::Context> tpd::Context::create(const std::string_view name, const bool plantLogger) {
-    plog::ColorConsoleAppender<plog::TxtFormatter>* appender = nullptr;
+    plog::IAppender* appender = nullptr;
     if (plantLogger) {
         appender = new plog::ColorConsoleAppender<plog::TxtFormatter>();
 #ifdef NDEBUG
-        init(plog::info, &appender);
+        init(plog::info, appender);
 #else
         init(plog::debug, appender);
 #endif

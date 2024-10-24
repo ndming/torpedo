@@ -82,7 +82,7 @@ set(TORPEDO_SHADER_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/graphics.vert
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/phong.frag
 )
-compile_glsl(${TARGET} ${TORPEDO_SHADER_ASSETS_DIR} "${TORPEDO_SHADER_FILES}")
+torpedo_compile_glsl(${TARGET} ${TORPEDO_SHADER_ASSETS_DIR} "${TORPEDO_SHADER_FILES}")
 target_link_libraries(${TARGET} PRIVATE "${TARGET}_spirv_binaries")
 
 # Dependencies

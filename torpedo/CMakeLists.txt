@@ -21,7 +21,7 @@ find_program(GLSL_COMPILER glslc HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/
 message(STATUS "Using GLSL compiler at: ${GLSL_COMPILER}")
 
 # GLSL compilation
-function(compile_glsl TARGET_NAME SPIR_V_OUTPUT_DIR GLSL_SOURCE_FILES)
+function(torpedo_compile_glsl TARGET_NAME SPIR_V_OUTPUT_DIR GLSL_SOURCE_FILES)
     file(MAKE_DIRECTORY ${SPIR_V_OUTPUT_DIR})
 
     foreach(GLSL_FILE ${GLSL_SOURCE_FILES})
