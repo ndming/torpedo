@@ -1,8 +1,8 @@
 #pragma once
 
+#include <vulkan/vulkan.hpp>
 #include <glm/glm.hpp>
 
-#include <memory>
 #include <unordered_set>
 
 namespace tpd {
@@ -20,11 +20,15 @@ namespace tpd {
         [[nodiscard]] bool attached() const noexcept;
         [[nodiscard]] bool hasChild(const std::shared_ptr<Composable>& child) const noexcept;
 
+        const std::unordered_set<std::shared_ptr<Composable>>& getChildren() const noexcept;
+
         void setTransform(const glm::mat4& transform);
         [[nodiscard]] const glm::mat4& getTransform() const;
         [[nodiscard]] const glm::mat4& getTransformWorld() const;
 
-        ~Composable();
+        virtual void record(vk::CommandBuffer buffer, uint32_t frameIndex) const;
+
+        virtual ~Composable();
 
     protected:
         Composable() = default;
@@ -51,10 +55,17 @@ inline bool tpd::Composable::hasChild(const std::shared_ptr<Composable>& child) 
     return _children.contains(child);
 }
 
+inline const std::unordered_set<std::shared_ptr<tpd::Composable>>& tpd::Composable::getChildren() const noexcept {
+    return _children;
+}
+
 inline const glm::mat4& tpd::Composable::getTransform() const {
     return _transform;
 }
 
 inline const glm::mat4& tpd::Composable::getTransformWorld() const {
     return _transformWorld;
+}
+
+inline void tpd::Composable::record(const vk::CommandBuffer buffer, const uint32_t frameIndex) const {
 }

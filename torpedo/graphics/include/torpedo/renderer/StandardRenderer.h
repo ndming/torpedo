@@ -24,6 +24,11 @@ namespace tpd {
         void setOnFramebufferResize(std::function<void(uint32_t, uint32_t)> &&callback) noexcept;
         [[nodiscard]] std::pair<uint32_t, uint32_t> getFramebufferSize() const final;
 
+        static void loadExtensionFunctions(vk::Instance instance);
+        static PFN_vkCmdSetVertexInputEXT vkCmdSetVertexInput;
+        static PFN_vkCmdSetPolygonModeEXT vkCmdSetPolygonMode;
+        static PFN_vkCmdSetRasterizationSamplesEXT vkCmdSetRasterizationSamples;
+
         ~StandardRenderer() override;
 
     protected:
@@ -39,11 +44,6 @@ namespace tpd {
         [[nodiscard]] static vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT getVertexInputDynamicStateFeatures();
         [[nodiscard]] static vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT getExtendedDynamicStateFeatures();
         [[nodiscard]] static vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT getExtendedDynamicState3Features();
-
-        static void loadExtensionFunctions(vk::Instance instance);
-        static PFN_vkCmdSetVertexInputEXT _vkCmdSetVertexInput;
-        static PFN_vkCmdSetPolygonModeEXT _vkCmdSetPolygonMode;
-        static PFN_vkCmdSetRasterizationSamplesEXT _vkCmdSetRasterizationSamples;
 
         // Swap chain characteristics
         vk::Format _swapChainImageFormat{ vk::Format::eUndefined };
@@ -132,9 +132,9 @@ namespace tpd {
     };
 }
 
-inline PFN_vkCmdSetVertexInputEXT tpd::StandardRenderer::_vkCmdSetVertexInput = nullptr;
-inline PFN_vkCmdSetPolygonModeEXT tpd::StandardRenderer::_vkCmdSetPolygonMode = nullptr;
-inline PFN_vkCmdSetRasterizationSamplesEXT tpd::StandardRenderer::_vkCmdSetRasterizationSamples = nullptr;
+inline PFN_vkCmdSetVertexInputEXT tpd::StandardRenderer::vkCmdSetVertexInput = nullptr;
+inline PFN_vkCmdSetPolygonModeEXT tpd::StandardRenderer::vkCmdSetPolygonMode = nullptr;
+inline PFN_vkCmdSetRasterizationSamplesEXT tpd::StandardRenderer::vkCmdSetRasterizationSamples = nullptr;
 
 // =====================================================================================================================
 // INLINE FUNCTION DEFINITIONS

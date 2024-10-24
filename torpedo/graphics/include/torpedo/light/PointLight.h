@@ -14,9 +14,7 @@ namespace tpd {
             [[nodiscard]] std::shared_ptr<PointLight> build() const override;
 
         private:
-            float _posX{ 0.0f };
-            float _posY{ 0.0f };
-            float _posZ{ 0.0f };
+            std::array<float, 3> _position{ 0.0f, 0.0f, 0.0f };
             float _decay{ 2.0f };
         };
 
@@ -26,9 +24,12 @@ namespace tpd {
         PointLight& operator=(const PointLight&) = delete;
 
         void setPosition(float x, float y, float z);
+        std::array<float, 3> getPosition() const;
 
-        std::array<float, 3> position;
         float decay;
+
+    private:
+        glm::vec3 _position;
     };
 }
 
@@ -37,9 +38,9 @@ namespace tpd {
 // =====================================================================================================================
 
 inline tpd::PointLight::Builder& tpd::PointLight::Builder::position(const float x, const float y, const float z) {
-    _posX = x;
-    _posY = y;
-    _posZ = z;
+    _position[0] = x;
+    _position[1] = y;
+    _position[2] = z;
     return *this;
 }
 
@@ -54,12 +55,10 @@ inline tpd::PointLight::PointLight(
     const std::array<float, 3> color,
     const float intensity)
     : Light{ color, intensity }
-    , position{ position }
-    , decay{ decay } {
+    , decay{ decay }
+    , _position{ position[0], position[1], position[2] } {
 }
 
-inline void tpd::PointLight::setPosition(const float x, const float y, const float z) {
-    position[0] = x;
-    position[1] = y;
-    position[2] = z;
+inline std::array<float, 3> tpd::PointLight::getPosition() const {
+    return { _position.x, _position.y, _position.z };
 }

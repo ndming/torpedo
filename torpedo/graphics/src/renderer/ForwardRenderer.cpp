@@ -292,54 +292,32 @@ void tpd::ForwardRenderer::onDraw(const View& view, const vk::CommandBuffer buff
         buffer.setScissor(0, view.scissor);
 
         // Set MSAA sample count
-        _vkCmdSetRasterizationSamples(buffer, static_cast<VkSampleCountFlagBits>(_msaaSampleCount));
+        vkCmdSetRasterizationSamples(buffer, static_cast<VkSampleCountFlagBits>(_msaaSampleCount));
 
         // Bind the shared descriptor set
         buffer.bindDescriptorSets(
             vk::PipelineBindPoint::eGraphics, material->getVulkanPipelineLayout(),
             /* first set */ 0, _sharedShaderInstance->getDescriptorSets(_currentFrame), {});
 
+        // Render the composable tree
         for (const auto& drawable : drawables) {
-            // Update the Drawable uniform object
-            const auto normalMat = transpose(inverse(view.camera->getViewMatrix() * drawable->getTransformWorld()));
-            const auto drawableObject = Drawable::DrawableObject{ drawable->getTransformWorld(), normalMat };
-            _drawableObjectBuffer->updateBufferData(_currentFrame, &drawableObject, sizeof(Drawable::DrawableObject));
+            renderComposable(*drawable, *view.camera, buffer);
 
-            // Get the Geometry and MaterialInstance from this Drawable
-            const auto& geometry = drawable->getGeometry();
-            const auto& instance = drawable->getMaterialInstance();
-
-            // Set all dynamic states specific for this Geometry and MaterialInstance
-            buffer.setPrimitiveTopology(geometry->getPrimitiveTopology());
-            buffer.setCullMode(instance->cullMode);
-            _vkCmdSetPolygonMode(buffer, static_cast<VkPolygonMode>(instance->polygonMode));
-            buffer.setLineWidth(instance->lineWidth);
-
-            const auto& bindings   = geometry->getBindingDescriptions();
-            const auto& attributes = geometry->getAttributeDescriptions();
-            _vkCmdSetVertexInput(buffer,
-                static_cast<uint32_t>(bindings.size()), bindings.data(),
-                static_cast<uint32_t>(attributes.size()), attributes.data());
-
-            // Bind vertex and index buffers
-            const auto& vertexBuffer = geometry->getVertexBuffer();
-            const auto& indexBuffer  = geometry->getIndexBuffer();
-            const auto vertexBuffers = std::vector(vertexBuffer->getBufferCount(), vertexBuffer->getBuffer());
-            buffer.bindVertexBuffers(0, vertexBuffers, vertexBuffer->getOffsets());
-            buffer.bindIndexBuffer(indexBuffer->getBuffer(), 0, geometry->getIndexType());
-
-            // Bind descriptor sets
-            instance->activate(buffer, _currentFrame);
-
-            // Draw this drawable
-            buffer.drawIndexed(
-                drawable->getIndexCount(),
-                drawable->instanceCount,
-                drawable->firstIndex,
-                drawable->vertexOffset,
-                drawable->firstInstance);
+            for (const auto& child : drawable->getChildren()) {
+                renderComposable(*child, *view.camera, buffer);
+            }
         }
     }
+}
+
+void tpd::ForwardRenderer::renderComposable(const Composable& composable, const Camera& camera, const vk::CommandBuffer buffer) const {
+    // Update the Drawable uniform object
+    const auto normalMat = transpose(inverse(camera.getViewMatrix() * composable.getTransformWorld()));
+    const auto drawableObject = Drawable::DrawableObject{ composable.getTransformWorld(), normalMat };
+    _drawableObjectBuffer->updateBufferData(_currentFrame, &drawableObject, sizeof(Drawable::DrawableObject));
+
+    // Record draw commands
+    composable.record(buffer, _currentFrame);
 }
 
 tpd::ForwardRenderer::~ForwardRenderer() {

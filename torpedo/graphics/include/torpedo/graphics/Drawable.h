@@ -110,6 +110,8 @@ namespace tpd {
         [[nodiscard]] const std::shared_ptr<MaterialInstance>& getMaterialInstance() const;
         [[nodiscard]] uint32_t getIndexCount() const;
 
+        void record(vk::CommandBuffer buffer, uint32_t frameIndex) const override;
+
         struct DrawableObject {
             alignas(16) glm::mat4 transform;
             alignas(16) glm::mat4 normalMat;

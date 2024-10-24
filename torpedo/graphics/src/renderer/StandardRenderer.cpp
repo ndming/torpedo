@@ -435,9 +435,9 @@ void tpd::StandardRenderer::destroyDrawingSyncObjects() const noexcept {
 // =====================================================================================================================
 
 void tpd::StandardRenderer::loadExtensionFunctions(const vk::Instance instance) {
-    _vkCmdSetVertexInput = reinterpret_cast<PFN_vkCmdSetVertexInputEXT>(vkGetInstanceProcAddr(instance, "vkCmdSetVertexInputEXT"));
-    _vkCmdSetPolygonMode = reinterpret_cast<PFN_vkCmdSetPolygonModeEXT>(vkGetInstanceProcAddr(instance, "vkCmdSetPolygonModeEXT"));
-    _vkCmdSetRasterizationSamples = reinterpret_cast<PFN_vkCmdSetRasterizationSamplesEXT>(vkGetInstanceProcAddr(instance, "vkCmdSetRasterizationSamplesEXT"));
+    vkCmdSetVertexInput = reinterpret_cast<PFN_vkCmdSetVertexInputEXT>(vkGetInstanceProcAddr(instance, "vkCmdSetVertexInputEXT"));
+    vkCmdSetPolygonMode = reinterpret_cast<PFN_vkCmdSetPolygonModeEXT>(vkGetInstanceProcAddr(instance, "vkCmdSetPolygonModeEXT"));
+    vkCmdSetRasterizationSamples = reinterpret_cast<PFN_vkCmdSetRasterizationSamplesEXT>(vkGetInstanceProcAddr(instance, "vkCmdSetRasterizationSamplesEXT"));
 }
 
 void tpd::StandardRenderer::render(const View &view) {
@@ -519,7 +519,7 @@ void tpd::StandardRenderer::updateLightObject(const Scene &scene) const {
         return Light::DistantLight{ it->direction, it->color, it->intensity };
     });
     std::ranges::transform(pointLights, lightObject.pointLights.begin(), [](const auto& it) {
-        return Light::PointLight{ it->position, it->color, it->intensity, it->decay };
+        return Light::PointLight{ it->getPosition(), it->color, it->intensity, it->decay };
     });
 
     _lightObjectBuffer->updateBufferData(_currentFrame, &lightObject, sizeof(Light::LightObject));
