@@ -1,8 +1,9 @@
 #include <torpedo/graphics/Context.h>
-#include <torpedo/renderer/ForwardRenderer.h>
-#include <torpedo/material/PhongMaterial.h>
-#include <torpedo/camera/PerspectiveCamera.h>
 #include <torpedo/geometry/CubeGeometryBuilder.h>
+#include <torpedo/material/PhongMaterial.h>
+#include <torpedo/renderer/ForwardRenderer.h>
+
+#include <torpedo/camera/PerspectiveCamera.h>
 #include <torpedo/control/OrbitControl.h>
 
 #include "stb.h"
@@ -15,7 +16,7 @@ int main() {
     const auto phong = tpd::PhongMaterial::Builder().build(*renderer);
 
     int texWidth, texHeight, texChannels;
-    auto pixels = stbi_load("assets/textures/container_diffuse.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    auto pixels = stbi_load("textures/diffuse.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
     const auto diffuse = tpd::Texture::Builder()
         .size(texWidth, texHeight)
@@ -24,7 +25,7 @@ int main() {
 
     stbi_image_free(pixels);
 
-    pixels = stbi_load("assets/textures/container_specular.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    pixels = stbi_load("textures/specular.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
     const auto specular = tpd::Texture::Builder()
         .size(texWidth, texHeight)
@@ -55,8 +56,6 @@ int main() {
     view->scene->insert(light);
     view->scene->insert(ambientLight);
     view->camera = camera;
-
-    camera->lookAt({ 4.0f, 4.0f, 4.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 1.0f });
 
     const auto control = tpd::OrbitControl::Builder()
         .initialRadius(6.0f)
