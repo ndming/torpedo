@@ -3,11 +3,27 @@
 #include <plog/Log.h>
 
 void tpd::Scene::insert(const std::shared_ptr<Drawable>& drawable) {
-    _drawableGraph[drawable->getMaterialInstance()->getMaterial()].insert(drawable);
+    for (const auto& mesh : drawable->getMeshes()) {
+        _meshGraph[mesh.materialInstance->getMaterial()].insert(&mesh);
+    }
+    for (const auto& child : drawable->getChildren()) {
+        if (const auto childDrawable = std::dynamic_pointer_cast<Drawable>(child)) {
+            insert(childDrawable);
+        }
+    }
 }
 
 void tpd::Scene::remove(const std::shared_ptr<Drawable>& drawable) {
-    _drawableGraph[drawable->getMaterialInstance()->getMaterial()].erase(drawable);
+    for (auto& [_, meshes] : _meshGraph) {
+        for (const auto& mesh : drawable->getMeshes()) {
+            meshes.erase(&mesh);
+        }
+    }
+    for (const auto& child : drawable->getChildren()) {
+        if (const auto childDrawable = std::dynamic_pointer_cast<Drawable>(child)) {
+            remove(childDrawable);
+        }
+    }
 }
 
 void tpd::Scene::insert(const std::shared_ptr<AmbientLight>& light) {

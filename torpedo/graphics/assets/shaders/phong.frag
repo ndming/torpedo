@@ -9,7 +9,7 @@ layout(location = 2) in vec2 fragUV;
 
 layout(location = 0) out vec4 outColor;
 
-layout(set = 0, binding = 1) uniform CameraObject {
+layout(set = 0, binding = 0) uniform CameraObject {
     mat4 viewMatrix;
     mat4 viewNormal;
     mat4 projection;
@@ -33,7 +33,7 @@ struct PointLight {
     float decay;
 };
 
-layout(std430, set = 0, binding = 2) uniform LightObject {
+layout(std430, set = 0, binding = 1) uniform LightObject {
     uint ambientLightCount;
     uint distantLightCount;
     uint pointLightCount;

@@ -26,9 +26,7 @@ namespace tpd {
         [[nodiscard]] const glm::mat4& getTransform() const;
         [[nodiscard]] const glm::mat4& getTransformWorld() const;
 
-        virtual void record(vk::CommandBuffer buffer, uint32_t frameIndex) const;
-
-        virtual ~Composable();
+        virtual ~Composable() = default;
 
     protected:
         Composable() = default;
@@ -65,7 +63,4 @@ inline const glm::mat4& tpd::Composable::getTransform() const {
 
 inline const glm::mat4& tpd::Composable::getTransformWorld() const {
     return _transformWorld;
-}
-
-inline void tpd::Composable::record(const vk::CommandBuffer buffer, const uint32_t frameIndex) const {
 }

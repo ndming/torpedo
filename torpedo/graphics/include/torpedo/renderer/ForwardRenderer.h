@@ -40,6 +40,5 @@ namespace tpd {
 
         [[nodiscard]] std::vector<vk::ClearValue> getClearValues() const override;
         void onDraw(const View& view, vk::CommandBuffer buffer) const override;
-        void renderComposable(const Composable& composable, const Camera& camera, vk::CommandBuffer buffer) const;
     };
 }

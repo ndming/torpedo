@@ -8,12 +8,12 @@ layout(location = 0) out vec3 fragPosition;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec2 fragUV;
 
-layout(set = 0, binding = 0) uniform DrawableObject {
+layout(push_constant) uniform DrawableObject {
     mat4 transform;
     mat4 normalMat;
 } drawable;
 
-layout(set = 0, binding = 1) uniform CameraObject {
+layout(set = 0, binding = 0) uniform CameraObject {
     mat4 viewMatrix;
     mat4 viewNormal;
     mat4 projection;

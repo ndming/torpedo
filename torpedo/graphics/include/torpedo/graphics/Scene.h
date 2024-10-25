@@ -28,15 +28,15 @@ namespace tpd {
         void insert(const std::shared_ptr<PointLight>& light);
         void remove(const std::shared_ptr<PointLight>& light);
 
-        using DrawableGraph = std::unordered_map<const Material*, std::unordered_set<std::shared_ptr<Drawable>>>;
-        [[nodiscard]] const DrawableGraph& getDrawableGraph() const;
+        using MeshGraph = std::unordered_map<const Material*, std::unordered_set<const Drawable::Mesh*>>;
+        [[nodiscard]] const MeshGraph& getMeshGraph() const;
 
         [[nodiscard]] const std::unordered_set<std::shared_ptr<AmbientLight>>& getAmbientLights() const;
         [[nodiscard]] const std::unordered_set<std::shared_ptr<DistantLight>>& getDistantLights() const;
         [[nodiscard]] const std::unordered_set<std::shared_ptr<PointLight>>& getPointLights() const;
 
     private:
-        DrawableGraph _drawableGraph{};
+        MeshGraph _meshGraph{};
 
         std::unordered_set<std::shared_ptr<AmbientLight>> _ambientLights{};
         std::unordered_set<std::shared_ptr<DistantLight>> _distantLights{};
@@ -48,8 +48,8 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS
 // =====================================================================================================================
 
-inline const tpd::Scene::DrawableGraph& tpd::Scene::getDrawableGraph() const {
-    return _drawableGraph;
+inline const tpd::Scene::MeshGraph& tpd::Scene::getMeshGraph() const {
+    return _meshGraph;
 }
 
 inline const std::unordered_set<std::shared_ptr<tpd::AmbientLight>>& tpd::Scene::getAmbientLights() const {

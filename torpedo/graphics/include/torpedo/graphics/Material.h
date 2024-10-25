@@ -155,7 +155,7 @@ inline tpd::ShaderLayout::Builder tpd::Material::getSharedLayoutBuilder(const ui
     using enum vk::ShaderStageFlagBits;
     return ShaderLayout::Builder()
         .descriptorSetCount(additionalSetCount + 1)
-        .descriptor(0, 0, vk::DescriptorType::eUniformBuffer, 1, eVertex)              // drawable
-        .descriptor(0, 1, vk::DescriptorType::eUniformBuffer, 1, eVertex | eFragment)  // camera
-        .descriptor(0, 2, vk::DescriptorType::eUniformBuffer, 1, eFragment);           // light
+        .pushConstantRange(eVertex, 0, sizeof(Drawable::DrawableObject))               // drawable
+        .descriptor(0, 0, vk::DescriptorType::eUniformBuffer, 1, eVertex | eFragment)  // camera
+        .descriptor(0, 1, vk::DescriptorType::eUniformBuffer, 1, eFragment);           // light
 }

@@ -41,7 +41,10 @@ int main() {
         .build(*renderer);
     const auto materialInstance = material->createInstance();
 
-    const auto triangle = tpd::Drawable::Builder().build(geometry, materialInstance);
+    const auto triangle = tpd::Drawable::Builder()
+        .meshCount(1)
+        .mesh(0, geometry, materialInstance)
+        .build();
 
     const auto view = renderer->createView();
     view->scene->insert(triangle);

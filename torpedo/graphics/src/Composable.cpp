@@ -11,6 +11,7 @@ void tpd::Composable::attach(const std::shared_ptr<Composable>& child) {
     // a circular tree in practice, we will assume such a mess would never happen.
     if (child.get() != this && !child->attached()) {
         child->_parent = shared_from_this();
+        child->updateWorldTransform();
         _children.insert(child);
     }
 }
@@ -19,6 +20,7 @@ void tpd::Composable::detach(const std::shared_ptr<Composable>& child) noexcept 
     // Only detach when the child is a descendant of this composable
     if (hasChild(child)) {
         child->_parent.reset();
+        child->updateWorldTransform();
         _children.erase(child);
     }
 }
@@ -39,11 +41,4 @@ void tpd::Composable::setTransform(const glm::mat4& transform) {
 void tpd::Composable::updateWorldTransform() {
     _transformWorld = attached() ? _parent.lock()->_transformWorld * _transform : _transform;
     std::ranges::for_each(_children, [](const auto& it) { it->updateWorldTransform(); });
-}
-
-tpd::Composable::~Composable() {
-    if (attached()) {
-        _parent.lock()->detach(shared_from_this());
-    }
-    detachAll();
 }

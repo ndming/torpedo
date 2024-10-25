@@ -84,7 +84,6 @@ namespace tpd {
 
         std::unique_ptr<ShaderInstance> _sharedShaderInstance{};
 
-        std::unique_ptr<Buffer> _drawableObjectBuffer{};
         std::unique_ptr<Buffer> _cameraObjectBuffer{};
         std::unique_ptr<Buffer> _lightObjectBuffer{};
 

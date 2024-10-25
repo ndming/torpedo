@@ -19,7 +19,10 @@ int main() {
     materialInstance->setSpecular(0.628281f, 0.555802f, 0.366065f);
     materialInstance->setShininess(51.2f);
 
-    const auto cube = tpd::Drawable::Builder().build(geometry, materialInstance);
+    const auto cube = tpd::Drawable::Builder()
+        .meshCount(1)
+        .mesh(0, geometry, materialInstance)
+        .build();
 
     const auto pointLight = tpd::PointLight::Builder()
         .position(2.0f, 2.0f, 2.0f)

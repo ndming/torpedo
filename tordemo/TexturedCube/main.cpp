@@ -38,7 +38,10 @@ int main() {
     phongInstance->setDiffuse(*diffuse);
     phongInstance->setSpecular(*specular);
 
-    const auto drawable = tpd::Drawable::Builder().build(geometry, phongInstance);
+    const auto drawable = tpd::Drawable::Builder()
+        .meshCount(1)
+        .mesh(0, geometry, phongInstance)
+        .build();
 
     const auto light = tpd::PointLight::Builder()
         .position(-2.0f, -2.0f, 2.0f)

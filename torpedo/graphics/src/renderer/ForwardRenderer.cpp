@@ -283,7 +283,7 @@ std::vector<vk::ClearValue> tpd::ForwardRenderer::getClearValues() const {
 }
 
 void tpd::ForwardRenderer::onDraw(const View& view, const vk::CommandBuffer buffer) const {
-    for (const auto& graph = view.scene->getDrawableGraph(); const auto& [material, drawables] : graph) {
+    for (const auto& graph = view.scene->getMeshGraph(); const auto& [material, meshes] : graph) {
         // Bind the graphics pipeline for this material group
         buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, material->getVulkanPipeline());
 
@@ -300,24 +300,50 @@ void tpd::ForwardRenderer::onDraw(const View& view, const vk::CommandBuffer buff
             /* first set */ 0, _sharedShaderInstance->getDescriptorSets(_currentFrame), {});
 
         // Render the composable tree
-        for (const auto& drawable : drawables) {
-            renderComposable(*drawable, *view.camera, buffer);
+        for (const auto mesh : meshes) {
+            const auto& geometry = mesh->geometry;
+            const auto& materialInstance = mesh->materialInstance;
 
-            for (const auto& child : drawable->getChildren()) {
-                renderComposable(*child, *view.camera, buffer);
-            }
+            // Update the Drawable uniform object
+            const auto normalMat = transpose(inverse(view.camera->getViewMatrix() * mesh->drawable->getTransformWorld()));
+            const auto drawableObject = Drawable::DrawableObject{ mesh->drawable->getTransformWorld(), normalMat };
+            buffer.pushConstants(
+                materialInstance->getMaterial()->getVulkanPipelineLayout(),
+                vk::ShaderStageFlagBits::eVertex,
+                0, sizeof(Drawable::DrawableObject),
+                &drawableObject);
+
+            // Set all dynamic states specific for this Mesh
+            buffer.setPrimitiveTopology(geometry->getPrimitiveTopology());
+            buffer.setCullMode(materialInstance->cullMode);
+            vkCmdSetPolygonMode(buffer, static_cast<VkPolygonMode>(materialInstance->polygonMode));
+            buffer.setLineWidth(materialInstance->lineWidth);
+
+            const auto& bindings   = geometry->getBindingDescriptions();
+            const auto& attributes = geometry->getAttributeDescriptions();
+            vkCmdSetVertexInput(buffer,
+                static_cast<uint32_t>(bindings.size()), bindings.data(),
+                static_cast<uint32_t>(attributes.size()), attributes.data());
+
+            // Bind vertex and index buffers
+            const auto& vertexBuffer = geometry->getVertexBuffer();
+            const auto& indexBuffer  = geometry->getIndexBuffer();
+            const auto vertexBuffers = std::vector(vertexBuffer->getBufferCount(), vertexBuffer->getBuffer());
+            buffer.bindVertexBuffers(0, vertexBuffers, vertexBuffer->getOffsets());
+            buffer.bindIndexBuffer(indexBuffer->getBuffer(), 0, geometry->getIndexType());
+
+            // Bind descriptor sets
+            materialInstance->activate(buffer, _currentFrame);
+
+            // Draw this drawable
+            buffer.drawIndexed(
+                geometry->getIndexCount(),
+                mesh->instanceCount,
+                /* 1st index */ 0,
+                mesh->vertexOffset,
+                mesh->firstInstance);
         }
     }
-}
-
-void tpd::ForwardRenderer::renderComposable(const Composable& composable, const Camera& camera, const vk::CommandBuffer buffer) const {
-    // Update the Drawable uniform object
-    const auto normalMat = transpose(inverse(camera.getViewMatrix() * composable.getTransformWorld()));
-    const auto drawableObject = Drawable::DrawableObject{ composable.getTransformWorld(), normalMat };
-    _drawableObjectBuffer->updateBufferData(_currentFrame, &drawableObject, sizeof(Drawable::DrawableObject));
-
-    // Record draw commands
-    composable.record(buffer, _currentFrame);
 }
 
 tpd::ForwardRenderer::~ForwardRenderer() {

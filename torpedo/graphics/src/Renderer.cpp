@@ -143,10 +143,6 @@ void tpd::Renderer::createSharedDescriptorSetLayout() {
 }
 
 void tpd::Renderer::createSharedObjectBuffers() {
-    auto drawableObjectBufferBuilder = Buffer::Builder()
-        .bufferCount(MAX_FRAMES_IN_FLIGHT)
-        .usage(vk::BufferUsageFlagBits::eUniformBuffer);
-
     auto cameraObjectBufferBuilder = Buffer::Builder()
         .bufferCount(MAX_FRAMES_IN_FLIGHT)
         .usage(vk::BufferUsageFlagBits::eUniformBuffer);
@@ -157,23 +153,16 @@ void tpd::Renderer::createSharedObjectBuffers() {
 
     const auto alignment = getMinUniformBufferOffsetAlignment();
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-        drawableObjectBufferBuilder.buffer(i, sizeof(Drawable::DrawableObject), alignment);
         cameraObjectBufferBuilder.buffer(i, sizeof(Camera::CameraObject), alignment);
         lightObjectBufferBuilder.buffer(i, sizeof(Light::LightObject), alignment);
     }
 
-    _drawableObjectBuffer = drawableObjectBufferBuilder.build(*_allocator, ResourceType::Persistent);
     _cameraObjectBuffer = cameraObjectBufferBuilder.build(*_allocator, ResourceType::Persistent);
     _lightObjectBuffer = lightObjectBufferBuilder.build(*_allocator, ResourceType::Persistent);
 }
 
 void tpd::Renderer::writeSharedDescriptorSets() const {
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-        auto drawableBufferInfo = vk::DescriptorBufferInfo{};
-        drawableBufferInfo.buffer = _drawableObjectBuffer->getBuffer();
-        drawableBufferInfo.offset = _drawableObjectBuffer->getOffsets()[i];
-        drawableBufferInfo.range  = sizeof(Drawable::DrawableObject);
-
         auto cameraBufferInfo = vk::DescriptorBufferInfo{};
         cameraBufferInfo.buffer = _cameraObjectBuffer->getBuffer();
         cameraBufferInfo.offset = _cameraObjectBuffer->getOffsets()[i];
@@ -184,9 +173,8 @@ void tpd::Renderer::writeSharedDescriptorSets() const {
         lightBufferInfo.offset = _lightObjectBuffer->getOffsets()[i];
         lightBufferInfo.range  = sizeof(Light::LightObject);
 
-        _sharedShaderInstance->setDescriptors(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, { drawableBufferInfo });
-        _sharedShaderInstance->setDescriptors(i, 0, 1, vk::DescriptorType::eUniformBuffer, _device, { cameraBufferInfo });
-        _sharedShaderInstance->setDescriptors(i, 0, 2, vk::DescriptorType::eUniformBuffer, _device, { lightBufferInfo });
+        _sharedShaderInstance->setDescriptors(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, { cameraBufferInfo });
+        _sharedShaderInstance->setDescriptors(i, 0, 1, vk::DescriptorType::eUniformBuffer, _device, { lightBufferInfo });
     }
 }
 
@@ -304,7 +292,6 @@ tpd::Renderer::~Renderer() {
     _defaultShaderReadImage->dispose(_device, *_allocator);
     _lightObjectBuffer->dispose(*_allocator);
     _cameraObjectBuffer->dispose(*_allocator);
-    _drawableObjectBuffer->dispose(*_allocator);
     _sharedShaderInstance->dispose(_device);
     _sharedShaderLayout->dispose(_device);
     _device.destroyCommandPool(_drawingCommandPool);
