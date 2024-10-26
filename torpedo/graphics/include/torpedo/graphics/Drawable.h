@@ -43,6 +43,24 @@ namespace tpd {
                 uint32_t instanceCount = 1, uint32_t firstInstance = 0, int32_t vertexOffset = 0);
 
             /**
+             * Adds a Mesh to include in the Drawable. All meshes within the same Drawable share transform properties.
+             *
+             * @param index The index of the Mesh, which can be later used to change drawing settings.
+             * @param mesh A Drawable::Mesh object.
+             * @return This Builder object for chaining calls.
+             */
+            Builder& mesh(uint32_t index, const Mesh& mesh);
+
+            /**
+             * Adds a Mesh to include in the Drawable. All meshes within the same Drawable share transform properties.
+             *
+             * @param index The index of the Mesh, which can be later used to change drawing settings.
+             * @param mesh A Drawable::Mesh object.
+             * @return This Builder object for chaining calls.
+             */
+            Builder& mesh(uint32_t index, Mesh&& mesh) noexcept;
+
+            /**
              * Builds and returns a drawable object containing all specified Meshes.
              *
              * @return A shared pointer to the Drawable object sharing the same transform.
@@ -91,6 +109,16 @@ inline tpd::Drawable::Builder& tpd::Drawable::Builder::mesh(
     const int32_t vertexOffset)
 {
     _meshes[index] = { geometry, materialInstance, instanceCount, firstInstance, vertexOffset, nullptr };
+    return *this;
+}
+
+inline tpd::Drawable::Builder& tpd::Drawable::Builder::mesh(const uint32_t index, const Mesh& mesh) {
+    _meshes[index] = mesh;
+    return *this;
+}
+
+inline tpd::Drawable::Builder& tpd::Drawable::Builder::mesh(const uint32_t index, Mesh&& mesh) noexcept {
+    _meshes[index] = std::move(mesh);
     return *this;
 }
 
