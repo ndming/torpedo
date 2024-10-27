@@ -131,8 +131,8 @@ vec3 calculateSpecular(AmbientLight ambientLight) {
 vec3 calculateSpecular(DistantLight distantLight, vec3 toLight) {
     // Light specular component
     vec3 toView = normalize(-fragPosition);
-    vec3 toSpec = reflect(-toLight, normalize(fragNormal));
-    float coefficient = pow(max(dot(toSpec, toView), 0.0f), material.shininess);
+    vec3 toHalf = normalize(toLight + toView);
+    float coefficient = pow(max(dot(toHalf, normalize(fragNormal)), 0.0f), material.shininess);
     vec3 specular = coefficient * distantLight.intensity * distantLight.color * SPECULAR_SCALE;
     // Material specular component
     specular *= (material.useSpecularMap != 0u) ? vec3(texture(specularMapSampler, fragUV)) : material.specular;
@@ -142,8 +142,8 @@ vec3 calculateSpecular(DistantLight distantLight, vec3 toLight) {
 vec3 calculateSpecular(vec3 lightPos, vec3 lightColor, float attenuation) {
     // Light specular component
     vec3 toView = normalize(-fragPosition);
-    vec3 toSpec = reflect(normalize(fragPosition - lightPos), normalize(fragNormal));
-    float coefficient = pow(max(dot(toSpec, toView), 0.0f), material.shininess);
+    vec3 toHalf = normalize(normalize(lightPos - fragPosition) + toView);
+    float coefficient = pow(max(dot(toHalf, normalize(fragNormal)), 0.0f), material.shininess);
     vec3 specular = coefficient * attenuation * lightColor * SPECULAR_SCALE;
     // Material specular component
     specular *= (material.useSpecularMap != 0u) ? vec3(texture(specularMapSampler, fragUV)) : material.specular;
