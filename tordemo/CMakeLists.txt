@@ -22,8 +22,9 @@ function(tordemo_copy_resource TARGET_NAME RESOURCE_OUTPUT_DIR RESOURCE_FILES)
         # Collect the list of destination files
         list(APPEND RESOURCE_DST_FILES ${RESOURCE_DST_FILE})
     endforeach()
-    add_custom_target(${TARGET_NAME}_resource_copy ALL DEPENDS ${RESOURCE_DST_FILES})
-    add_dependencies(${TARGET_NAME} ${TARGET_NAME}_resource_copy)
+    string(RANDOM LENGTH 4 ALPHABET "0123456789abcdef" suffix)
+    add_custom_target(${TARGET_NAME}_resource_copy_${suffix} ALL DEPENDS ${RESOURCE_DST_FILES})
+    add_dependencies(${TARGET_NAME} ${TARGET_NAME}_resource_copy_${suffix})
 endfunction()
 
 # tordemo samples

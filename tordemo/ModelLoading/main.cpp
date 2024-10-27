@@ -34,7 +34,7 @@ int main() {
 
     const auto control = tpd::OrbitControl::Builder()
         .initialRadius(6.0f)
-        .sensitivity(0.8f)
+        .sensitivity(1.5f)
         .build(*context);
 
     renderer->setOnFramebufferResize([&view, &camera](const uint32_t width, const uint32_t height) {
