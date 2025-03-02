@@ -2,21 +2,46 @@
 
 #include <ranges>
 
-vk::Device tpd::DeviceBuilder::build(const vk::PhysicalDevice physicalDevice) const {
-    using namespace std::views;
+tpd::DeviceBuilder& tpd::DeviceBuilder::deviceFeatures(vk::PhysicalDeviceFeatures2* const features) noexcept {
+    _features = features;
+    return *this;
+}
+
+tpd::DeviceBuilder& tpd::DeviceBuilder::queueFamilyIndices(const std::initializer_list<uint32_t> families) {
+    if (families.size() > MAX_UNIQUE_FAMILIES) [[unlikely]] {
+        throw std::runtime_error(
+            std::format("DeviceBuilder - More than {} queue family indices are being processed.", MAX_UNIQUE_FAMILIES));
+    }
+
+    // Convert uint32_t to vk::DeviceQueueCreateInfo and store in a temp array
     constexpr auto priority = 1.0f;
-    const auto toQueueCreateInfo = [&priority](const auto& family) { return vk::DeviceQueueCreateInfo{ {}, family, 1, &priority }; };
-    const auto queueCreateInfos = _queueFamilies | transform(toQueueCreateInfo) | std::ranges::to<std::vector>();
+    const auto toQueueCreateInfo = [&priority](const auto idx) { return vk::DeviceQueueCreateInfo{ {}, idx, 1, &priority }; };
+    const auto queueInfos = families | std::views::transform(toQueueCreateInfo);
 
-    auto deviceCreateInfo = vk::DeviceCreateInfo{};
-    deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
-    deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-    deviceCreateInfo.pEnabledFeatures = nullptr;  // we're using vk::PhysicalDeviceFeatures2, specified in the pNext ptr
-    deviceCreateInfo.pNext = &_features;
-    deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(_extensions.size());
-    deviceCreateInfo.ppEnabledExtensionNames = _extensions.data();
-    // Up-to-date implementations of Vulkan will ignore these layer-related fields
-    deviceCreateInfo.enabledLayerCount = 0;
+    auto temp = std::array<vk::DeviceQueueCreateInfo, MAX_UNIQUE_FAMILIES>{};
+    const auto [in, out] = std::ranges::copy(queueInfos.begin(), queueInfos.end(), temp.begin());
 
+    // Sort to filter unique elements, this may seem verbose, but we avoid allocating on the heap
+    const auto less = [](const auto& lhs, const auto& rhs) { return lhs.queueFamilyIndex <  rhs.queueFamilyIndex; };
+    std::ranges::sort(temp.begin(), out, less);
+    const auto comp = [](const auto& lhs, const auto& rhs) { return lhs.queueFamilyIndex == rhs.queueFamilyIndex; };
+    const auto [_, last] = std::ranges::unique_copy(temp.begin(), out, _queueInfos.begin(), comp);
+    _queueInfoCount = std::distance(_queueInfos.begin(), last);
+
+    return *this;
+}
+
+vk::Device tpd::DeviceBuilder::build(
+    const vk::PhysicalDevice physicalDevice,
+    const vk::ArrayProxy<const char*>& extensions) const
+{
+    const auto deviceCreateInfo = vk::DeviceCreateInfo{}
+        .setPQueueCreateInfos(_queueInfos.data())
+        .setQueueCreateInfoCount(_queueInfoCount)
+        .setEnabledExtensionCount(extensions.size())
+        .setPpEnabledExtensionNames(extensions.data())
+        .setPEnabledFeatures(nullptr)  // we're using vk::PhysicalDeviceFeatures2 ...
+        .setPNext(_features)           // ... specified in the pNext ptr
+        .setEnabledLayerCount(0);      // obsolete in up-to-date Vulkan
     return physicalDevice.createDevice(deviceCreateInfo);
 }

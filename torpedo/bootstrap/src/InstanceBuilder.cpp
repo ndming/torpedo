@@ -3,10 +3,9 @@
 #include <ranges>
 #include <unordered_set>
 
-vk::Instance tpd::InstanceBuilder::build(const vk::InstanceCreateFlags flags) {
-    // Check if all required layers are available, throw if any of them is not supported
-    if (!allLayersAvailable()) {
-        throw std::runtime_error("InstanceBuilder - Not all requested layers are available, consider update your drivers");
+vk::Instance tpd::InstanceBuilder::build(const vk::InstanceCreateFlags flags, const std::vector<const char*>& layers) {
+    if (!allLayersAvailable(layers)) [[unlikely]] {
+        throw std::runtime_error("InstanceBuilder - Not all requested layers are available, consider updating your drivers");
     }
 
     auto createInfo = vk::InstanceCreateInfo{};
@@ -15,8 +14,8 @@ vk::Instance tpd::InstanceBuilder::build(const vk::InstanceCreateFlags flags) {
 
     if (_debugInfo.pfnUserCallback) {
         _extensions.push_back(vk::EXTDebugUtilsExtensionName);
-        createInfo.enabledLayerCount = static_cast<uint32_t>(_layers.size());
-        createInfo.ppEnabledLayerNames = _layers.data();
+        createInfo.enabledLayerCount = static_cast<uint32_t>(layers.size());
+        createInfo.ppEnabledLayerNames = layers.data();
         createInfo.pNext = &_debugInfo;
     } else {
         createInfo.enabledLayerCount = 0;
@@ -29,32 +28,17 @@ vk::Instance tpd::InstanceBuilder::build(const vk::InstanceCreateFlags flags) {
     return createInstance(createInfo);
 }
 
-bool tpd::InstanceBuilder::allLayersAvailable() const {
-    using namespace std::ranges;
+bool tpd::InstanceBuilder::allLayersAvailable(const std::vector<const char*>& layers) {
     const auto properties = vk::enumerateInstanceLayerProperties();
-
     const auto toName = [](const auto& property) { return property.layerName.data(); };
-    const auto supportedLayers = properties | views::transform(toName) | to<std::unordered_set<std::string>>();
+    const auto supportedLayers = properties | std::views::transform(toName) | std::ranges::to<std::unordered_set<std::string>>();
 
     const auto supported = [&supportedLayers](const auto& it) { return supportedLayers.contains(it); };
-    return all_of(_layers, std::identity{}, supported);
-}
-
-vk::DebugUtilsMessengerCreateInfoEXT tpd::bootstrap::createDebugInfo(PFN_vkDebugUtilsMessengerCallbackEXT callback, void* pUserData) {
-    using MessageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
-    using MessageType = vk::DebugUtilsMessageTypeFlagBitsEXT;
-
-    auto debugInfo = vk::DebugUtilsMessengerCreateInfoEXT{};
-    debugInfo.messageSeverity = MessageSeverity::eVerbose | MessageSeverity::eWarning | MessageSeverity::eError;
-    debugInfo.messageType = MessageType::eGeneral | MessageType::eValidation | MessageType::ePerformance;
-    debugInfo.pfnUserCallback = callback;
-    debugInfo.pUserData = pUserData;
-
-    return debugInfo;
+    return std::ranges::all_of(layers, std::identity{}, supported);
 }
 
 vk::Result tpd::bootstrap::createDebugUtilsMessenger(
-    const vk::Instance& instance,
+    const vk::Instance instance,
     const vk::DebugUtilsMessengerCreateInfoEXT* pCreateInfo,
     vk::DebugUtilsMessengerEXT* pDebugMessenger,
     const vk::AllocationCallbacks* pAllocator)
@@ -74,7 +58,7 @@ vk::Result tpd::bootstrap::createDebugUtilsMessenger(
 }
 
 void tpd::bootstrap::destroyDebugUtilsMessenger(
-    const vk::Instance& instance,
+    const vk::Instance instance,
     const vk::DebugUtilsMessengerEXT debugMessenger,
     const vk::AllocationCallbacks *pAllocator)
 {

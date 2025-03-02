@@ -1,16 +1,17 @@
 # ======================================================================================================================
-# LIBARY SOURCE FILES
+# MODULE SOURCE FILES
 # ======================================================================================================================
 set(TORPEDO_BOOTSTRAP_SOURCES
         src/DeviceBuilder.cpp
         src/InstanceBuilder.cpp
         src/PhysicalDeviceSelector.cpp
         src/SamplerBuilder.cpp
+        src/SwapChainBuilder.cpp
 )
 
 
 # ======================================================================================================================
-# TORPEDO BOOTSTRAP LIBARY
+# TORPEDO BOOTSTRAP MODULE
 # ======================================================================================================================
 set(TARGET torpedo_bootstrap)
 add_library(${TARGET} STATIC)
@@ -25,6 +26,9 @@ target_include_directories(${TARGET} PUBLIC ${Vulkan_INCLUDE_DIRS})
 # Dependencies
 target_link_libraries(${TARGET} PUBLIC ${Vulkan_LIBRARIES})
 
+# ======================================================================================================================
+# CLANG SPECIFICS
+# ======================================================================================================================
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     if (WIN32)
         # The current Vulkan-Hpp implementation internally uses strncpy which is marked deprecated for Clang on Windows.

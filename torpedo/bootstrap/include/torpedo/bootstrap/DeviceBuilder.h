@@ -2,67 +2,38 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include <set>
-
 namespace tpd {
     class DeviceBuilder {
     public:
-        DeviceBuilder& deviceExtensions(const char* const* extensions, std::size_t count);
-        DeviceBuilder& deviceExtensions(const std::vector<const char*>& extensions);
-        DeviceBuilder& deviceExtensions(std::vector<const char*>&& extensions) noexcept;
+        /**
+         * Specifies which Vulkan features to enable when creating the device. The passed in pointer must remain valid
+         * before DeviceBuilder::build returns.
+         *
+         * @param features a pointer to vk::PhysicalDeviceFeatures2 which may have chaining structures through pNext.
+         * @return this object for chaining calls.
+         */
+        DeviceBuilder& deviceFeatures(vk::PhysicalDeviceFeatures2* features) noexcept;
 
-        DeviceBuilder& deviceFeatures(const vk::PhysicalDeviceFeatures2& features);
-
+        /**
+         * Specifies queue family indices involved in the creation of the device. The indices may be provided in
+         * any other and can be duplicated. The builder makes sure to derive a unique set of indices.
+         * @param families a list of queue family indices.
+         * @return this object for chaining calls.
+         */
         DeviceBuilder& queueFamilyIndices(std::initializer_list<uint32_t> families);
-        DeviceBuilder& queueFamilyIndices(const std::set<uint32_t>& families);
-        DeviceBuilder& queueFamilyIndices(std::set<uint32_t>&& families) noexcept;
 
-        [[nodiscard]] vk::Device build(vk::PhysicalDevice physicalDevice) const;
+        /**
+         * Creates a Vulkan logical device from the provided physical device and optionally a list of device extensions.
+         */
+        [[nodiscard]] vk::Device build(
+            vk::PhysicalDevice physicalDevice,
+            const vk::ArrayProxy<const char*>& extensions = {}) const;
 
     private:
-        std::vector<const char*> _extensions{};
+        vk::PhysicalDeviceFeatures2* _features{ nullptr };
 
-        vk::PhysicalDeviceFeatures2 _features{};
-
-        std::vector<const char*> _layers{};
-
-        std::set<uint32_t> _queueFamilies{};
+        static constexpr auto MAX_UNIQUE_FAMILIES = 8;
+        std::array<vk::DeviceQueueCreateInfo, MAX_UNIQUE_FAMILIES> _queueInfos{};
+        uint32_t _queueInfoCount{ 0 };
     };
-}
-
-// =====================================================================================================================
-// INLINE FUNCTION DEFINITIONS
-// =====================================================================================================================
-
-inline tpd::DeviceBuilder& tpd::DeviceBuilder::deviceExtensions(const char* const* extensions, const std::size_t count) {
-    return this->deviceExtensions(std::vector(extensions, extensions + count));
-}
-
-inline tpd::DeviceBuilder& tpd::DeviceBuilder::deviceExtensions(const std::vector<const char*>& extensions) {
-    _extensions = extensions;
-    return *this;
-}
-
-inline tpd::DeviceBuilder& tpd::DeviceBuilder::deviceExtensions(std::vector<const char*>&& extensions) noexcept {
-    _extensions = std::move(extensions);
-    return *this;
-}
-
-inline tpd::DeviceBuilder& tpd::DeviceBuilder::deviceFeatures(const vk::PhysicalDeviceFeatures2& features) {
-    _features = features;
-    return *this;
-}
-
-inline tpd::DeviceBuilder& tpd::DeviceBuilder::queueFamilyIndices(const std::initializer_list<uint32_t> families) {
-    return queueFamilyIndices(std::set(families.begin(), families.end()));
-}
-
-inline tpd::DeviceBuilder& tpd::DeviceBuilder::queueFamilyIndices(const std::set<uint32_t>& families) {
-    _queueFamilies = families;
-    return *this;
-}
-
-inline tpd::DeviceBuilder&tpd::DeviceBuilder::queueFamilyIndices(std::set<uint32_t>&& families) noexcept {
-    _queueFamilies = std::move(families);
-    return *this;
 }

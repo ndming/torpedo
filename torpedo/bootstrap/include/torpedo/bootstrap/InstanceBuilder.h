@@ -5,44 +5,51 @@
 namespace tpd {
     class InstanceBuilder {
     public:
-        InstanceBuilder& applicationInfo(const vk::ApplicationInfo& info);
-        InstanceBuilder& applicationInfo(const VkApplicationInfo& info);
+        InstanceBuilder& applicationVersion(uint32_t major, uint32_t minor, uint32_t patch) noexcept;
+        InstanceBuilder& apiVersion(uint32_t major, uint32_t minor, uint32_t patch) noexcept;
 
-        InstanceBuilder& debugInfo(const vk::DebugUtilsMessengerCreateInfoEXT& info);
+        InstanceBuilder& debugInfoMessageSeverityFlags(vk::DebugUtilsMessageSeverityFlagsEXT flags) noexcept;
+        InstanceBuilder& debugInfoMessageTypeFlags(vk::DebugUtilsMessageTypeFlagsEXT flags) noexcept;
+        InstanceBuilder& debugInfoCallback(vk::PFN_DebugUtilsMessengerCallbackEXT callback, void* pUserData = nullptr) noexcept;
 
-        InstanceBuilder& extensions(const char* const* extensions, std::size_t count);
         InstanceBuilder& extensions(const std::vector<const char*>& extensions);
         InstanceBuilder& extensions(std::vector<const char*>&& extensions) noexcept;
 
-        InstanceBuilder& layers(const char* const* layers, std::size_t count);
-        InstanceBuilder& layers(const std::vector<const char*>& layers);
-        InstanceBuilder& layers(std::vector<const char*>&& layers) noexcept;
-
-        [[nodiscard]] vk::Instance build(vk::InstanceCreateFlags flags = {});
+        [[nodiscard]] vk::Instance build(vk::InstanceCreateFlags flags = {}, const std::vector<const char*>& layers = {});
 
     private:
-        vk::ApplicationInfo _applicationInfo{};
+        vk::ApplicationInfo _applicationInfo{
+            "torpedo",
+            vk::makeApiVersion(0, 1, 0, 0),
+            "torpedo",
+            vk::makeApiVersion(0, 1, 0, 0),
+            vk::makeApiVersion(0, 1, 3, 0),
+        };
 
-        vk::DebugUtilsMessengerCreateInfoEXT _debugInfo{};
+        using MessageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
+        using MessageType = vk::DebugUtilsMessageTypeFlagBitsEXT;
+        vk::DebugUtilsMessengerCreateInfoEXT _debugInfo{
+            {},
+            MessageSeverity::eVerbose | MessageSeverity::eWarning | MessageSeverity::eError,
+            MessageType::eGeneral | MessageType::eValidation | MessageType::ePerformance,
+            vk::PFN_DebugUtilsMessengerCallbackEXT{ nullptr },
+            nullptr
+        };
 
         std::vector<const char*> _extensions{};
 
-        std::vector<const char*> _layers{};
-        [[nodiscard]] bool allLayersAvailable() const;
+        static bool allLayersAvailable(const std::vector<const char*>& layers);
     };
 
     namespace bootstrap {
-        vk::ApplicationInfo createApplicationInfo(std::string_view name, uint32_t apiVersion);
-        vk::DebugUtilsMessengerCreateInfoEXT createDebugInfo(PFN_vkDebugUtilsMessengerCallbackEXT callback, void* pUserData = nullptr);
-
-        vk::Result createDebugUtilsMessenger(
-            const vk::Instance& instance,
+        [[nodiscard]] vk::Result createDebugUtilsMessenger(
+            vk::Instance instance,
             const vk::DebugUtilsMessengerCreateInfoEXT* pCreateInfo,
             vk::DebugUtilsMessengerEXT* pDebugMessenger,
             const vk::AllocationCallbacks* pAllocator = nullptr);
 
         void destroyDebugUtilsMessenger(
-            const vk::Instance& instance,
+            vk::Instance instance,
             vk::DebugUtilsMessengerEXT debugMessenger,
             const vk::AllocationCallbacks* pAllocator = nullptr);
     }
@@ -52,23 +59,30 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS
 // =====================================================================================================================
 
-inline tpd::InstanceBuilder&tpd::InstanceBuilder::applicationInfo(const vk::ApplicationInfo& info) {
-    _applicationInfo = info;
+inline tpd::InstanceBuilder& tpd::InstanceBuilder::applicationVersion(const uint32_t major, const uint32_t minor, const uint32_t patch) noexcept {
+    _applicationInfo.applicationVersion = vk::makeApiVersion(0u, major, minor, patch);
     return *this;
 }
 
-inline tpd::InstanceBuilder&tpd::InstanceBuilder::applicationInfo(const VkApplicationInfo& info) {
-    _applicationInfo = info;
+inline tpd::InstanceBuilder& tpd::InstanceBuilder::apiVersion(const uint32_t major, const uint32_t minor, const uint32_t patch) noexcept {
+    _applicationInfo.apiVersion = vk::makeApiVersion(0u, major, minor, patch);
     return *this;
 }
 
-inline tpd::InstanceBuilder&tpd::InstanceBuilder::debugInfo(const vk::DebugUtilsMessengerCreateInfoEXT& info) {
-    _debugInfo = info;
+inline tpd::InstanceBuilder& tpd::InstanceBuilder::debugInfoMessageSeverityFlags(const vk::DebugUtilsMessageSeverityFlagsEXT flags) noexcept {
+    _debugInfo.messageSeverity = flags;
     return *this;
 }
 
-inline tpd::InstanceBuilder&tpd::InstanceBuilder::extensions(const char* const* extensions, const std::size_t count) {
-    return this->extensions(std::vector(extensions, extensions + count));
+inline tpd::InstanceBuilder& tpd::InstanceBuilder::debugInfoMessageTypeFlags(const vk::DebugUtilsMessageTypeFlagsEXT flags) noexcept {
+    _debugInfo.messageType = flags;
+    return *this;
+}
+
+inline tpd::InstanceBuilder&tpd::InstanceBuilder::debugInfoCallback(vk::PFN_DebugUtilsMessengerCallbackEXT callback, void* pUserData) noexcept {
+    _debugInfo.pfnUserCallback = callback;
+    _debugInfo.pUserData = pUserData;
+    return *this;
 }
 
 inline tpd::InstanceBuilder&tpd::InstanceBuilder::extensions(const std::vector<const char*>& extensions) {
@@ -79,22 +93,4 @@ inline tpd::InstanceBuilder&tpd::InstanceBuilder::extensions(const std::vector<c
 inline tpd::InstanceBuilder&tpd::InstanceBuilder::extensions(std::vector<const char*>&& extensions) noexcept {
     _extensions = std::move(extensions);
     return *this;
-}
-
-inline tpd::InstanceBuilder&tpd::InstanceBuilder::layers(const char* const* layers, const std::size_t count) {
-    return this->layers(std::vector(layers, layers + count));
-}
-
-inline tpd::InstanceBuilder&tpd::InstanceBuilder::layers(const std::vector<const char*>& layers) {
-    _layers = layers;
-    return *this;
-}
-
-inline tpd::InstanceBuilder&tpd::InstanceBuilder::layers(std::vector<const char*>&& layers) noexcept {
-    _layers = std::move(layers);
-    return *this;
-}
-
-inline vk::ApplicationInfo tpd::bootstrap::createApplicationInfo(const std::string_view name, const uint32_t apiVersion) {
-    return vk::ApplicationInfo{ name.data(), vk::makeApiVersion(0, 1, 0, 0), "None", apiVersion, apiVersion };
 }
