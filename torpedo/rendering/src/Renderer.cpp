@@ -1,0 +1,129 @@
+#include "torpedo/rendering/Renderer.h"
+
+#include <torpedo/bootstrap/DeviceBuilder.h>
+#include <torpedo/bootstrap/InstanceBuilder.h>
+#include <torpedo/bootstrap/PhysicalDeviceSelector.h>
+
+#include <plog/Log.h>
+
+#include <format>
+
+void tpd::Renderer::init() {
+    createInstance(getInstanceExtensions());
+#ifndef NDEBUG
+    createDebugMessenger();
+#endif
+    _initialized = true;
+}
+
+#ifndef NDEBUG
+VKAPI_ATTR vk::Bool32 VKAPI_CALL torpedoDebugMessengerCallback(
+    const vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    [[maybe_unused]] const vk::DebugUtilsMessageTypeFlagsEXT messageType,
+    const vk::DebugUtilsMessengerCallbackDataEXT *pCallbackData,
+    [[maybe_unused]] void* const userData)
+{
+    using enum vk::DebugUtilsMessageSeverityFlagBitsEXT;
+    switch (messageSeverity) {
+        case eVerbose: PLOGV << pCallbackData->pMessage; break;
+        case eInfo:    PLOGI << pCallbackData->pMessage; break;
+        case eWarning: PLOGW << pCallbackData->pMessage; break;
+        case eError:   PLOGE << pCallbackData->pMessage; break;
+        default:
+    }
+    return vk::False;
+}
+
+void tpd::Renderer::createDebugMessenger() {
+    using MessageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
+    using MessageType = vk::DebugUtilsMessageTypeFlagBitsEXT;
+
+    auto debugInfo = vk::DebugUtilsMessengerCreateInfoEXT{};
+    debugInfo.messageSeverity = MessageSeverity::eVerbose | MessageSeverity::eWarning | MessageSeverity::eError;
+    debugInfo.messageType = MessageType::eGeneral | MessageType::eValidation | MessageType::ePerformance;
+    debugInfo.pfnUserCallback = torpedoDebugMessengerCallback;
+
+    if (bootstrap::createDebugUtilsMessenger(_instance, &debugInfo, &_debugMessenger) == vk::Result::eErrorExtensionNotPresent) [[unlikely]] {
+        throw std::runtime_error("Renderer - Failed to set up a debug messenger: the extension is not present");
+    }
+}
+#endif // NDEBUG
+
+void tpd::Renderer::createInstance(std::vector<const char*>&& instanceExtensions) {
+    auto instanceCreateFlags = vk::InstanceCreateFlags{};
+
+#ifdef __APPLE__
+    // Beginning with the 1.3.216 Vulkan SDK, the VK_KHR_PORTABILITY_subset extension is mandatory
+    // for macOS with the latest MoltenVK SDK
+    requiredExtensions.push_back(vk::KHRPortabilityEnumerationExtensionName);
+    instanceCreateFlags |= vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR;
+#endif
+
+    _instance = InstanceBuilder()
+        .applicationVersion(1, 0, 0)
+        .apiVersion(1, 3, 0)
+        .extensions(std::move(instanceExtensions))
+#ifndef NDEBUG
+        .debugInfoCallback(torpedoDebugMessengerCallback)
+        .build(instanceCreateFlags, { "VK_LAYER_KHRONOS_validation" });
+#else
+        .build(instanceCreateFlags);
+#endif
+
+    PLOGI << "Using Vulkan API version: 1.3.0";
+}
+
+std::vector<const char*> tpd::Renderer::getDeviceExtensions() const {
+    auto extensions = std::vector{
+        vk::EXTMemoryBudgetExtensionName,    // help VMA estimate memory budget more accurately
+        vk::EXTMemoryPriorityExtensionName,  // incorporate memory priority to the allocator
+    };
+
+    logExtensions("Device", "tpd::Renderer", extensions);
+    return extensions;
+}
+
+void tpd::Renderer::engineInit(
+    const vk::Device device,
+    const PhysicalDeviceSelection& physicalDeviceSelection)
+{
+    _physicalDevice = physicalDeviceSelection.physicalDevice;
+    _device = device;
+    _engineInitialized = true;
+}
+
+void tpd::Renderer::logExtensions(
+    const std::string_view extensionType,
+    const std::string_view className,
+    const std::vector<const char*>& extensions)
+{
+    const auto terminateString = extensions.empty() ? " (none)" : std::format(" ({}):", extensions.size());
+    PLOGD << extensionType << " extensions required by " << className << terminateString;
+    for (const auto& extension : extensions) {
+        PLOGD << " - " << extension;
+    }
+}
+
+void tpd::Renderer::resetEngine() noexcept {
+    if (_engineInitialized) {
+        _engineInitialized = false;
+        _device = nullptr;
+        _physicalDevice = nullptr;
+    }
+}
+
+void tpd::Renderer::reset() noexcept {
+    resetEngine();
+    if (_initialized) {
+        _initialized = false;
+#ifndef NDEBUG
+        bootstrap::destroyDebugUtilsMessenger(_instance, _debugMessenger);
+#endif
+        _instance.destroy();
+    }
+}
+
+tpd::Renderer::~Renderer() noexcept {
+    Renderer::reset();
+}
+

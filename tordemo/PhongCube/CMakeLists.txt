@@ -5,7 +5,7 @@ add_executable(${TARGET} main.cpp)
 
 # Dependencies
 # ------------
-target_link_libraries(${TARGET} PRIVATE torpedo::graphics)
+target_link_libraries(${TARGET} PRIVATE torpedo::rendering)
 
 # Ony applicable if compiling against Clang
 # -----------------------------------------

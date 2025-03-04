@@ -1,6 +1,9 @@
-#include <torpedo/graphics/Context.h>
-#include <torpedo/graphics/Material.h>
-#include <torpedo/renderer/ForwardRenderer.h>
+#include <torpedo/rendering/StandardRenderer.h>
+#include <torpedo/rendering/Engine.h>
+#include <torpedo/utils/Log.h>
+
+#include <iostream>
+#include <torpedo/rendering/ForwardEngine.h>
 
 static constexpr auto positions = std::array{
     0.0f, -0.5f,  0.0f,  // 1st vertex
@@ -17,44 +20,21 @@ static constexpr auto colors = std::array{
 static constexpr auto indices = std::array<uint16_t, 3>{ 0, 1, 2 };
 
 int main() {
-    const auto context = tpd::Context::create("Hello, Triangle!");
-    const auto renderer = tpd::createRenderer<tpd::ForwardRenderer>(*context);
+    tpd::utils::plantLogger();
 
-    const auto geometry = tpd::Geometry::Builder()
-        .vertexCount(3)
-        .indexCount(3)
-        .indexType(vk::IndexType::eUint16)
-        .attributeCount(2)
-        .vertexAttribute(0, vk::Format::eR32G32B32Sfloat,    sizeof(float) * 3)
-        .vertexAttribute(1, vk::Format::eR32G32B32A32Sfloat, sizeof(float) * 4)
-        .build(*renderer);
+    const auto renderer = tpd::createRenderer<tpd::StandardRenderer>();
+    renderer->init(1280, 720);
+    renderer->getContext()->setWindowTitle("Hello, Triangle!");
 
-    geometry->setVertexData(0, positions.data(), *renderer);
-    geometry->setVertexData(1, colors.data(),    *renderer);
+    const auto engine = tpd::createEngine<tpd::ForwardEngine>();
+    engine->init(*renderer);
 
-    // When not specifying size, Geometry assumes uint32_t indices by default
-    geometry->setIndexData(indices.data(), sizeof(uint16_t) * 3, *renderer);
-
-    const auto material = tpd::Material::Builder()
-        .vertShader("shaders/simple.vert.spv")
-        .fragShader("shaders/simple.frag.spv")
-        .build(*renderer);
-    const auto materialInstance = material->createInstance();
-
-    const auto triangle = tpd::Drawable::Builder()
-        .meshCount(1)
-        .mesh(0, geometry, materialInstance)
-        .build();
-
-    const auto view = renderer->createView();
-    view->scene->insert(triangle);
-
-    renderer->setOnFramebufferResize([&view](const uint32_t width, const uint32_t height) {
-        view->setSize(width, height);
+    renderer->getContext()->loop([&] {
+        if (const auto [valid, image, imageIndex] = renderer->beginFrame(); valid) {
+            const auto buffer = engine->draw(image);
+            renderer->endFrame(buffer, imageIndex);
+        }
     });
 
-    context->loop([&] {
-        renderer->render(*view);
-    });
-    renderer->waitIdle();
+    return 0;
 }

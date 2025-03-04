@@ -7,7 +7,7 @@
 #include "ModelLoader.h"
 
 int main() {
-    const auto context = tpd::Context::create("Model Loading");
+    const auto context  = tpd::Context::create("Model Loading");
     const auto renderer = tpd::createRenderer<tpd::ForwardRenderer>(*context);
 
     const auto modelLoader = ModelLoader{ "models/backpack/backpack.obj", *renderer };
@@ -42,6 +42,8 @@ int main() {
         camera->setProjection(45.0f, aspect, 0.1f, 200.0f);
         view->setSize(width, height);
     });
+
+    renderer->setMSAA(vk::SampleCountFlagBits::e2);
 
     context->loop([&](const float deltaTimeMillis) {
         renderer->render(*view);

@@ -44,9 +44,28 @@ endfunction()
 
 
 # ======================================================================================================================
+# CLANG UTILS
+# ======================================================================================================================
+
+# If a target is compiled against Clang, this utility function can help set up correct compilation and linking options
+function(torpedo_setup_clang TARGET_NAME)
+    if (WIN32)
+        # The current Vulkan-Hpp implementation internally uses strncpy which is marked deprecated for Clang on Windows.
+        # This would trigger a warning which is treated as compilation error, so we disable it here
+        target_compile_options(${TARGET_NAME} PRIVATE -Wno-deprecated-declarations)
+    else ()
+        # Use libc++ for Clang on non-Windows platforms
+        target_compile_options(${TARGET_NAME} PRIVATE -stdlib=libc++)
+        target_link_libraries(${TARGET_NAME} PRIVATE :libc++.a :libc++abi.a)
+    endif ()
+endfunction()
+
+
+# ======================================================================================================================
 # SUB-PROJECT MODULES
 # ======================================================================================================================
 set(TORPEDO_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 add_subdirectory(${TORPEDO_SOURCE_DIR}/bootstrap)
 add_subdirectory(${TORPEDO_SOURCE_DIR}/foundation)
-add_subdirectory(${TORPEDO_SOURCE_DIR}/graphics)
+add_subdirectory(${TORPEDO_SOURCE_DIR}/rendering)
+add_subdirectory(${TORPEDO_SOURCE_DIR}/utils)

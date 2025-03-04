@@ -6,7 +6,7 @@ target_include_directories(${TARGET} PRIVATE ext)
 
 # Dependencies
 # ------------
-target_link_libraries(${TARGET} PRIVATE torpedo::graphics)
+target_link_libraries(${TARGET} PRIVATE torpedo::rendering)
 
 # Where to look for texture images
 # ---------------------------------------

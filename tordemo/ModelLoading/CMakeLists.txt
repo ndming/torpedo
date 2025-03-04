@@ -14,7 +14,7 @@ target_include_directories(${TARGET} PRIVATE ext)
 
 # Dependencies
 # ------------
-target_link_libraries(${TARGET} PRIVATE torpedo::graphics)
+target_link_libraries(${TARGET} PRIVATE torpedo::rendering)
 target_link_libraries(${TARGET} PRIVATE assimp::assimp)
 
 # Where to look for model files
