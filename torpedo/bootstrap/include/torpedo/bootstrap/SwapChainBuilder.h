@@ -36,11 +36,6 @@ namespace tpd {
         uint32_t _graphicsFamilyIndex{ 0 };
         uint32_t _presentFamilyIndex{ 0 };
     };
-
-    namespace bootstrap {
-        [[nodiscard]] std::string toString(vk::PresentModeKHR presentMode);
-        [[nodiscard]] std::string toString(vk::Extent2D extent);
-    }
 }
 
 // =====================================================================================================================

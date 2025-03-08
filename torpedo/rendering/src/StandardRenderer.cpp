@@ -2,6 +2,7 @@
 
 #include <torpedo/bootstrap/SwapChainBuilder.h>
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
+#include <torpedo/bootstrap/Utils.h>
 
 #include <plog/Log.h>
 
@@ -154,6 +155,15 @@ void tpd::StandardRenderer::createSwapChain() {
     PLOGD << " - Images count: " << _swapChainImages.size();
     PLOGD << " - Present mode: " << bootstrap::toString(swapChain.presentMode);
     PLOGD << " - Image extent: " << bootstrap::toString(_swapChainImageExtent);
+
+#ifndef NDEBUG
+    for (auto i = 0; i < _swapChainImages.size(); ++i) {
+        bootstrap::setVulkanObjectName(
+            static_cast<VkImage>(_swapChainImages[i]), vk::ObjectType::eImage,
+            "tpd::StandardRenderer - SwapChain Image " + std::to_string(i),
+            _instance, _device);
+    }
+#endif
 }
 
 void tpd::StandardRenderer::createSwapChainImageViews() {
@@ -177,6 +187,15 @@ void tpd::StandardRenderer::createSwapChainImageViews() {
     };
 
     _swapChainImageViews = _swapChainImages | std::views::transform(toImageView) | std::ranges::to<std::vector>();
+
+#ifndef NDEBUG
+    for (auto i = 0; i < _swapChainImageViews.size(); ++i) {
+        bootstrap::setVulkanObjectName(
+            static_cast<VkImageView>(_swapChainImageViews[i]), vk::ObjectType::eImageView,
+            "tpd::StandardRenderer - SwapChain ImageView " + std::to_string(i),
+            _instance, _device);
+    }
+#endif
 }
 
 void tpd::StandardRenderer::createSyncPrimitives() {

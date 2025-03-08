@@ -81,19 +81,6 @@ inline uint32_t tpd::Renderer::getCurrentFrame() const {
     return 0;
 }
 
-inline std::vector<const char*> tpd::Renderer::getInstanceExtensions() const {
-    return {};
-}
-
-inline vk::Instance tpd::Renderer::getVulkanInstance() const {
-    if (!_initialized) [[unlikely]] {
-        throw std::runtime_error(
-            "Renderer - Fatal access: cannot get vk::Instance on an uninitialized renderer, "
-            "did you forget to call tpd::Renderer::init(...)?");
-    }
-    return _instance;
-}
-
 inline vk::SurfaceKHR tpd::Renderer::getVulkanSurface() const {
     return {};
 }

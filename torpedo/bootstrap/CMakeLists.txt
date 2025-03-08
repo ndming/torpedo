@@ -7,6 +7,7 @@ set(TORPEDO_BOOTSTRAP_SOURCES
         src/PhysicalDeviceSelector.cpp
         src/SamplerBuilder.cpp
         src/SwapChainBuilder.cpp
+        src/Utils.cpp
 )
 
 

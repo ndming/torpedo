@@ -3,6 +3,7 @@
 #include <torpedo/bootstrap/DeviceBuilder.h>
 #include <torpedo/bootstrap/InstanceBuilder.h>
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
+#include <torpedo/bootstrap/Utils.h>
 
 #include <plog/Log.h>
 
@@ -14,6 +15,18 @@ void tpd::Renderer::init() {
     createDebugMessenger();
 #endif
     _initialized = true;
+}
+
+std::vector<const char*> tpd::Renderer::getInstanceExtensions() const {
+#ifndef NDEBUB
+    auto extensions = std::vector {
+        vk::EXTDebugUtilsExtensionName,  // for naming Vulkan objects
+    };
+    logExtensions("Instance", "tpd::Renderer", extensions);
+    return extensions;
+#else
+    return {};
+#endif
 }
 
 #ifndef NDEBUG
@@ -102,6 +115,15 @@ void tpd::Renderer::logExtensions(
     for (const auto& extension : extensions) {
         PLOGD << " - " << extension;
     }
+}
+
+vk::Instance tpd::Renderer::getVulkanInstance() const {
+    if (!_initialized) [[unlikely]] {
+        throw std::runtime_error(
+            "Renderer - Fatal access: cannot get vk::Instance on an uninitialized renderer, "
+            "did you forget to call tpd::Renderer::init(...)?");
+    }
+    return _instance;
 }
 
 void tpd::Renderer::resetEngine() noexcept {

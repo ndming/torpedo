@@ -2,6 +2,7 @@
 #include "torpedo/rendering/Renderer.h"
 
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
+#include <torpedo/bootstrap/Utils.h>
 
 #include <plog/Log.h>
 
@@ -24,12 +25,39 @@ void tpd::Engine::init(Renderer& renderer) {
     _device = createDevice(extensions, { selection.graphicsQueueFamilyIndex, selection.transferQueueFamilyIndex,
         selection.computeQueueFamilyIndex, selection.presentQueueFamilyIndex });
 
-    PLOGI << "Found a suitable device for tpd::" << getName() << ": " << _physicalDevice.getProperties().deviceName.data();
+    PLOGI << "Found a suitable device for " << getName() << ": " << _physicalDevice.getProperties().deviceName.data();
 
     // Init all relevant queues
     _graphicsQueue = _device.getQueue(selection.graphicsQueueFamilyIndex, 0);
     _transferQueue = _device.getQueue(selection.transferQueueFamilyIndex, 0);
     _computeQueue  = _device.getQueue(selection.computeQueueFamilyIndex, 0);
+
+#ifndef NDEBUG
+    bootstrap::setVulkanObjectName(
+        static_cast<VkPhysicalDevice>(_physicalDevice), vk::ObjectType::ePhysicalDevice,
+        getName() + std::string{ " - PhysicalDevice" },
+        renderer.getVulkanInstance(), _device);
+
+    bootstrap::setVulkanObjectName(
+        static_cast<VkDevice>(_device), vk::ObjectType::eDevice,
+        getName() + std::string{ " - Device" },
+        renderer.getVulkanInstance(), _device);
+
+    bootstrap::setVulkanObjectName(
+        static_cast<VkQueue>(_graphicsQueue), vk::ObjectType::eQueue,
+        getName() + std::string{ " - GraphicsQueue" },
+        renderer.getVulkanInstance(), _device);
+
+    bootstrap::setVulkanObjectName(
+        static_cast<VkQueue>(_transferQueue), vk::ObjectType::eQueue,
+        getName() + std::string{ " - TransferQueue" },
+        renderer.getVulkanInstance(), _device);
+
+    bootstrap::setVulkanObjectName(
+        static_cast<VkQueue>(_computeQueue), vk::ObjectType::eQueue,
+        getName() + std::string{ " - ComputeQueue" },
+        renderer.getVulkanInstance(), _device);
+#endif
 
     // Pass the selected devices to associated renderer
     renderer.engineInit(_device, selection);

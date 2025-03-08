@@ -40,19 +40,6 @@ namespace tpd {
 
         static bool allLayersAvailable(const std::vector<const char*>& layers);
     };
-
-    namespace bootstrap {
-        [[nodiscard]] vk::Result createDebugUtilsMessenger(
-            vk::Instance instance,
-            const vk::DebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-            vk::DebugUtilsMessengerEXT* pDebugMessenger,
-            const vk::AllocationCallbacks* pAllocator = nullptr);
-
-        void destroyDebugUtilsMessenger(
-            vk::Instance instance,
-            vk::DebugUtilsMessengerEXT debugMessenger,
-            const vk::AllocationCallbacks* pAllocator = nullptr);
-    }
 }
 
 // =====================================================================================================================
