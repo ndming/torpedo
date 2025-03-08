@@ -1,6 +1,7 @@
 # Canonical out-of-tree build subdirectories
 build/
 build-*/
+out/
 
 # Visual Studio clutter
 .vs/
