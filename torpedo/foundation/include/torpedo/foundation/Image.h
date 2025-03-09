@@ -1,6 +1,6 @@
 #pragma once
 
-#include "torpedo/foundation/ResourceAllocator.h"
+#include "torpedo/foundation/DeviceAllocator.h"
 
 #include <functional>
 
@@ -21,16 +21,10 @@ namespace tpd {
 
             [[nodiscard]] std::unique_ptr<Image> build(
                 vk::Device device,
-                const ResourceAllocator& allocator,
-                ResourceType type,
+                const DeviceAllocator& allocator,
                 vk::ImageCreateFlags flags = {}) const;
 
         private:
-            [[nodiscard]] std::unique_ptr<Image> buildDedicated(
-                const ResourceAllocator& allocator,
-                vk::Device device,
-                vk::ImageCreateFlags flags = {}) const;
-
             [[nodiscard]] vk::ImageCreateInfo populateImageCreateInfo(
                 vk::ImageUsageFlags internalUsage,
                 vk::ImageTiling tiling,
@@ -61,11 +55,11 @@ namespace tpd {
             const void* data,
             std::uint32_t dataByteSize,
             vk::ImageLayout finalLayout,
-            const ResourceAllocator& allocator,
+            const DeviceAllocator& allocator,
             const std::function<void(vk::ImageLayout, vk::ImageLayout, vk::Image)>& onLayoutTransition,
             const std::function<void(vk::Buffer, vk::Image)>& onBufferToImageCopy) const;
 
-        void dispose(vk::Device device, const ResourceAllocator& allocator) noexcept;
+        void dispose(vk::Device device, const DeviceAllocator& allocator) noexcept;
 
     private:
         vk::Image _image;
@@ -74,9 +68,9 @@ namespace tpd {
     };
 }
 
-// =====================================================================================================================
-// INLINE FUNCTION DEFINITIONS
-// =====================================================================================================================
+// =========================== //
+// INLINE FUNCTION DEFINITIONS //
+// =========================== //
 
 inline tpd::Image::Builder&tpd::Image::Builder::dimensions(const uint32_t width, const uint32_t height, const uint32_t depth) {
     _width = width;

@@ -2,25 +2,13 @@
 
 std::unique_ptr<tpd::Image> tpd::Image::Builder::build(
     const vk::Device device,
-    const ResourceAllocator& allocator,
-    const ResourceType type,
-    const vk::ImageCreateFlags flags) const
-{
-    switch (type) {
-        case ResourceType::Dedicated: return buildDedicated(allocator, device, flags);
-        default: throw std::runtime_error("Image::Builder - Unsupported resource type");
-    }
-}
-
-std::unique_ptr<tpd::Image> tpd::Image::Builder::buildDedicated(
-    const ResourceAllocator& allocator,
-    const vk::Device device,
+    const DeviceAllocator& allocator,
     const vk::ImageCreateFlags flags) const
 {
     // Create a dedicated image
     auto allocation = VmaAllocation{};
     const auto imageInfo = populateImageCreateInfo(vk::ImageUsageFlagBits::eTransferDst, vk::ImageTiling::eOptimal, flags);
-    const auto image = allocator.allocateDedicatedImage(imageInfo, &allocation);
+    const auto image = allocator.allocateDeviceImage(imageInfo, &allocation);
 
     // Create an image view
     auto subresourceRange = vk::ImageSubresourceRange{};
@@ -63,24 +51,26 @@ void tpd::Image::transferImageData(
     const void* const data,
     const  std::uint32_t dataByteSize,
     const vk::ImageLayout finalLayout,
-    const ResourceAllocator& allocator,
+    const DeviceAllocator& allocator,
     const std::function<void(vk::ImageLayout, vk::ImageLayout, vk::Image)>& onLayoutTransition,
     const std::function<void(vk::Buffer, vk::Image)>& onBufferToImageCopy) const
 {
     auto stagingAllocation = VmaAllocation{};
-    const auto stagingBuffer = allocator.allocateStagingBuffer(dataByteSize, &stagingAllocation);
-    allocator.mapAndCopyStagingBuffer(dataByteSize, data, stagingAllocation);
+    const auto stagingBuffer = allocator.allocateStagedBuffer(dataByteSize, &stagingAllocation);
+    void* mappedMemory = allocator.mapMemory(stagingAllocation);
+    memcpy(mappedMemory, data, dataByteSize);
+    allocator.unmapMemory(stagingAllocation);
 
     using enum vk::ImageLayout;
     onLayoutTransition(eUndefined, eTransferDstOptimal, _image);
     onBufferToImageCopy(stagingBuffer, _image);
     onLayoutTransition(eTransferDstOptimal, finalLayout, _image);
 
-    allocator.freeBuffer(stagingBuffer, stagingAllocation);
+    allocator.deallocateBuffer(stagingBuffer, stagingAllocation);
 }
 
-void tpd::Image::dispose(const vk::Device device, const ResourceAllocator& allocator) noexcept {
+void tpd::Image::dispose(const vk::Device device, const DeviceAllocator& allocator) noexcept {
     device.destroyImageView(_imageView);
-    allocator.freeImage(_image, _allocation);
+    allocator.deallocateImage(_image, _allocation);
     _allocation = nullptr;
 }

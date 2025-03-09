@@ -35,9 +35,9 @@ namespace tpd {
     };
 }
 
-// =====================================================================================================================
-// INLINE FUNCTION DEFINITIONS
-// =====================================================================================================================
+// =========================== //
+// INLINE FUNCTION DEFINITIONS //
+// =========================== //
 
 inline tpd::SamplerBuilder& tpd::SamplerBuilder::filter(const vk::Filter magnifiedFilter, const vk::Filter minifiedFilter) noexcept {
     _magFilter = magnifiedFilter;

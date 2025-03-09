@@ -40,9 +40,9 @@ namespace tpd {
     };
 }
 
-// =====================================================================================================================
-// INLINE FUNCTION DEFINITIONS
-// =====================================================================================================================
+// =========================== //
+// INLINE FUNCTION DEFINITIONS //
+// =========================== //
 
 inline tpd::ShaderInstance::ShaderInstance(
     const uint32_t perInstanceSetCount, const vk::DescriptorPool descriptorPool,

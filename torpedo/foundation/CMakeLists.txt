@@ -2,11 +2,15 @@
 # LIBARY SOURCE FILES
 # ======================================================================================================================
 set(TORPEDO_FOUNDATION_SOURCES
+        src/AllocationUtils.cpp
         src/Buffer.cpp
+        src/DeviceAllocator.cpp
         src/Image.cpp
-        src/ResourceAllocator.cpp
         src/ShaderLayout.cpp
+        src/RingBuffer.cpp
         src/ShaderInstance.cpp
+        src/StagingBuffer.cpp
+        src/StorageBuffer.cpp
         src/VmaUsage.cpp
 )
 

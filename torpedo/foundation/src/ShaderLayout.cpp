@@ -9,7 +9,7 @@ std::unique_ptr<tpd::ShaderLayout> tpd::ShaderLayout::Builder::build(const vk::D
     auto descriptorSetLayouts = std::vector<vk::DescriptorSetLayout>(_descriptorSetLayoutBindingLists.size());
     for (uint32_t i = 0; i < _descriptorSetLayoutBindingLists.size(); i++) {
         auto bindingFlagInfo = vk::DescriptorSetLayoutBindingFlagsCreateInfo{};
-        bindingFlagInfo.bindingCount = static_cast<uint32_t>(_descriptorSetBindingFlagLists[i].size());
+        bindingFlagInfo.bindingCount  = static_cast<uint32_t>(_descriptorSetBindingFlagLists[i].size());
         bindingFlagInfo.pBindingFlags = _descriptorSetBindingFlagLists[i].data();
 
         auto layoutInfo = vk::DescriptorSetLayoutCreateInfo{};

@@ -1,0 +1,94 @@
+#pragma once
+
+#include "torpedo/foundation/AllocationUtils.h"
+#include "torpedo/foundation/VmaUsage.h"
+
+#include <vulkan/vulkan.hpp>
+
+namespace tpd {
+    class DeviceAllocator final {
+    public:
+        class Builder {
+        public:
+            Builder& flags(VmaAllocatorCreateFlags flags)  noexcept;
+            Builder& vulkanApiVersion(uint32_t apiVersion) noexcept;
+            Builder& vulkanApiVersion(uint32_t major, uint32_t minor, uint32_t patch) noexcept;
+
+            [[nodiscard]] DeviceAllocator build(vk::Instance instance, vk::PhysicalDevice physicalDevice, vk::Device device) const;
+
+            [[nodiscard]] std::unique_ptr<DeviceAllocator, foundation::Deleter<DeviceAllocator>> build(
+                vk::Instance instance, vk::PhysicalDevice physicalDevice, vk::Device device,
+                std::pmr::memory_resource* pool) const;
+
+        private:
+            [[nodiscard]] VmaAllocator createAllocator(vk::Instance instance, vk::PhysicalDevice physicalDevice, vk::Device device) const;
+
+            VmaAllocatorCreateFlags _flags{};
+            uint32_t _apiVersion{ VK_API_VERSION_1_3 };
+        };
+
+        explicit DeviceAllocator(VmaAllocator vmaAllocator);
+
+        DeviceAllocator(const DeviceAllocator&) = delete;
+        DeviceAllocator& operator=(const DeviceAllocator&) = delete;
+
+        [[nodiscard]] vk::Image allocateDeviceImage(const vk::ImageCreateInfo& imageCreateInfo, VmaAllocation* allocation) const;
+
+        void deallocateImage(vk::Image image, VmaAllocation allocation) const noexcept;
+
+        [[nodiscard]] vk::Buffer allocateDeviceBuffer(const vk::BufferCreateInfo& bufferCreateInfo, VmaAllocation* allocation) const;
+        [[nodiscard]] vk::Buffer allocateStagedBuffer(std::size_t bufferByteSize, VmaAllocation* allocation) const;
+        [[nodiscard]] vk::Buffer allocateMappedBuffer(const vk::BufferCreateInfo& bufferCreateInfo, VmaAllocation* allocation, VmaAllocationInfo* allocationInfo) const;
+
+        void deallocateBuffer(vk::Buffer buffer, VmaAllocation allocation) const noexcept;
+
+        [[nodiscard]] void* mapMemory(VmaAllocation allocation) const;
+        void unmapMemory(VmaAllocation allocation) const;
+
+        void destroy() noexcept;
+        ~DeviceAllocator() noexcept;
+
+    private:
+        VmaAllocator _vmaAllocator;
+    };
+}
+
+// =========================== //
+// INLINE FUNCTION DEFINITIONS //
+// =========================== //
+
+inline tpd::DeviceAllocator::Builder& tpd::DeviceAllocator::Builder::flags(const VmaAllocatorCreateFlags flags) noexcept {
+    _flags = flags;
+    return *this;
+}
+
+inline tpd::DeviceAllocator::Builder& tpd::DeviceAllocator::Builder::vulkanApiVersion(const uint32_t apiVersion) noexcept {
+    _apiVersion = apiVersion;
+    return *this;
+}
+
+inline tpd::DeviceAllocator::Builder& tpd::DeviceAllocator::Builder::vulkanApiVersion(
+    const uint32_t major,
+    const uint32_t minor,
+    const uint32_t patch) noexcept
+{
+    _apiVersion = vk::makeApiVersion(0u, major, minor, patch);
+    return *this;
+}
+
+inline tpd::DeviceAllocator::DeviceAllocator(VmaAllocator vmaAllocator) {
+    if (!vmaAllocator) [[unlikely]] {
+        throw std::invalid_argument("DeviceAllocator - Uninitialized VmaAllocator: consider using DeviceAllocator::Builder");
+    }
+    _vmaAllocator = vmaAllocator;
+}
+
+
+inline void tpd::DeviceAllocator::destroy() noexcept {
+    vmaDestroyAllocator(_vmaAllocator);
+    _vmaAllocator = nullptr;
+}
+
+inline tpd::DeviceAllocator::~DeviceAllocator() noexcept {
+    destroy();
+}

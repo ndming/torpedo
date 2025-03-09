@@ -42,9 +42,9 @@ namespace tpd {
     };
 }
 
-// =====================================================================================================================
-// INLINE FUNCTION DEFINITIONS
-// =====================================================================================================================
+// =========================== //
+// INLINE FUNCTION DEFINITIONS //
+// =========================== //
 
 inline tpd::InstanceBuilder& tpd::InstanceBuilder::applicationVersion(const uint32_t major, const uint32_t minor, const uint32_t patch) noexcept {
     _applicationInfo.applicationVersion = vk::makeApiVersion(0u, major, minor, patch);

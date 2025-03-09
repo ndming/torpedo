@@ -22,9 +22,9 @@ namespace tpd::bootstrap {
     [[nodiscard]] std::string toString(vk::Extent2D extent);
 }
 
-// =====================================================================================================================
-// TEMPLATE FUNCTION DEFINITIONS
-// =====================================================================================================================
+// ============================= //
+// TEMPLATE FUNCTION DEFINITIONS //
+// ============================= //
 
 void tpd::bootstrap::setVulkanObjectName(
     const auto handle,
