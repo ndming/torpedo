@@ -2,7 +2,7 @@
 #include "torpedo/rendering/Renderer.h"
 
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
-#include <torpedo/bootstrap/Utils.h>
+#include <torpedo/bootstrap/DebugUtils.h>
 
 #include <plog/Log.h>
 

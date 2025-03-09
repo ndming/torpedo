@@ -2,7 +2,7 @@
 
 #include <torpedo/bootstrap/SwapChainBuilder.h>
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
-#include <torpedo/bootstrap/Utils.h>
+#include <torpedo/bootstrap/DebugUtils.h>
 
 #include <plog/Log.h>
 

@@ -13,12 +13,12 @@ namespace tpd {
 
     class SwapChainBuilder {
     public:
-        SwapChainBuilder& desiredSurfaceFormat(vk::Format format, vk::ColorSpaceKHR colorSpace);
-        SwapChainBuilder& desiredPresentMode(vk::PresentModeKHR presentMode);
-        SwapChainBuilder& desiredExtent(uint32_t width, uint32_t height);
+        SwapChainBuilder& desiredSurfaceFormat(vk::Format format, vk::ColorSpaceKHR colorSpace) noexcept;
+        SwapChainBuilder& desiredPresentMode(vk::PresentModeKHR presentMode) noexcept;
+        SwapChainBuilder& desiredExtent(uint32_t width, uint32_t height) noexcept;
 
-        SwapChainBuilder& imageUsageFlags(vk::ImageUsageFlags usage);
-        SwapChainBuilder& queueFamilyIndices(uint32_t graphicsQueue, uint32_t presentQueue);
+        SwapChainBuilder& imageUsageFlags(vk::ImageUsageFlags usage) noexcept;
+        SwapChainBuilder& queueFamilyIndices(uint32_t graphicsQueue, uint32_t presentQueue) noexcept;
 
         [[nodiscard]] SwapChain build(vk::SurfaceKHR surface, vk::PhysicalDevice physicalDevice, vk::Device device) const;
 
@@ -42,28 +42,34 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS
 // =====================================================================================================================
 
-inline tpd::SwapChainBuilder& tpd::SwapChainBuilder::desiredSurfaceFormat(const vk::Format format, const vk::ColorSpaceKHR colorSpace) {
+inline tpd::SwapChainBuilder& tpd::SwapChainBuilder::desiredSurfaceFormat(
+    const vk::Format format,
+    const vk::ColorSpaceKHR colorSpace) noexcept
+{
     _desiredFormat = format;
     _desiredColorSpace = colorSpace;
     return *this;
 }
 
-inline tpd::SwapChainBuilder& tpd::SwapChainBuilder::desiredPresentMode(const vk::PresentModeKHR presentMode) {
+inline tpd::SwapChainBuilder& tpd::SwapChainBuilder::desiredPresentMode(const vk::PresentModeKHR presentMode) noexcept {
     _desiredPresentMode = presentMode;
     return *this;
 }
 
-inline tpd::SwapChainBuilder& tpd::SwapChainBuilder::desiredExtent(const uint32_t width, const uint32_t height) {
+inline tpd::SwapChainBuilder& tpd::SwapChainBuilder::desiredExtent(const uint32_t width, const uint32_t height) noexcept {
     _desiredExtent = vk::Extent2D{ width, height };
     return *this;
 }
 
-inline tpd::SwapChainBuilder& tpd::SwapChainBuilder::imageUsageFlags(const vk::ImageUsageFlags usage) {
+inline tpd::SwapChainBuilder& tpd::SwapChainBuilder::imageUsageFlags(const vk::ImageUsageFlags usage) noexcept {
     _imageUsage = usage;
     return *this;
 }
 
-inline tpd::SwapChainBuilder& tpd::SwapChainBuilder::queueFamilyIndices(const uint32_t graphicsQueue, const uint32_t presentQueue) {
+inline tpd::SwapChainBuilder& tpd::SwapChainBuilder::queueFamilyIndices(
+    const uint32_t graphicsQueue,
+    const uint32_t presentQueue) noexcept
+{
     _graphicsFamilyIndex = graphicsQueue;
     _presentFamilyIndex = presentQueue;
     return *this;

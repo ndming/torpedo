@@ -5,13 +5,13 @@
 namespace tpd {
     class SamplerBuilder {
     public:
-        SamplerBuilder& filter(vk::Filter magnifiedFilter, vk::Filter minifiedFilter);
-        SamplerBuilder& addressMode(vk::SamplerAddressMode modeU, vk::SamplerAddressMode modeV, vk::SamplerAddressMode modeW);
+        SamplerBuilder& filter(vk::Filter magnifiedFilter, vk::Filter minifiedFilter) noexcept;
+        SamplerBuilder& addressMode(vk::SamplerAddressMode modeU, vk::SamplerAddressMode modeV, vk::SamplerAddressMode modeW) noexcept;
 
-        SamplerBuilder& anisotropyEnabled(bool enabled);
-        SamplerBuilder& maxAnisotropy(float value);
+        SamplerBuilder& anisotropyEnabled(bool enabled) noexcept;
+        SamplerBuilder& maxAnisotropy(float value) noexcept;
 
-        SamplerBuilder& borderColor(vk::BorderColor color);
+        SamplerBuilder& borderColor(vk::BorderColor color) noexcept;
 
         [[nodiscard]] vk::Sampler build(vk::Device device) const;
 
@@ -39,7 +39,7 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS
 // =====================================================================================================================
 
-inline tpd::SamplerBuilder& tpd::SamplerBuilder::filter(const vk::Filter magnifiedFilter, const vk::Filter minifiedFilter) {
+inline tpd::SamplerBuilder& tpd::SamplerBuilder::filter(const vk::Filter magnifiedFilter, const vk::Filter minifiedFilter) noexcept {
     _magFilter = magnifiedFilter;
     _minFilter = minifiedFilter;
     return *this;
@@ -48,7 +48,7 @@ inline tpd::SamplerBuilder& tpd::SamplerBuilder::filter(const vk::Filter magnifi
 inline tpd::SamplerBuilder& tpd::SamplerBuilder::addressMode(
     const vk::SamplerAddressMode modeU,
     const vk::SamplerAddressMode modeV,
-    const vk::SamplerAddressMode modeW)
+    const vk::SamplerAddressMode modeW) noexcept
 {
     _addressModeU = modeU;
     _addressModeV = modeV;
@@ -56,17 +56,17 @@ inline tpd::SamplerBuilder& tpd::SamplerBuilder::addressMode(
     return *this;
 }
 
-inline tpd::SamplerBuilder& tpd::SamplerBuilder::anisotropyEnabled(const bool enabled) {
+inline tpd::SamplerBuilder& tpd::SamplerBuilder::anisotropyEnabled(const bool enabled) noexcept {
     _anisotropyEnabled = enabled;
     return *this;
 }
 
-inline tpd::SamplerBuilder& tpd::SamplerBuilder::maxAnisotropy(const float value) {
+inline tpd::SamplerBuilder& tpd::SamplerBuilder::maxAnisotropy(const float value) noexcept {
     _maxAnisotropy = value;
     return *this;
 }
 
-inline tpd::SamplerBuilder& tpd::SamplerBuilder::borderColor(const vk::BorderColor color) {
+inline tpd::SamplerBuilder& tpd::SamplerBuilder::borderColor(const vk::BorderColor color) noexcept {
     _borderColor = color;
     return *this;
 }

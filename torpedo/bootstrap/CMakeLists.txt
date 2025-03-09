@@ -2,12 +2,12 @@
 # MODULE SOURCE FILES
 # ======================================================================================================================
 set(TORPEDO_BOOTSTRAP_SOURCES
+        src/DebugUtils.cpp
         src/DeviceBuilder.cpp
         src/InstanceBuilder.cpp
         src/PhysicalDeviceSelector.cpp
         src/SamplerBuilder.cpp
         src/SwapChainBuilder.cpp
-        src/Utils.cpp
 )
 
 

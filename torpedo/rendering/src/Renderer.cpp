@@ -3,7 +3,7 @@
 #include <torpedo/bootstrap/DeviceBuilder.h>
 #include <torpedo/bootstrap/InstanceBuilder.h>
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
-#include <torpedo/bootstrap/Utils.h>
+#include <torpedo/bootstrap/DebugUtils.h>
 
 #include <plog/Log.h>
 
