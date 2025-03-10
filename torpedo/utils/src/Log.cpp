@@ -31,12 +31,28 @@ namespace plog {
     };
 }
 
-void tpd::utils::plantLogger() {
+void tpd::utils::plantConsoleLogger() {
     static auto appender = plog::ColorConsoleAppender<plog::Formatter>();
 #ifdef NDEBUG
     init(plog::info, &appender);
 #else
     init(plog::debug, &appender);
 #endif
+}
+
+void tpd::utils::logVerbose(const std::string_view message) {
+    PLOGV << message.data();
+}
+
+void tpd::utils::logInfo(const std::string_view message) {
+    PLOGI << message.data();
+}
+
+void tpd::utils::logDebug(const std::string_view message) {
+    PLOGD << message.data();
+}
+
+void tpd::utils::logError(const std::string_view message) {
+    PLOGE << message.data();
 }
 
