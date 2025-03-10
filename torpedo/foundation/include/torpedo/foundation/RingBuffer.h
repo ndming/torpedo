@@ -9,7 +9,7 @@ namespace tpd {
         public:
             Builder& count(uint32_t bufferCount) noexcept;
             Builder& usage(vk::BufferUsageFlags usage) noexcept;
-            Builder& alloc(std::size_t byteSize, std::size_t alignment = 0) noexcept;
+            Builder& alloc(std::size_t byteSize, foundation::Alignment alignment = foundation::Alignment::None) noexcept;
 
             [[nodiscard]] RingBuffer build(const DeviceAllocator& allocator) const;
 
@@ -58,9 +58,12 @@ inline tpd::RingBuffer::Builder& tpd::RingBuffer::Builder::usage(const vk::Buffe
     return *this;
 }
 
-inline tpd::RingBuffer::Builder& tpd::RingBuffer::Builder::alloc(const std::size_t byteSize, const std::size_t alignment) noexcept {
+inline tpd::RingBuffer::Builder& tpd::RingBuffer::Builder::alloc(
+    const std::size_t byteSize,
+    const foundation::Alignment alignment) noexcept
+{
     _bufferSize = byteSize;
-    _allocSize  = foundation::getAlignedSize(byteSize, alignment);
+    _allocSize  = getAlignedSize(byteSize, alignment);
     return *this;
 }
 

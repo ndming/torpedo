@@ -7,7 +7,7 @@ namespace tpd {
     public:
         class Builder {
         public:
-            Builder& alloc(std::size_t byteSize, std::size_t alignment = 0) noexcept;
+            Builder& alloc(std::size_t byteSize, foundation::Alignment alignment = foundation::Alignment::None) noexcept;
 
             [[nodiscard]] StagingBuffer build(const DeviceAllocator& allocator) const;
 
@@ -35,9 +35,12 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS //
 // =========================== //
 
-inline tpd::StagingBuffer::Builder& tpd::StagingBuffer::Builder::alloc(const std::size_t byteSize, const std::size_t alignment) noexcept {
+inline tpd::StagingBuffer::Builder& tpd::StagingBuffer::Builder::alloc(
+    const std::size_t byteSize,
+    const foundation::Alignment alignment) noexcept
+{
     _bufferSize = byteSize;
-    _allocSize  = foundation::getAlignedSize(byteSize, alignment);
+    _allocSize  = getAlignedSize(byteSize, alignment);
     return *this;
 }
 

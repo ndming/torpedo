@@ -8,7 +8,7 @@ namespace tpd {
         class Builder {
         public:
             Builder& usage(vk::BufferUsageFlags usage) noexcept;
-            Builder& alloc(std::size_t byteSize, std::size_t alignment = 0) noexcept;
+            Builder& alloc(std::size_t byteSize, foundation::Alignment alignment = foundation::Alignment::None) noexcept;
 
             [[nodiscard]] StorageBuffer build(const DeviceAllocator& allocator) const;
 
@@ -38,8 +38,11 @@ inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::usage(const vk:
     return *this;
 }
 
-inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::alloc(const std::size_t byteSize, const std::size_t alignment) noexcept {
-    _allocSize = foundation::getAlignedSize(byteSize, alignment);
+inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::alloc(
+    const std::size_t byteSize,
+    const foundation::Alignment alignment) noexcept
+{
+    _allocSize = getAlignedSize(byteSize, alignment);
     return *this;
 }
 

@@ -35,5 +35,18 @@ namespace tpd::foundation {
         return std::shared_ptr<T>(obj, Deleter<T>{ pool });
     }
 
-    std::size_t getAlignedSize(std::size_t byteSize, std::size_t alignment = 0);
+    enum class Alignment : std::size_t {
+        None   = 0,
+        By_2   = 1 << 1,
+        By_4   = 1 << 2,
+        By_8   = 1 << 3,
+        By_16  = 1 << 4,
+        By_32  = 1 << 5,
+        By_64  = 1 << 6,
+        By_128 = 1 << 7,
+        By_256 = 1 << 8,
+        By_512 = 1 << 9,
+    };
+
+    std::size_t getAlignedSize(std::size_t byteSize, Alignment alignment = Alignment::None);
 }
