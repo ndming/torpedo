@@ -31,20 +31,3 @@ void tpd::bootstrap::destroyDebugUtilsMessenger(
         func(instance, debugMessenger, reinterpret_cast<const VkAllocationCallbacks*>(pAllocator));
     }
 }
-
-std::string tpd::bootstrap::toString(const vk::PresentModeKHR presentMode) {
-    using enum vk::PresentModeKHR;
-    switch (presentMode) {
-    case eImmediate:               return "Immediate";
-    case eMailbox:                 return "Mailbox";
-    case eFifo :                   return "Fifo";
-    case eFifoRelaxed:             return "FifoRelaxed";
-    case eSharedDemandRefresh:     return "SharedDemandRefresh";
-    case eSharedContinuousRefresh: return "SharedContinuousRefresh";
-    default: return "Unrecognized present mode: " + std::to_string(static_cast<int>(presentMode));
-    }
-}
-
-std::string tpd::bootstrap::toString(const vk::Extent2D extent) {
-    return "(" + std::to_string(extent.width) + ", " + std::to_string(extent.height) + ")";
-}

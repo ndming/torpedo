@@ -17,9 +17,6 @@ namespace tpd::bootstrap {
     void setVulkanObjectName(
         auto handle, vk::ObjectType type, std::string_view name,
         vk::Instance instance, vk::Device device);
-
-    [[nodiscard]] std::string toString(vk::PresentModeKHR presentMode);
-    [[nodiscard]] std::string toString(vk::Extent2D extent);
 }
 
 // ============================= //

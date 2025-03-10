@@ -153,8 +153,8 @@ void tpd::StandardRenderer::createSwapChain() {
 
     PLOGD << "Swap chain created for tpd::PresentRenderer with:";
     PLOGD << " - Images count: " << _swapChainImages.size();
-    PLOGD << " - Present mode: " << bootstrap::toString(swapChain.presentMode);
-    PLOGD << " - Image extent: " << bootstrap::toString(_swapChainImageExtent);
+    PLOGD << " - Present mode: " << toString(swapChain.presentMode);
+    PLOGD << " - Image extent: " << toString(_swapChainImageExtent);
 
 #ifndef NDEBUG
     for (auto i = 0; i < _swapChainImages.size(); ++i) {
