@@ -41,7 +41,7 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL torpedoDebugMessengerCallback(
         case eVerbose: PLOGV << pCallbackData->pMessage; break;
         case eInfo:    PLOGI << pCallbackData->pMessage; break;
         case eWarning: PLOGW << pCallbackData->pMessage; break;
-        case eError:   PLOGE << pCallbackData->pMessage; break;
+        case eError:   PLOGE << pCallbackData->pMessage; throw std::runtime_error("Vulkan in panic!");
         default:
     }
     return vk::False;

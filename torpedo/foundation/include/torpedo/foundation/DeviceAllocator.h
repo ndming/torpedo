@@ -85,8 +85,10 @@ inline tpd::DeviceAllocator::DeviceAllocator(VmaAllocator vmaAllocator) {
 
 
 inline void tpd::DeviceAllocator::destroy() noexcept {
-    vmaDestroyAllocator(_vmaAllocator);
-    _vmaAllocator = nullptr;
+    if (_vmaAllocator) {
+        vmaDestroyAllocator(_vmaAllocator);
+        _vmaAllocator = nullptr;
+    }
 }
 
 inline tpd::DeviceAllocator::~DeviceAllocator() noexcept {

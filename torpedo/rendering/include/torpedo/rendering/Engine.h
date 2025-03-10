@@ -1,14 +1,10 @@
 #pragma once
 
-#include <vulkan/vulkan.hpp>
+#include <torpedo/bootstrap/PhysicalDeviceSelector.h>
+#include <torpedo/foundation/DeviceAllocator.h>
 
 namespace tpd {
     class Renderer;
-    class Engine;
-    struct PhysicalDeviceSelection;
-
-    template<typename  T>
-    std::unique_ptr<T> createEngine() requires std::derived_from<T, Engine> && std::is_final_v<T>;
 
     class Engine {
     public:
@@ -16,6 +12,9 @@ namespace tpd {
         Engine& operator=(const Engine&) = delete;
 
         void init(Renderer& renderer);
+
+        using DeviceAllocatorType = std::unique_ptr<DeviceAllocator, foundation::Deleter<DeviceAllocator>>;
+        const DeviceAllocatorType& getDeviceAllocator() const noexcept;
 
         [[nodiscard]] virtual vk::CommandBuffer draw(vk::Image image) const = 0;
 
@@ -27,13 +26,16 @@ namespace tpd {
         bool _initialized{ false };
         Renderer* _renderer{ nullptr };
 
-        [[nodiscard]] virtual std::vector<const char*> getDeviceExtensions() const = 0;
+        [[nodiscard]] virtual std::vector<const char*> getDeviceExtensions() const;
+
         [[nodiscard]] virtual PhysicalDeviceSelection pickPhysicalDevice(
             const std::vector<const char*>& deviceExtensions,
             vk::Instance instance, vk::SurfaceKHR surface) const = 0;
+
         [[nodiscard]] virtual vk::Device createDevice(
             const std::vector<const char*>& deviceExtensions,
             std::initializer_list<uint32_t> queueFamilyIndices) const = 0;
+
         vk::PhysicalDevice _physicalDevice{};
         vk::Device _device{};
 
@@ -47,6 +49,9 @@ namespace tpd {
         void createDrawingCommandBuffers();
         std::vector<vk::CommandBuffer> _drawingCommandBuffers{};
 
+        std::pmr::unsynchronized_pool_resource _engineObjectPool{};
+        DeviceAllocatorType _deviceAllocator{};
+
         static void transitionImageLayout(
             vk::CommandBuffer buffer,
             vk::Image image,
@@ -58,23 +63,23 @@ namespace tpd {
             std::string_view className,
             const std::vector<const char*>& extensions = {});
 
-        [[nodiscard]] virtual const char* getName() const;
+        [[nodiscard]] virtual const char* getName() const noexcept;
     };
+
+    template<typename  T>
+    std::unique_ptr<T> createEngine() requires std::derived_from<T, Engine> && std::is_final_v<T> {
+        return std::make_unique<T>();
+    }
 }
 
-// =====================================================================================================================
-// TEMPLATE FUNCTION DEFINITIONS
-// =====================================================================================================================
+// =========================== //
+// INLINE FUNCTION DEFINITIONS //
+// =========================== //
 
-template<typename  T>
-std::unique_ptr<T> tpd::createEngine() requires std::derived_from<T, Engine> && std::is_final_v<T> {
-    return std::make_unique<T>();
+inline const tpd::Engine::DeviceAllocatorType& tpd::Engine::getDeviceAllocator() const noexcept {
+    return _deviceAllocator;
 }
 
-// =====================================================================================================================
-// INLINE FUNCTION DEFINITIONS
-// =====================================================================================================================
-
-inline const char* tpd::Engine::getName() const {
+inline const char* tpd::Engine::getName() const noexcept {
     return "tpd::Engine";
 }

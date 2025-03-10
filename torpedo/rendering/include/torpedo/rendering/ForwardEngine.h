@@ -12,7 +12,7 @@ namespace tpd {
 
         [[nodiscard]] vk::CommandBuffer draw(vk::Image image) const override;
 
-        [[nodiscard]] const char* getName() const override;
+        [[nodiscard]] const char* getName() const noexcept override;
 
         void destroy() noexcept override;
         ~ForwardEngine() noexcept override;
@@ -23,6 +23,7 @@ namespace tpd {
         [[nodiscard]] PhysicalDeviceSelection pickPhysicalDevice(
             const std::vector<const char*>& deviceExtensions,
             vk::Instance instance, vk::SurfaceKHR surface) const override;
+
         [[nodiscard]] vk::Device createDevice(
             const std::vector<const char*>& deviceExtensions,
             std::initializer_list<uint32_t> queueFamilyIndices) const override;
@@ -36,6 +37,6 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS
 // =====================================================================================================================
 
-inline const char* tpd::ForwardEngine::getName() const {
+inline const char* tpd::ForwardEngine::getName() const noexcept {
     return "tpd::ForwardEngine";
 }

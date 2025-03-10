@@ -8,7 +8,7 @@
 
 std::vector<const char*> tpd::ForwardEngine::getDeviceExtensions() const {
     logExtensions("Device", "tpd::ForwardEngine");
-    return {};
+    return Engine::getDeviceExtensions();
 }
 
 tpd::PhysicalDeviceSelection tpd::ForwardEngine::pickPhysicalDevice(

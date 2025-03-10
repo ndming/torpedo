@@ -1,7 +1,6 @@
 #include "torpedo/rendering/Engine.h"
 #include "torpedo/rendering/Renderer.h"
 
-#include <torpedo/bootstrap/PhysicalDeviceSelector.h>
 #include <torpedo/bootstrap/DebugUtils.h>
 
 #include <plog/Log.h>
@@ -64,13 +63,31 @@ void tpd::Engine::init(Renderer& renderer) {
     // When destroying the engine, we will also need to clear the Vulkan objects init to the renderer
     _renderer = &renderer;
 
+    // This means a physical and logical device have been selected,
+    // and the associated Renderer has obtained the those devices
+    _initialized = true;
+
     // Create drawing resources
     createDrawingCommandPool(selection.graphicsQueueFamilyIndex);
     createDrawingCommandBuffers();
 
-    // This means a physical and logical device have been selected,
-    // and the associated Renderer has obtained the those devices
+    // Create a device allocator
+    _deviceAllocator = DeviceAllocator::Builder()
+        .flags(VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT | VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT)
+        .vulkanApiVersion(VK_API_VERSION_1_3)
+        .build(renderer.getVulkanInstance(), _physicalDevice, _device, &_engineObjectPool);
+
+    // This means all Vulkan and Engine resources have been initialized,
+    // and the associated Renderer has obtained relevant Vulkan objects
     _initialized = true;
+}
+
+std::vector<const char*> tpd::Engine::getDeviceExtensions() const {
+    auto extensions = std::vector{
+        vk::EXTMemoryBudgetExtensionName,    // help VMA estimate memory budget more accurately
+        vk::EXTMemoryPriorityExtensionName,  // incorporate memory priority to the allocator
+    };
+    return extensions;
 }
 
 void tpd::Engine::createDrawingCommandPool(const uint32_t graphicsFamilyIndex) {
@@ -132,6 +149,8 @@ void tpd::Engine::logExtensions(
 void tpd::Engine::destroy() noexcept {
     if (_initialized) {
         _initialized = false;
+
+        _deviceAllocator->destroy();
 
         _drawingCommandBuffers.clear();
         _device.destroyCommandPool(_drawingCommandPool);
