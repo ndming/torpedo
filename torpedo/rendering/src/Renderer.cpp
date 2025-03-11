@@ -1,4 +1,5 @@
 #include "torpedo/rendering/Renderer.h"
+#include "torpedo/rendering/Utils.h"
 
 #include <torpedo/bootstrap/DeviceBuilder.h>
 #include <torpedo/bootstrap/InstanceBuilder.h>
@@ -6,8 +7,6 @@
 #include <torpedo/bootstrap/DebugUtils.h>
 
 #include <plog/Log.h>
-
-#include <format>
 
 void tpd::Renderer::init() {
     createInstance(getInstanceExtensions());
@@ -22,7 +21,7 @@ std::vector<const char*> tpd::Renderer::getInstanceExtensions() const {
     auto extensions = std::vector {
         vk::EXTDebugUtilsExtensionName,  // for naming Vulkan objects
     };
-    logExtensions("Instance", "tpd::Renderer", extensions);
+    rendering::logExtensions("Instance", "tpd::Renderer", extensions);
     return extensions;
 #else
     return {};
@@ -87,13 +86,8 @@ void tpd::Renderer::createInstance(std::vector<const char*>&& instanceExtensions
 }
 
 std::vector<const char*> tpd::Renderer::getDeviceExtensions() const {
-    auto extensions = std::vector{
-        vk::EXTMemoryBudgetExtensionName,    // help VMA estimate memory budget more accurately
-        vk::EXTMemoryPriorityExtensionName,  // incorporate memory priority to the allocator
-    };
-
-    logExtensions("Device", "tpd::Renderer", extensions);
-    return extensions;
+    rendering::logExtensions("Device", "tpd::Renderer");
+    return {};
 }
 
 void tpd::Renderer::engineInit(
@@ -103,18 +97,6 @@ void tpd::Renderer::engineInit(
     _physicalDevice = physicalDeviceSelection.physicalDevice;
     _device = device;
     _engineInitialized = true;
-}
-
-void tpd::Renderer::logExtensions(
-    const std::string_view extensionType,
-    const std::string_view className,
-    const std::vector<const char*>& extensions)
-{
-    const auto terminateString = extensions.empty() ? " (none)" : std::format(" ({}):", extensions.size());
-    PLOGD << extensionType << " extensions required by " << className << terminateString;
-    for (const auto& extension : extensions) {
-        PLOGD << " - " << extension;
-    }
 }
 
 vk::Instance tpd::Renderer::getVulkanInstance() const {

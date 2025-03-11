@@ -18,8 +18,9 @@ set(TORPEDO_RENDERING_SOURCES
         src/Engine.cpp
         src/ForwardEngine.cpp
         src/HeadlessRenderer.cpp
-        src/StandardRenderer.cpp
         src/Renderer.cpp
+        src/StandardRenderer.cpp
+        src/Utils.cpp
 )
 
 

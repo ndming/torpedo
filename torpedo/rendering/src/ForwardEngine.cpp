@@ -1,5 +1,6 @@
 #include "torpedo/rendering/ForwardEngine.h"
 #include "torpedo/rendering/Renderer.h"
+#include "torpedo/rendering/Utils.h"
 
 #include <torpedo/bootstrap/DeviceBuilder.h>
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
@@ -7,8 +8,9 @@
 #include <plog/Log.h>
 
 std::vector<const char*> tpd::ForwardEngine::getDeviceExtensions() const {
-    logExtensions("Device", "tpd::ForwardEngine");
-    return Engine::getDeviceExtensions();
+    auto parentExtensions = Engine::getDeviceExtensions();
+    rendering::logExtensions("Device", "tpd::ForwardEngine");
+    return parentExtensions;
 }
 
 tpd::PhysicalDeviceSelection tpd::ForwardEngine::pickPhysicalDevice(
@@ -49,7 +51,8 @@ vk::Device tpd::ForwardEngine::createDevice(
     deviceFeatures.pNext = &featuresVulkan13;
     featuresVulkan13.pNext = &featuresVulkan12;
 
-    PLOGD << "Device features requested by tpd::ForwardEngine:";
+    // Remember to update the count number at the end of the first message should more features are added
+    PLOGD << "Device features requested by tpd::ForwardEngine (2):";
     PLOGD << " - Vulkan13Features: dynamicRendering, synchronization2";
     PLOGD << " - Vulkan12Features: bufferDeviceAddress, descriptorIndexing";
 

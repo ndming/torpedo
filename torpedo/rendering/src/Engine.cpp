@@ -1,11 +1,10 @@
 #include "torpedo/rendering/Engine.h"
 #include "torpedo/rendering/Renderer.h"
+#include "torpedo/rendering/Utils.h"
 
 #include <torpedo/bootstrap/DebugUtils.h>
 
 #include <plog/Log.h>
-
-#include <format>
 
 void tpd::Engine::init(Renderer& renderer) {
     // It's possible this engine has already been initialized,
@@ -71,11 +70,19 @@ void tpd::Engine::init(Renderer& renderer) {
     createDrawingCommandPool(selection.graphicsQueueFamilyIndex);
     createDrawingCommandBuffers();
 
+    PLOGD << "No. of drawing command buffers created: " << _drawingCommandBuffers.size();
+    PLOGD << "No. of in-flight frames from renderer:  " << renderer.getInFlightFramesCount();
+
     // Create a device allocator
     _deviceAllocator = DeviceAllocator::Builder()
         .flags(VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT | VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT)
         .vulkanApiVersion(VK_API_VERSION_1_3)
         .build(renderer.getVulkanInstance(), _physicalDevice, _device, &_engineObjectPool);
+
+    PLOGI << "Using VMA API version: 1.3.0";
+    PLOGD << "VMA created with the following flags (2):";
+    PLOGD << " - VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT";
+    PLOGD << " - VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT";
 
     // This means all Vulkan and Engine resources have been initialized,
     // and the associated Renderer has obtained relevant Vulkan objects
@@ -87,6 +94,7 @@ std::vector<const char*> tpd::Engine::getDeviceExtensions() const {
         vk::EXTMemoryBudgetExtensionName,    // help VMA estimate memory budget more accurately
         vk::EXTMemoryPriorityExtensionName,  // incorporate memory priority to the allocator
     };
+    rendering::logExtensions("Device", Engine::getName(), extensions);
     return extensions;
 }
 
@@ -103,47 +111,6 @@ void tpd::Engine::createDrawingCommandBuffers() {
     allocInfo.level = vk::CommandBufferLevel::ePrimary;
     allocInfo.commandBufferCount = _renderer->getInFlightFramesCount();
     _drawingCommandBuffers = _device.allocateCommandBuffers(allocInfo);
-}
-
-void tpd::Engine::transitionImageLayout(
-    const vk::CommandBuffer buffer,
-    const vk::Image image,
-    const vk::ImageLayout oldLayout,
-    const vk::ImageLayout newLayout)
-{
-    auto barrier = vk::ImageMemoryBarrier2{};
-    barrier.image = image;
-    barrier.oldLayout = oldLayout;
-    barrier.newLayout = newLayout;
-
-    using enum vk::ImageAspectFlagBits;
-    const auto aspectMask = newLayout == vk::ImageLayout::eDepthAttachmentOptimal ? eDepth : eColor;
-    barrier.subresourceRange = {
-        aspectMask, /* base mip */ 0, vk::RemainingMipLevels, /* base array layer */ 0, vk::RemainingArrayLayers };
-
-    // TODO: define optimal masks for different use cases
-    barrier.srcStageMask  = vk::PipelineStageFlagBits2::eAllCommands;
-    barrier.srcAccessMask = vk::AccessFlagBits2::eMemoryWrite;
-    barrier.dstStageMask  = vk::PipelineStageFlagBits2::eAllCommands;
-    barrier.dstAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite;
-
-    auto dependency = vk::DependencyInfo{};
-    dependency.imageMemoryBarrierCount = 1;
-    dependency.pImageMemoryBarriers = &barrier;
-
-    buffer.pipelineBarrier2(dependency);
-}
-
-void tpd::Engine::logExtensions(
-    const std::string_view extensionType,
-    const std::string_view className,
-    const std::vector<const char*>& extensions)
-{
-    const auto terminateString = extensions.empty() ? " (none)" : std::format(" ({}):", extensions.size());
-    PLOGD << extensionType << " extensions required by " << className << terminateString;
-    for (const auto& extension : extensions) {
-        PLOGD << " - " << extension;
-    }
 }
 
 void tpd::Engine::destroy() noexcept {

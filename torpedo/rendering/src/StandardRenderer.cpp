@@ -1,4 +1,5 @@
 #include "torpedo/rendering/StandardRenderer.h"
+#include "torpedo/rendering/Utils.h"
 
 #include <torpedo/bootstrap/SwapChainBuilder.h>
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
@@ -47,7 +48,7 @@ tpd::StandardRenderer::Context::~Context() {
 
 void tpd::StandardRenderer::init(const uint32_t framebufferWidth, const uint32_t framebufferHeight) {
     if (!_initialized) [[likely]] {
-        PLOGI << "Initializing renderer: PresentRenderer";
+        PLOGI << "Initializing renderer: tpd::StandardRenderer";
 
         _context = std::make_unique<Context>(vk::Extent2D{ framebufferWidth, framebufferHeight });
         glfwSetWindowUserPointer(_context->_window, this);
@@ -56,7 +57,7 @@ void tpd::StandardRenderer::init(const uint32_t framebufferWidth, const uint32_t
         Renderer::init();
         createSurface();
     } else {
-        PLOGI << "Skipping already initialized renderer: PresentRenderer";
+        PLOGI << "Skipping already initialized renderer: tpd::StandardRenderer";
     }
 }
 
@@ -72,7 +73,7 @@ std::vector<const char*> tpd::StandardRenderer::getInstanceExtensions() const {
     extensions.reserve(glfwExtensionCount + parentExtensions.size());
 
     extensions.insert(extensions.begin(), glfwExtensions, glfwExtensions + glfwExtensionCount);
-    logExtensions("Instance", "tpd::PresentRenderer", extensions);
+    rendering::logExtensions("Instance", "tpd::StandardRenderer", extensions);
 
     extensions.insert(extensions.end(), std::make_move_iterator(parentExtensions.begin()), std::make_move_iterator(parentExtensions.end()));
     return extensions;
@@ -93,7 +94,7 @@ vk::Extent2D tpd::StandardRenderer::getFramebufferSize() const {
 
 void tpd::StandardRenderer::createSurface() {
     if (glfwCreateWindowSurface(_instance, _context->_window, nullptr, reinterpret_cast<VkSurfaceKHR*>(&_surface)) != VK_SUCCESS) [[unlikely]] {
-        throw std::runtime_error("PresentRenderer - Failed to create a Vulkan surface");
+        throw std::runtime_error("StandardRenderer - Failed to create a Vulkan surface");
     }
 }
 
@@ -105,7 +106,7 @@ std::vector<const char*> tpd::StandardRenderer::getDeviceExtensions() const {
 
     // A present renderer must be able to display rendered images
     extensions.push_back(vk::KHRSwapchainExtensionName);
-    logExtensions("Device", "tpd::PresentRenderer", extensions);
+    rendering::logExtensions("Device", "tpd::StandardRenderer", extensions);
 
     extensions.insert(extensions.end(), std::make_move_iterator(parentExtensions.begin()), std::make_move_iterator(parentExtensions.end()));
     return extensions;
@@ -151,7 +152,7 @@ void tpd::StandardRenderer::createSwapChain() {
     _swapChainImageFormat = swapChain.surfaceFormat.format;
     _swapChainImageExtent = swapChain.extent;
 
-    PLOGD << "Swap chain created for tpd::PresentRenderer with:";
+    PLOGD << "Swap chain created for tpd::StandardRenderer with:";
     PLOGD << " - Images count: " << _swapChainImages.size();
     PLOGD << " - Present mode: " << toString(swapChain.presentMode);
     PLOGD << " - Image extent: " << toString(_swapChainImageExtent);
@@ -236,7 +237,7 @@ bool tpd::StandardRenderer::acquireSwapChainImage(const vk::Semaphore semaphore,
         return false;
     }
     if (result.result != vk::Result::eSuccess && result.result != vk::Result::eSuboptimalKHR) [[unlikely]] {
-        throw std::runtime_error("PresentRenderer - Failed to acquire a swap chain image");
+        throw std::runtime_error("StandardRenderer - Failed to acquire a swap chain image");
     }
 
     *imageIndex = result.value;
@@ -282,7 +283,7 @@ void tpd::StandardRenderer::presentSwapChainImage(const uint32_t imageIndex, con
         _framebufferResized = false;
         refreshSwapChain();
     } else if (result != vk::Result::eSuccess) [[unlikely]] {
-        throw std::runtime_error("PresentRenderer - Failed to present a swap chain image");
+        throw std::runtime_error("StandardRenderer - Failed to present a swap chain image");
     }
 }
 

@@ -46,11 +46,6 @@ namespace tpd {
         vk::PhysicalDevice _physicalDevice{};
         vk::Device _device{};
 
-        static void logExtensions(
-            std::string_view extensionType,
-            std::string_view className,
-            const std::vector<const char*>& extensions = {});
-
     private:
         void createInstance(std::vector<const char*>&& instanceExtensions);
 
