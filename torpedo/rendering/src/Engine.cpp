@@ -3,6 +3,7 @@
 #include "torpedo/rendering/Utils.h"
 
 #include <torpedo/bootstrap/DebugUtils.h>
+#include <torpedo/foundation/StagingBuffer.h>
 
 #include <plog/Log.h>
 
@@ -20,7 +21,8 @@ void tpd::Engine::init(Renderer& renderer) {
     // Init physical device and create the logical device
     const auto selection = pickPhysicalDevice(extensions, renderer.getVulkanInstance(), renderer.getVulkanSurface());
     _physicalDevice = selection.physicalDevice;
-    _device = createDevice(extensions, { selection.graphicsQueueFamilyIndex, selection.transferQueueFamilyIndex,
+    _device = createDevice(extensions, {
+        selection.graphicsQueueFamilyIndex, selection.transferQueueFamilyIndex,
         selection.computeQueueFamilyIndex, selection.presentQueueFamilyIndex });
 
     PLOGI << "Found a suitable device for " << getName() << ": " << _physicalDevice.getProperties().deviceName.data();
@@ -66,8 +68,9 @@ void tpd::Engine::init(Renderer& renderer) {
     // and the associated Renderer has obtained the those devices
     _initialized = true;
 
-    // Create drawing resources
+    // Create common drawing and transfer resources
     createDrawingCommandPool(selection.graphicsQueueFamilyIndex);
+    createStartupCommandPool(selection.transferQueueFamilyIndex);
     createDrawingCommandBuffers();
 
     PLOGD << "No. of drawing command buffers created: " << _drawingCommandBuffers.size();
@@ -99,10 +102,19 @@ std::vector<const char*> tpd::Engine::getDeviceExtensions() const {
 }
 
 void tpd::Engine::createDrawingCommandPool(const uint32_t graphicsFamilyIndex) {
-    auto poolInfo = vk::CommandPoolCreateInfo{};
-    poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
-    poolInfo.queueFamilyIndex = graphicsFamilyIndex;
+    // This pool allocates command buffers for drawing commands
+    const auto poolInfo = vk::CommandPoolCreateInfo{}
+        .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
+        .setQueueFamilyIndex(graphicsFamilyIndex);
     _drawingCommandPool = _device.createCommandPool(poolInfo);
+}
+
+void tpd::Engine::createStartupCommandPool(const uint32_t transferFamilyIndex) {
+    // This pool allocates command buffers for one-shot transfers at the start of the program
+    const auto poolInfo = vk::CommandPoolCreateInfo{}
+        .setFlags(vk::CommandPoolCreateFlagBits::eTransient)
+        .setQueueFamilyIndex(transferFamilyIndex);
+    _startupCommandPool = _device.createCommandPool(poolInfo);
 }
 
 void tpd::Engine::createDrawingCommandBuffers() {
@@ -113,6 +125,91 @@ void tpd::Engine::createDrawingCommandBuffers() {
     _drawingCommandBuffers = _device.allocateCommandBuffers(allocInfo);
 }
 
+vk::CommandBuffer tpd::Engine::beginOneTimeTransfer() const {
+    const auto allocInfo = vk::CommandBufferAllocateInfo{}
+        .setCommandPool(_startupCommandPool)
+        .setLevel(vk::CommandBufferLevel::ePrimary)
+        .setCommandBufferCount(1);
+    const auto buffer = _device.allocateCommandBuffers(allocInfo)[0];
+
+    constexpr auto beginInfo = vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit };
+    buffer.begin(beginInfo);
+    return buffer;
+}
+
+void tpd::Engine::endOneTimeTransfer(const vk::CommandBuffer buffer, const bool wait) const {
+    buffer.end();
+    _transferQueue.submit(vk::SubmitInfo{ {}, {}, {}, 1, &buffer });
+    if (wait) [[likely]] _transferQueue.waitIdle();
+    _device.freeCommandBuffers(_startupCommandPool, 1, &buffer);
+}
+
+void tpd::Engine::sync(const StorageBuffer& storageBuffer) const {
+    if (!storageBuffer.hasSyncData()) {
+        PLOGW << "Engine - Syncing an empty StorageBuffer: did you forget to call StorageBuffer::setSyncData()?";
+        return;
+    }
+
+    auto stagingBuffer = StagingBuffer::Builder()
+        .alloc(storageBuffer.getSyncDataSize())
+        .build(*_deviceAllocator);
+    stagingBuffer.setData(storageBuffer.getSyncData());
+
+    const auto cmd = beginOneTimeTransfer();
+    storageBuffer.recordBufferTransfer(cmd, stagingBuffer.getVulkanBuffer());
+
+    endOneTimeTransfer(cmd);
+    stagingBuffer.destroy();
+}
+
+void tpd::Engine::sync(Texture& texture, const vk::ImageLayout finalLayout) const {
+    if (!texture.hasSyncData()) {
+        PLOGW << "Engine - Syncing an empty Texture: did you forget to call Texture::setSyncData()?";
+        return;
+    }
+
+    const auto cmd = beginOneTimeTransfer();
+    texture.recordImageTransition(cmd, vk::ImageLayout::eTransferDstOptimal);
+
+    auto stagingBuffer = StagingBuffer::Builder()
+        .alloc(texture.getSyncDataSize())
+        .build(*_deviceAllocator);
+    stagingBuffer.setData(texture.getSyncData());
+
+    texture.recordBufferTransfer(cmd, stagingBuffer.getVulkanBuffer());
+    texture.recordImageTransition(cmd, finalLayout);
+
+    endOneTimeTransfer(cmd);
+    stagingBuffer.destroy();
+}
+
+void tpd::Engine::syncAndGenMips(Texture& texture) const {
+    if (!texture.hasSyncData()) {
+        PLOGW << "Engine - Syncing an empty Texture: did you forget to call Texture::setSyncData()?";
+        return;
+    }
+
+    const auto cmd = beginOneTimeTransfer();
+    texture.recordImageTransition(cmd, vk::ImageLayout::eTransferDstOptimal);
+
+    auto stagingBuffer = StagingBuffer::Builder()
+        .alloc(texture.getSyncDataSize())
+        .build(*_deviceAllocator);
+    stagingBuffer.setData(texture.getSyncData());
+
+    texture.recordBufferTransfer(cmd, stagingBuffer.getVulkanBuffer());
+    texture.recordMipsGeneration(cmd, _physicalDevice);  // image is now in shader read optimal layout
+
+    // Manually end and submit the operation with graphics queue since
+    // blitting can only be performed on queues with graphics bit
+    cmd.end();
+    _graphicsQueue.submit(vk::SubmitInfo{ {}, {}, {}, 1, &cmd });
+    _graphicsQueue.waitIdle();
+    _device.freeCommandBuffers(_startupCommandPool, 1, &cmd);
+
+    stagingBuffer.destroy();
+}
+
 void tpd::Engine::destroy() noexcept {
     if (_initialized) {
         _initialized = false;
@@ -120,6 +217,7 @@ void tpd::Engine::destroy() noexcept {
         _deviceAllocator->destroy();
 
         _drawingCommandBuffers.clear();
+        _device.destroyCommandPool(_startupCommandPool);
         _device.destroyCommandPool(_drawingCommandPool);
 
         _renderer->resetEngine();

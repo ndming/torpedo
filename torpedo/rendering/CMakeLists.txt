@@ -20,6 +20,7 @@ set(TORPEDO_RENDERING_SOURCES
         src/HeadlessRenderer.cpp
         src/Renderer.cpp
         src/StandardRenderer.cpp
+        src/SyncGroup.cpp
         src/Utils.cpp
 )
 

@@ -22,17 +22,17 @@ int main() {
     tpd::utils::plantConsoleLogger();
 
     try {
-        const auto renderer = tpd::createRenderer<tpd::StandardRenderer>();
-        renderer->init(1280, 720);
-        renderer->getContext()->setWindowTitle("Hello, Triangle!");
+        auto renderer = tpd::StandardRenderer{};
+        renderer.init(1280, 720);
+        renderer.getContext().setWindowTitle("Hello, Triangle!");
 
-        const auto engine = tpd::createEngine<tpd::ForwardEngine>();
-        engine->init(*renderer);
+        auto engine = tpd::ForwardEngine{};
+        engine.init(renderer);
 
-        renderer->getContext()->loop([&] {
-            if (const auto [valid, image, imageIndex] = renderer->beginFrame(); valid) {
-                const auto buffer = engine->draw(image);
-                renderer->endFrame(buffer, imageIndex);
+        renderer.getContext().loop([&] {
+            if (const auto [valid, image, imageIndex] = renderer.beginFrame(); valid) {
+                const auto buffer = engine.draw(image);
+                renderer.endFrame(buffer, imageIndex);
             }
         });
     } catch (const std::exception& e) {

@@ -1,0 +1,18 @@
+#include "torpedo/foundation/SyncResource.h"
+
+void tpd::SyncResource::setSyncData(const void* const data, const uint32_t byteSize) noexcept {
+    _data = static_cast<const std::byte*>(data);
+    _size = byteSize;
+}
+
+const std::byte* tpd::SyncResource::getSyncData() const noexcept {
+    return _data;
+}
+
+uint32_t tpd::SyncResource::getSyncDataSize() const noexcept {
+    return _size;
+}
+
+bool tpd::SyncResource::hasSyncData() const noexcept {
+    return _data != nullptr && _size > 0;
+}

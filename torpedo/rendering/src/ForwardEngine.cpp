@@ -4,6 +4,7 @@
 
 #include <torpedo/bootstrap/DeviceBuilder.h>
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
+#include <torpedo/foundation/ImageUtils.h>
 
 #include <plog/Log.h>
 
@@ -84,7 +85,9 @@ vk::CommandBuffer tpd::ForwardEngine::draw(const vk::Image image) const {
     buffer.begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
     // TODO: transition to a more optimal layout...
-    transitionImageLayout(buffer, image, vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral);
+    foundation::recordLayoutTransition(
+        buffer, image, vk::ImageAspectFlagBits::eColor, 1,
+        vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral);
 
     constexpr auto clearValue = vk::ClearColorValue{ std::array{ 0.0f, 0.0f, 1.0f, 1.0f } };
     constexpr auto clearRange = vk::ImageSubresourceRange{
@@ -94,7 +97,9 @@ vk::CommandBuffer tpd::ForwardEngine::draw(const vk::Image image) const {
     buffer.clearColorImage(image, vk::ImageLayout::eGeneral, clearValue, clearRange);
 
     // TODO: ... and this line too
-    transitionImageLayout(buffer, image, vk::ImageLayout::eGeneral, vk::ImageLayout::ePresentSrcKHR);
+    foundation::recordLayoutTransition(
+        buffer, image, vk::ImageAspectFlagBits::eColor, 1,
+        vk::ImageLayout::eGeneral, vk::ImageLayout::ePresentSrcKHR);
 
     buffer.end();
     return buffer;

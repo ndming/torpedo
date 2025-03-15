@@ -2,16 +2,7 @@
 
 #include "torpedo/rendering/Engine.h"
 
-#include <concepts>
-#include <type_traits>
-
 namespace tpd {
-    class Renderer;
-    struct PhysicalDeviceSelection;
-
-    template<typename  T>
-    std::unique_ptr<T> createRenderer() requires std::derived_from<T, Renderer> && std::is_final_v<T>;
-
     class Renderer {
     public:
         Renderer() = default;
@@ -58,19 +49,9 @@ namespace tpd {
     };
 }
 
-// =====================================================================================================================
-// TEMPLATE FUNCTION DEFINITIONS
-// =====================================================================================================================
-
-template<typename  T>
-std::unique_ptr<T> tpd::createRenderer() requires std::derived_from<T, Renderer> && std::is_final_v<T> {
-    auto renderer = std::make_unique<T>();
-    return renderer;
-}
-
-// =====================================================================================================================
-// INLINE FUNCTION DEFINITIONS
-// =====================================================================================================================
+// =========================== //
+// INLINE FUNCTION DEFINITIONS //
+// =========================== //
 
 inline uint32_t tpd::Renderer::getCurrentFrame() const {
     return 0;

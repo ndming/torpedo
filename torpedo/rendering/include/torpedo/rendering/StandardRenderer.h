@@ -43,7 +43,7 @@ namespace tpd {
         [[nodiscard]] Presentable beginFrame();
         void endFrame(const vk::ArrayProxy<vk::CommandBuffer>& buffers, uint32_t imageIndex);
 
-        [[nodiscard]] const std::unique_ptr<Context>& getContext() const;
+        [[nodiscard]] const Context& getContext() const;
 
         [[nodiscard]] vk::Extent2D getFramebufferSize() const override;
         [[nodiscard]] uint32_t getInFlightFramesCount() const override;
@@ -114,13 +114,13 @@ inline void tpd::StandardRenderer::Context::setWindowTitle(const std::string_vie
     glfwSetWindowTitle(_window, title.data());
 }
 
-inline const std::unique_ptr<tpd::StandardRenderer::Context>& tpd::StandardRenderer::getContext() const {
+inline const tpd::StandardRenderer::Context& tpd::StandardRenderer::getContext() const {
     if (!_initialized) [[unlikely]] {
         throw std::runtime_error(
             "StandardRenderer - getContext called before initialization: "
             "did you forget to call StandardRenderer::init()?");
     }
-    return _context;
+    return *_context;
 }
 
 inline uint32_t tpd::StandardRenderer::getInFlightFramesCount() const {

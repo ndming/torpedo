@@ -20,3 +20,11 @@ vk::Buffer tpd::StorageBuffer::Builder::creatBuffer(const DeviceAllocator& alloc
     const auto bufferCreateInfo = vk::BufferCreateInfo{ {}, _allocSize, usage };
     return allocator.allocateDeviceBuffer(bufferCreateInfo, allocation);
 }
+
+void tpd::StorageBuffer::recordBufferTransfer(const vk::CommandBuffer cmd, const vk::Buffer stagingBuffer) const noexcept {
+    const auto bufferCopyInfo = vk::BufferCopy{}
+        .setSrcOffset(0)
+        .setDstOffset(0)
+        .setSize(getSyncDataSize());
+    cmd.copyBuffer(stagingBuffer, _buffer, bufferCopyInfo);
+}

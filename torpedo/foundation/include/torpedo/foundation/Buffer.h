@@ -10,7 +10,7 @@ namespace tpd {
         Buffer(const Buffer&) = delete;
         Buffer& operator=(const Buffer&) = delete;
 
-        [[nodiscard]] vk::Buffer getBuffer() const { return _buffer; }
+        [[nodiscard]] vk::Buffer getVulkanBuffer() const noexcept;
 
         virtual void destroy() noexcept;
         virtual ~Buffer() noexcept;
@@ -31,6 +31,10 @@ inline tpd::Buffer::Buffer(const vk::Buffer buffer, VmaAllocation allocation, co
     if (!buffer || !allocation) [[unlikely]] {
         throw std::invalid_argument("Buffer - vk::Buffer is in invalid state: consider using a builder");
     }
+}
+
+inline vk::Buffer tpd::Buffer::getVulkanBuffer() const noexcept {
+    return _buffer;
 }
 
 inline void tpd::Buffer::destroy() noexcept {

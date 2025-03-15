@@ -1,9 +1,10 @@
 #pragma once
 
 #include "torpedo/foundation/Buffer.h"
+#include "torpedo/foundation/SyncResource.h"
 
 namespace tpd {
-    class StorageBuffer final : public Buffer {
+    class StorageBuffer final : public Buffer, public SyncResource {
     public:
         class Builder {
         public:
@@ -26,6 +27,8 @@ namespace tpd {
 
         StorageBuffer(const StorageBuffer&) = delete;
         StorageBuffer& operator=(const StorageBuffer&) = delete;
+
+        void recordBufferTransfer(vk::CommandBuffer cmd, vk::Buffer stagingBuffer) const noexcept;
     };
 }
 

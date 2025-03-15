@@ -1,7 +1,11 @@
 #pragma once
 
+#include "torpedo/rendering/SyncGroup.h"
+
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
 #include <torpedo/foundation/DeviceAllocator.h>
+#include <torpedo/foundation/StorageBuffer.h>
+#include <torpedo/foundation/Texture.h>
 
 namespace tpd {
     class Renderer;
@@ -13,8 +17,7 @@ namespace tpd {
 
         void init(Renderer& renderer);
 
-        using DeviceAllocatorType = std::unique_ptr<DeviceAllocator, foundation::Deleter<DeviceAllocator>>;
-        const DeviceAllocatorType& getDeviceAllocator() const noexcept;
+        [[nodiscard]] const DeviceAllocator& getDeviceAllocator() const noexcept;
 
         [[nodiscard]] virtual vk::CommandBuffer draw(vk::Image image) const = 0;
 
@@ -43,41 +46,44 @@ namespace tpd {
         vk::Queue _transferQueue{};
         vk::Queue _computeQueue{};
 
+    private:
         void createDrawingCommandPool(uint32_t graphicsFamilyIndex);
-        vk::CommandPool _drawingCommandPool{};
+        void createStartupCommandPool(uint32_t transferFamilyIndex);
 
+        vk::CommandPool _drawingCommandPool{};
+        vk::CommandPool _startupCommandPool{};
+
+        std::pmr::unsynchronized_pool_resource _engineObjectPool{};
+
+    protected:
         void createDrawingCommandBuffers();
         std::vector<vk::CommandBuffer> _drawingCommandBuffers{};
 
-        std::pmr::unsynchronized_pool_resource _engineObjectPool{};
+        [[nodiscard]] vk::CommandBuffer beginOneTimeTransfer() const;
+        void endOneTimeTransfer(vk::CommandBuffer buffer, bool wait = true) const;
+
+        using DeviceAllocatorType = std::unique_ptr<DeviceAllocator, foundation::Deleter<DeviceAllocator>>;
         DeviceAllocatorType _deviceAllocator{};
 
-        static void transitionImageLayout(
-            vk::CommandBuffer buffer,
-            vk::Image image,
-            vk::ImageLayout oldLayout,
-            vk::ImageLayout newLayout);
-
-        static void logExtensions(
-            std::string_view extensionType,
-            std::string_view className,
-            const std::vector<const char*>& extensions = {});
-
         [[nodiscard]] virtual const char* getName() const noexcept;
-    };
 
-    template<typename  T>
-    std::unique_ptr<T> createEngine() requires std::derived_from<T, Engine> && std::is_final_v<T> {
-        return std::make_unique<T>();
-    }
+        void sync(const StorageBuffer& storageBuffer) const;
+        void sync(const SyncGroup<StorageBuffer>& group) const;
+
+        void sync(Texture& texture, vk::ImageLayout finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal) const;
+        void sync(const SyncGroup<Texture>& group) const;
+
+        void syncAndGenMips(Texture& texture) const;
+        void syncAndGenMips(const SyncGroup<Texture>& group) const;
+    };
 }
 
 // =========================== //
 // INLINE FUNCTION DEFINITIONS //
 // =========================== //
 
-inline const tpd::Engine::DeviceAllocatorType& tpd::Engine::getDeviceAllocator() const noexcept {
-    return _deviceAllocator;
+inline const tpd::DeviceAllocator& tpd::Engine::getDeviceAllocator() const noexcept {
+    return *_deviceAllocator;
 }
 
 inline const char* tpd::Engine::getName() const noexcept {
