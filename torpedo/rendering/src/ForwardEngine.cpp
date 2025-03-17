@@ -21,8 +21,7 @@ tpd::PhysicalDeviceSelection tpd::ForwardEngine::pickPhysicalDevice(
 {
     auto selector = PhysicalDeviceSelector()
         .requestGraphicsQueueFamily()
-        .requestComputeQueueFamily(true)
-        .requestTransferQueueFamily()
+        .requestComputeQueueFamily()
         .featuresVulkan13(getVulkan13Features())
         .featuresVulkan12(getVulkan12Features());
 

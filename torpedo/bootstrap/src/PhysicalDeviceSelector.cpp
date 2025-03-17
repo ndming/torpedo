@@ -32,7 +32,7 @@ tpd::PhysicalDeviceSelection tpd::PhysicalDeviceSelector::select(
 
         const auto [graphicsFamily, transferFamily, presentFamily, computeFamily] = findQueueFamilies(selection.physicalDevice);
         if (_requestGraphicsQueueFamily) selection.graphicsQueueFamilyIndex = graphicsFamily.value();
-        if (_requestTransferQueueFamily) selection.transferQueueFamilyIndex = transferFamily.value();
+        /* always request transfer */    selection.transferQueueFamilyIndex = transferFamily.value();
         if (_requestPresentQueueFamily)  selection.presentQueueFamilyIndex  = presentFamily.value();
         if (_requestComputeQueueFamily)  selection.computeQueueFamilyIndex  = computeFamily.value();
     } else [[unlikely]] {
@@ -63,36 +63,52 @@ tpd::PhysicalDeviceSelector::QueueFamilyIndices tpd::PhysicalDeviceSelector::fin
     // this value would store the previously ignored present family index
     auto distinctPresentFamily = std::optional<uint32_t>{};
 
+    auto foundAsyncTransfer = false;
+    auto foundAsyncCompute  = false;
+
     for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
-        if (!indices.graphicsFamily.has_value() && _requestGraphicsQueueFamily &&
-            queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) {
-            indices.graphicsFamily = i;
-        }
-
-        if (_requestTransferQueueFamily && !indices.transferFamily.has_value() &&
-            queueFamilies[i].queueFlags & vk::QueueFlagBits::eTransfer) {
+        // This may or may not be a distinct transfer family, we overwrite any previously set value
+        // to favor async transfer, even if the call site didn't explicitly request for one
+        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eTransfer &&
+            !(queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)) {
             indices.transferFamily = i;
+            foundAsyncTransfer = true;
         }
 
-        if (!indices.computeFamily.has_value() && _requestComputeQueueFamily &&
-            queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) {
-            indices.computeFamily = i;
+        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics) {
+            if (!indices.graphicsFamily.has_value() && _requestGraphicsQueueFamily) {
+                indices.graphicsFamily = i;  // set graphics if being requested for
+            }
+            // We always set transfer to graphics first, making sure transfer is at least distinct from compute.
+            // The check further favors async transfer even if the call site didn't explicitly request.
+            if (!indices.transferFamily.has_value()) {
+                indices.transferFamily = i;
+            }
         }
 
-        if (!indices.presentFamily.has_value() && _requestPresentQueueFamily &&
-            device.getSurfaceSupportKHR(i, _surface)) {
+        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) {
+            if (_requestComputeQueueFamily) {
+                indices.computeFamily = i;   // set compute if being requested for
+                if (!(queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)) {
+                    foundAsyncCompute = true;
+                }
+            }
+            if (!indices.transferFamily.has_value()) {
+                indices.transferFamily = i;  // this GPU may support no graphics operation
+            }
+        }
+
+        if (!indices.presentFamily.has_value() && _requestPresentQueueFamily && device.getSurfaceSupportKHR(i, _surface)) {
             indices.presentFamily = i;
-            // In some rare case if we found a present family whose index is different from that of graphics,
-            // we ignore the
-            if (!indices.graphicsFamily.has_value() ||
-                indices.graphicsFamily.has_value() && indices.presentFamily.value() != indices.graphicsFamily.value())
-            [[unlikely]] {
+            // In some (rare) cases, if we've found a present family whose index is different from that of graphics,
+            // we ignore it but remember its index in case we cannot find a family supports both graphics and present
+            if (!indices.graphicsFamily.has_value() || indices.graphicsFamily.has_value() && i != indices.graphicsFamily.value()) [[unlikely]] {
                 distinctPresentFamily = i;
                 indices.presentFamily.reset();
             }
         }
 
-        // Ignore this set index for compute family if async compute is being requested
+        // Discard the wrong index for compute family if async compute is being requested
         if (_requestGraphicsQueueFamily && _requestComputeQueueFamily && _asyncCompute &&
             indices.graphicsFamily.has_value() && indices.computeFamily.has_value() &&
             indices.graphicsFamily.value() == indices.computeFamily.value()) {
@@ -106,11 +122,12 @@ tpd::PhysicalDeviceSelector::QueueFamilyIndices tpd::PhysicalDeviceSelector::fin
             indices.transferFamily.reset();
         }
 
-        if (queueFamiliesComplete(indices)) {
+        if (queueFamiliesComplete(indices) && foundAsyncTransfer && foundAsyncCompute) {
             break;
         }
     }
 
+    // Fall back to the found separate present if there was no graphics family supporting present
     if (!indices.presentFamily.has_value() && distinctPresentFamily.has_value()) {
         indices.presentFamily = distinctPresentFamily.value();
     }
@@ -120,7 +137,7 @@ tpd::PhysicalDeviceSelector::QueueFamilyIndices tpd::PhysicalDeviceSelector::fin
 
 bool tpd::PhysicalDeviceSelector::queueFamiliesComplete(const QueueFamilyIndices& indices) const {
     if (_requestGraphicsQueueFamily && !indices.graphicsFamily.has_value()) return false;
-    if (_requestTransferQueueFamily && !indices.transferFamily.has_value()) return false;
+    if (/* always request transfer */  !indices.transferFamily.has_value()) return false;
     if (_requestPresentQueueFamily  && !indices.presentFamily.has_value())  return false;
     if (_requestComputeQueueFamily  && !indices.computeFamily.has_value())  return false;
     if (_asyncCompute && indices.graphicsFamily == indices.computeFamily)   return false;
