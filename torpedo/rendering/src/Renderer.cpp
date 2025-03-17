@@ -82,7 +82,7 @@ void tpd::Renderer::createInstance(std::vector<const char*>&& instanceExtensions
         .build(instanceCreateFlags);
 #endif
 
-    PLOGI << "Using Vulkan API version: 1.3.0";
+    PLOGI << "Using Vulkan API version: 1.3";
 }
 
 std::vector<const char*> tpd::Renderer::getDeviceExtensions() const {

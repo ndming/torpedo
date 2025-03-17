@@ -3,7 +3,7 @@
 #include "torpedo/foundation/DeviceAllocator.h"
 
 namespace tpd {
-    class Buffer {
+    class Buffer : public Destroyable {
     public:
         Buffer(vk::Buffer buffer, VmaAllocation allocation, const DeviceAllocator& allocator);
 
@@ -12,8 +12,8 @@ namespace tpd {
 
         [[nodiscard]] vk::Buffer getVulkanBuffer() const noexcept;
 
-        virtual void destroy() noexcept;
-        virtual ~Buffer() noexcept;
+        void destroy() noexcept override;
+        ~Buffer() noexcept override;
 
     protected:
         vk::Buffer _buffer;

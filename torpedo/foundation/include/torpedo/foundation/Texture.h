@@ -16,7 +16,7 @@ namespace tpd {
 
             [[nodiscard]] Texture build(const DeviceAllocator& allocator) const;
 
-            [[nodiscard]] std::unique_ptr<Texture, foundation::Deleter<Texture>> build(
+            [[nodiscard]] std::unique_ptr<Texture, Deleter<Texture>> build(
                 const DeviceAllocator& allocator, std::pmr::memory_resource* pool) const;
 
         private:
@@ -43,6 +43,9 @@ namespace tpd {
 
         void recordBufferTransfer(vk::CommandBuffer cmd, vk::Buffer stagingBuffer, uint32_t mipLevel = 0) const noexcept;
         void recordMipsGeneration(vk::CommandBuffer cmd, vk::PhysicalDevice physicalDevice);
+
+        void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept override;
+        void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept override;
 
         [[nodiscard]] vk::Extent2D getSize() const noexcept;
         [[nodiscard]] uint32_t getMipLevelCount() const noexcept override;

@@ -12,7 +12,7 @@ tpd::RingBuffer tpd::RingBuffer::Builder::build(const DeviceAllocator& allocator
         _bufferSize, _allocSize, buffer, allocation, allocator };
 }
 
-std::unique_ptr<tpd::RingBuffer, tpd::foundation::Deleter<tpd::RingBuffer>> tpd::RingBuffer::Builder::build(
+std::unique_ptr<tpd::RingBuffer, tpd::Deleter<tpd::RingBuffer>> tpd::RingBuffer::Builder::build(
     const DeviceAllocator& allocator,
     std::pmr::memory_resource* pool) const
 {

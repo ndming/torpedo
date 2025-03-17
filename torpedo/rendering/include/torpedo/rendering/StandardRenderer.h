@@ -69,9 +69,9 @@ namespace tpd {
         [[nodiscard]] std::vector<const char*> getDeviceExtensions() const override;
         void engineInit(vk::Device device, const PhysicalDeviceSelection& physicalDeviceSelection) override;
         uint32_t _graphicsFamilyIndex{ 0 };
-        uint32_t _presentFamilyIndex{ 0 };
+        uint32_t _presentFamilyIndex { 0 };
         vk::Queue _graphicsQueue{};
-        vk::Queue _presentQueue{};
+        vk::Queue _presentQueue {};
 
         void createSwapChain();
         vk::SwapchainKHR _swapChain{};

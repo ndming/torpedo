@@ -7,7 +7,7 @@ tpd::Texture tpd::Texture::Builder::build(const DeviceAllocator& allocator) cons
     return Texture{ vk::Extent2D{ _w, _h }, _mipLevelCount, image, _layout, _format, allocation, allocator };
 }
 
-std::unique_ptr<tpd::Texture, tpd::foundation::Deleter<tpd::Texture>> tpd::Texture::Builder::build(
+std::unique_ptr<tpd::Texture, tpd::Deleter<tpd::Texture>> tpd::Texture::Builder::build(
     const DeviceAllocator& allocator,
     std::pmr::memory_resource* pool) const
 {
@@ -30,7 +30,7 @@ vk::Image tpd::Texture::Builder::createImage(const DeviceAllocator& allocator, V
     }
 
     // A Texture must support shader sampling and data transfer from a staging buffer by default.
-    // If using mips, it must also be a transfer source for blitting.
+    // If using mips, it must also be a transfer source for blit.
     using enum vk::ImageUsageFlagBits;
     auto usage = eSampled | eTransferDst;
     if (_mipLevelCount > 1) {
@@ -98,10 +98,10 @@ void tpd::Texture::recordBufferTransfer(
 }
 
 void tpd::Texture::recordMipsGeneration(const vk::CommandBuffer cmd, const vk::PhysicalDevice physicalDevice) {
-    // Make sure the physical device supports linear blitting on the current image format
+    // Make sure the physical device supports linear blit on the current image format
     using enum vk::FormatFeatureFlagBits;
     if (!(physicalDevice.getFormatProperties(_format).optimalTilingFeatures & eSampledImageFilterLinear)) [[unlikely]] {
-        throw std::runtime_error("Texture - The current image format does not support linear blitting: " + foundation::toString(_format));
+        throw std::runtime_error("Texture - The current image format does not support linear blit: " + foundation::toString(_format));
     }
 
     using AccessMask = vk::AccessFlagBits2;
@@ -130,7 +130,7 @@ void tpd::Texture::recordMipsGeneration(const vk::CommandBuffer cmd, const vk::P
     auto mipHeight = static_cast<int32_t>(_size.height);
 
     // At each iteration, we perform mip generation with vkCmdBlitImage from level i - 1 to i
-    // For the sake of blitting performance, src and dst level should be in transfer read and write, respectively
+    // For the sake of blit performance, src and dst level should be in transfer read and write, respectively
     // At the beginning of each iteration, level i - 1 (presumably, though very likely) has transfer dst layout
     // At the end of each iteration, level i - 1 has shader read layout
     for (uint32_t i = 1; i < _mipLevelCount; i++) {
@@ -194,4 +194,20 @@ void tpd::Texture::recordMipsGeneration(const vk::CommandBuffer cmd, const vk::P
 
     // The whole and image and its mips are now in shader read layout
     _layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+}
+
+void tpd::Texture::recordOwnershipRelease(
+    const vk::CommandBuffer cmd,
+    const uint32_t srcFamilyIndex,
+    const uint32_t dstFamilyIndex) const noexcept
+{
+
+}
+
+void tpd::Texture::recordOwnershipAcquire(
+    const vk::CommandBuffer cmd,
+    const uint32_t srcFamilyIndex,
+    const uint32_t dstFamilyIndex) const noexcept
+{
+
 }

@@ -9,11 +9,11 @@ namespace tpd {
         public:
             Builder& count(uint32_t bufferCount) noexcept;
             Builder& usage(vk::BufferUsageFlags usage) noexcept;
-            Builder& alloc(std::size_t byteSize, foundation::Alignment alignment = foundation::Alignment::None) noexcept;
+            Builder& alloc(std::size_t byteSize, Alignment alignment = Alignment::None) noexcept;
 
             [[nodiscard]] RingBuffer build(const DeviceAllocator& allocator) const;
 
-            [[nodiscard]] std::unique_ptr<RingBuffer, foundation::Deleter<RingBuffer>> build(
+            [[nodiscard]] std::unique_ptr<RingBuffer, Deleter<RingBuffer>> build(
                 const DeviceAllocator& allocator, std::pmr::memory_resource* pool) const;
 
         private:
@@ -58,12 +58,9 @@ inline tpd::RingBuffer::Builder& tpd::RingBuffer::Builder::usage(const vk::Buffe
     return *this;
 }
 
-inline tpd::RingBuffer::Builder& tpd::RingBuffer::Builder::alloc(
-    const std::size_t byteSize,
-    const foundation::Alignment alignment) noexcept
-{
+inline tpd::RingBuffer::Builder& tpd::RingBuffer::Builder::alloc(const std::size_t byteSize, const Alignment alignment) noexcept {
     _bufferSize = byteSize;
-    _allocSize  = getAlignedSize(byteSize, alignment);
+    _allocSize  = foundation::getAlignedSize(byteSize, alignment);
     return *this;
 }
 

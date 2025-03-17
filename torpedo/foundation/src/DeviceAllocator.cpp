@@ -9,7 +9,7 @@ tpd::DeviceAllocator tpd::DeviceAllocator::Builder::build(
     return DeviceAllocator{ allocator };
 }
 
-std::unique_ptr<tpd::DeviceAllocator, tpd::foundation::Deleter<tpd::DeviceAllocator>> tpd::DeviceAllocator::Builder::build(
+std::unique_ptr<tpd::DeviceAllocator, tpd::Deleter<tpd::DeviceAllocator>> tpd::DeviceAllocator::Builder::build(
     const vk::Instance instance,
     const vk::PhysicalDevice physicalDevice,
     const vk::Device device,

@@ -1,9 +1,10 @@
 #pragma once
 
+#include "torpedo/rendering/DeletionWorker.h"
 #include "torpedo/rendering/SyncGroup.h"
 
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
-#include <torpedo/foundation/DeviceAllocator.h>
+#include <torpedo/foundation/StagingBuffer.h>
 #include <torpedo/foundation/StorageBuffer.h>
 #include <torpedo/foundation/Texture.h>
 
@@ -42,39 +43,46 @@ namespace tpd {
         vk::PhysicalDevice _physicalDevice{};
         vk::Device _device{};
 
+        uint32_t _graphicsFamilyIndex{};
+        uint32_t _transferFamilyIndex{};
+        uint32_t _computeFamilyIndex{};
+
         vk::Queue _graphicsQueue{};
         vk::Queue _transferQueue{};
         vk::Queue _computeQueue{};
 
     private:
-        void createDrawingCommandPool(uint32_t graphicsFamilyIndex);
-        void createStartupCommandPool(uint32_t transferFamilyIndex);
+        void createDrawingCommandPool();
+        void createStartupCommandPool();
 
         vk::CommandPool _drawingCommandPool{};
         vk::CommandPool _startupCommandPool{};
 
         std::pmr::unsynchronized_pool_resource _engineObjectPool{};
+        std::mutex _startupCommandPoolMutex{};
+
+        DeletionWorker<StagingBuffer> _stagingDeletionQueue{ &_engineObjectPool, _startupCommandPoolMutex, "Transfer Cleanup" };
 
     protected:
         void createDrawingCommandBuffers();
         std::vector<vk::CommandBuffer> _drawingCommandBuffers{};
 
-        [[nodiscard]] vk::CommandBuffer beginOneTimeTransfer() const;
+        [[nodiscard]] vk::CommandBuffer beginOneTimeTransfer();
         void endOneTimeTransfer(vk::CommandBuffer buffer, bool wait = true) const;
 
-        using DeviceAllocatorType = std::unique_ptr<DeviceAllocator, foundation::Deleter<DeviceAllocator>>;
+        using DeviceAllocatorType = std::unique_ptr<DeviceAllocator, Deleter<DeviceAllocator>>;
         DeviceAllocatorType _deviceAllocator{};
 
         [[nodiscard]] virtual const char* getName() const noexcept;
 
-        void sync(const StorageBuffer& storageBuffer) const;
-        void sync(const SyncGroup<StorageBuffer>& group) const;
+        void sync(const StorageBuffer& storageBuffer);
+        void sync(const SyncGroup<StorageBuffer>& group);
 
-        void sync(Texture& texture, vk::ImageLayout finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal) const;
-        void sync(const SyncGroup<Texture>& group) const;
+        void sync(Texture& texture, vk::ImageLayout finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal);
+        void sync(const SyncGroup<Texture>& group);
 
-        void syncAndGenMips(Texture& texture) const;
-        void syncAndGenMips(const SyncGroup<Texture>& group) const;
+        void syncAndGenMips(Texture& texture);
+        void syncAndGenMips(const SyncGroup<Texture>& group);
     };
 }
 

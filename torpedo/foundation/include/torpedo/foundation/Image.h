@@ -3,7 +3,7 @@
 #include "torpedo/foundation/DeviceAllocator.h"
 
 namespace tpd {
-    class Image {
+    class Image : public Destroyable {
     public:
         Image(
             vk::Image image, vk::ImageLayout layout, vk::Format format,
@@ -14,8 +14,10 @@ namespace tpd {
 
         void recordImageTransition(vk::CommandBuffer cmd, vk::ImageLayout newLayout);
 
-        virtual void destroy() noexcept;
-        virtual ~Image() noexcept;
+        [[nodiscard]] vk::Image getVulkanImage() const noexcept;
+
+        void destroy() noexcept override;
+        ~Image() noexcept override;
 
     protected:
         [[nodiscard]] virtual vk::ImageAspectFlags getAspectMask() const noexcept = 0;
@@ -42,6 +44,10 @@ inline tpd::Image::Image(
     if (!image || !allocation) [[unlikely]] {
         throw std::invalid_argument("Image - vk::Image is in invalid state: consider using a builder");
     }
+}
+
+inline vk::Image tpd::Image::getVulkanImage() const noexcept {
+    return _image;
 }
 
 inline uint32_t tpd::Image::getMipLevelCount() const noexcept {

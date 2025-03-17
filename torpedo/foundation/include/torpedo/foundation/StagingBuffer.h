@@ -7,11 +7,11 @@ namespace tpd {
     public:
         class Builder {
         public:
-            Builder& alloc(std::size_t byteSize, foundation::Alignment alignment = foundation::Alignment::None) noexcept;
+            Builder& alloc(std::size_t byteSize, Alignment alignment = Alignment::None) noexcept;
 
             [[nodiscard]] StagingBuffer build(const DeviceAllocator& allocator) const;
 
-            [[nodiscard]] std::unique_ptr<StagingBuffer, foundation::Deleter<StagingBuffer>> build(
+            [[nodiscard]] std::unique_ptr<StagingBuffer, Deleter<StagingBuffer>> build(
                 const DeviceAllocator& allocator, std::pmr::memory_resource* pool) const;
 
         private:
@@ -35,12 +35,9 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS //
 // =========================== //
 
-inline tpd::StagingBuffer::Builder& tpd::StagingBuffer::Builder::alloc(
-    const std::size_t byteSize,
-    const foundation::Alignment alignment) noexcept
-{
+inline tpd::StagingBuffer::Builder& tpd::StagingBuffer::Builder::alloc(const std::size_t byteSize, const Alignment alignment) noexcept {
     _bufferSize = byteSize;
-    _allocSize  = getAlignedSize(byteSize, alignment);
+    _allocSize  = foundation::getAlignedSize(byteSize, alignment);
     return *this;
 }
 

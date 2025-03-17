@@ -3,38 +3,7 @@
 #include <memory>
 #include <memory_resource>
 
-namespace tpd::foundation {
-
-    template <typename T>
-    struct Deleter {
-        std::pmr::memory_resource* pool;
-
-        void operator()(T* ptr) const noexcept {
-            if (ptr) {
-                // Only call the destructor if T is not trivially destructible
-                if constexpr (!std::is_trivially_destructible_v<T>) {
-                    ptr->~T();
-                }
-                // Deallocate memory
-                pool->deallocate(ptr, sizeof(T), alignof(T));
-            }
-        }
-    };
-
-    template <typename T, typename... Args>
-    std::unique_ptr<T, Deleter<T>> make_unique(std::pmr::memory_resource* pool, Args&&... args) {
-        void* mem = pool->allocate(sizeof(T), alignof(T));  // allocate memory
-        T* obj = new (mem) T(std::forward<Args>(args)...);  // placement new
-        return std::unique_ptr<T, Deleter<T>>(obj, Deleter<T>{ pool });
-    }
-
-    template <typename T, typename... Args>
-    std::shared_ptr<T> make_shared(std::pmr::memory_resource* pool, Args&&... args) {
-        void* mem = pool->allocate(sizeof(T), alignof(T));
-        T* obj = new (mem) T(std::forward<Args>(args)...);
-        return std::shared_ptr<T>(obj, Deleter<T>{ pool });
-    }
-
+namespace tpd {
     /**
      * @enum Alignment
      *
@@ -94,6 +63,33 @@ namespace tpd::foundation {
          */
         By_512 = 1 << 9,
     };
+
+    template <typename T>
+    struct Deleter {
+        std::pmr::memory_resource* pool;
+        constexpr void operator()(T* ptr) const noexcept {
+            static_assert(0 < sizeof(T), "Deleter - Can't delete an incomplete type");
+            if constexpr (!std::is_trivially_destructible_v<T>) {
+                ptr->~T();
+            }
+            pool->deallocate(ptr, sizeof(T), alignof(T));
+        }
+    };
+}
+
+namespace tpd::foundation {
+    template <typename T, typename... Args> requires (!std::is_array_v<T>)
+    std::unique_ptr<T, Deleter<T>> make_unique(std::pmr::memory_resource* pool, Args&&... args) {
+        void* mem = pool->allocate(sizeof(T), alignof(T));  // allocate memory
+        T* obj = new (mem) T(std::forward<Args>(args)...);  // placement new
+        return std::unique_ptr<T, Deleter<T>>(obj, Deleter<T>{ pool });
+    }
+
+    template <typename T, std::enable_if_t<std::is_array_v<T> && std::extent_v<T> == 0, int> = 0>
+    void make_unique(std::pmr::memory_resource*, std::size_t) = delete;
+
+    template <typename T, typename... Args, std::enable_if_t<std::extent_v<T> != 0, int> = 0>
+    void make_unique(std::pmr::memory_resource*, Args&&...) = delete;
 
     /**
      * @brief Calculate the aligned size of a given byte size according to the specified alignment.

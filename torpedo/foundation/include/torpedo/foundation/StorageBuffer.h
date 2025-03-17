@@ -9,11 +9,11 @@ namespace tpd {
         class Builder {
         public:
             Builder& usage(vk::BufferUsageFlags usage) noexcept;
-            Builder& alloc(std::size_t byteSize, foundation::Alignment alignment = foundation::Alignment::None) noexcept;
+            Builder& alloc(std::size_t byteSize, Alignment alignment = Alignment::None) noexcept;
 
             [[nodiscard]] StorageBuffer build(const DeviceAllocator& allocator) const;
 
-            [[nodiscard]] std::unique_ptr<StorageBuffer, foundation::Deleter<StorageBuffer>> build(
+            [[nodiscard]] std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> build(
                 const DeviceAllocator& allocator, std::pmr::memory_resource* pool) const;
 
         private:
@@ -29,6 +29,9 @@ namespace tpd {
         StorageBuffer& operator=(const StorageBuffer&) = delete;
 
         void recordBufferTransfer(vk::CommandBuffer cmd, vk::Buffer stagingBuffer) const noexcept;
+
+        void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept override;
+        void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept override;
     };
 }
 
@@ -41,11 +44,8 @@ inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::usage(const vk:
     return *this;
 }
 
-inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::alloc(
-    const std::size_t byteSize,
-    const foundation::Alignment alignment) noexcept
-{
-    _allocSize = getAlignedSize(byteSize, alignment);
+inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::alloc(const std::size_t byteSize, const Alignment alignment) noexcept {
+    _allocSize = foundation::getAlignedSize(byteSize, alignment);
     return *this;
 }
 

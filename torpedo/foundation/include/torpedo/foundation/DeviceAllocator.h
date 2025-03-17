@@ -16,7 +16,7 @@ namespace tpd {
 
             [[nodiscard]] DeviceAllocator build(vk::Instance instance, vk::PhysicalDevice physicalDevice, vk::Device device) const;
 
-            [[nodiscard]] std::unique_ptr<DeviceAllocator, foundation::Deleter<DeviceAllocator>> build(
+            [[nodiscard]] std::unique_ptr<DeviceAllocator, Deleter<DeviceAllocator>> build(
                 vk::Instance instance, vk::PhysicalDevice physicalDevice, vk::Device device,
                 std::pmr::memory_resource* pool) const;
 
@@ -50,6 +50,12 @@ namespace tpd {
 
     private:
         VmaAllocator _vmaAllocator;
+    };
+
+    class Destroyable {
+    public:
+        virtual ~Destroyable() = default;
+        virtual void destroy() noexcept = 0;
     };
 }
 
