@@ -170,16 +170,16 @@ void tpd::Texture::recordMipsGeneration(const vk::CommandBuffer cmd, const vk::P
         // Transition the layout at level i - 1 to the final layout
         barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
         barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        barrier.srcAccessMask = AccessMask::eTransferRead;  // wait until blit has read all data from level i - 1
-        barrier.dstAccessMask = AccessMask::eShaderRead;    // why would anyone gen mip for non-sampled resource?
+        barrier.srcAccessMask = AccessMask::eTransferRead;       // wait until blit has read all data from level i - 1
+        barrier.dstAccessMask = AccessMask::eShaderSampledRead;  // why would anyone gen mip for non-sampled resource?
         // The texture is (presumably) about to be consumed by one of these shaders
         barrier.dstStageMask = StageMask::eVertexShader | StageMask::eFragmentShader | StageMask::eComputeShader;
         // Layout at mip level i - 1 is now ready to be sampled from shaders
         cmd.pipelineBarrier2(dependency);
 
-        // Go to the next mip level
-        if (mipWidth  > 1) mipWidth  /= 2;
-        if (mipHeight > 1) mipHeight /= 2;
+        // Halve the resolution and go to the next mip level
+        if (mipWidth  > 1) mipWidth  >>= 1;
+        if (mipHeight > 1) mipHeight >>= 1;
     }
 
     // Transition the last mip level's layout
@@ -187,12 +187,12 @@ void tpd::Texture::recordMipsGeneration(const vk::CommandBuffer cmd, const vk::P
     barrier.oldLayout = _layout;  // the last level just received its blit data, no transition was done to it
     barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     barrier.srcAccessMask = AccessMask::eTransferWrite;
-    barrier.dstAccessMask = AccessMask::eShaderRead;
+    barrier.dstAccessMask = AccessMask::eShaderSampledRead;
     // This value wasn't changed, but it couldn't hurt to be explicit
     barrier.dstStageMask = StageMask::eVertexShader | StageMask::eFragmentShader | StageMask::eComputeShader;
     cmd.pipelineBarrier2(dependency);
 
-    // The whole and image and its mips are now in shader read layout
+    // The whole image and its mips are now in shader read layout
     _layout = vk::ImageLayout::eShaderReadOnlyOptimal;
 }
 
@@ -201,7 +201,17 @@ void tpd::Texture::recordOwnershipRelease(
     const uint32_t srcFamilyIndex,
     const uint32_t dstFamilyIndex) const noexcept
 {
+    auto barrier = vk::ImageMemoryBarrier2{};
+    barrier.image = _image;
+    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelCount, 0, 1 };
+    barrier.srcQueueFamilyIndex = srcFamilyIndex;
+    barrier.dstQueueFamilyIndex = dstFamilyIndex;
+    barrier.srcStageMask  = vk::PipelineStageFlagBits2::eTransfer;  // releasing after image uploading
+    barrier.srcAccessMask = vk::AccessFlagBits2::eTransferWrite;    // ensure memory write is available
 
+    // TODO: consider VK_DEPENDENCY_QUEUE_FAMILY_OWNERSHIP_TRANSFER_USE_ALL_STAGES_BIT_KHR to avoid full pipeline stalls
+    const auto dependency = vk::DependencyInfo{}.setImageMemoryBarriers(barrier);
+    cmd.pipelineBarrier2(dependency);
 }
 
 void tpd::Texture::recordOwnershipAcquire(
@@ -209,5 +219,79 @@ void tpd::Texture::recordOwnershipAcquire(
     const uint32_t srcFamilyIndex,
     const uint32_t dstFamilyIndex) const noexcept
 {
+    auto barrier = vk::ImageMemoryBarrier2{};
+    barrier.image = _image;
+    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelCount, 0, 1 };
+    barrier.srcQueueFamilyIndex = srcFamilyIndex;
+    barrier.dstQueueFamilyIndex = dstFamilyIndex;
+    // Without specifying the final layout, this overload assumes
+    // the texture is about to undergo mip generation
+    barrier.dstStageMask  = vk::PipelineStageFlagBits2::eTransfer;  // blit happens at transfer
+    barrier.dstAccessMask = vk::AccessFlagBits2::eTransferRead;     // ensure memory is visible for blit
 
+    // TODO: consider VK_DEPENDENCY_QUEUE_FAMILY_OWNERSHIP_TRANSFER_USE_ALL_STAGES_BIT_KHR to avoid full pipeline stalls
+    const auto dependency = vk::DependencyInfo{}.setImageMemoryBarriers(barrier);
+    cmd.pipelineBarrier2(dependency);
+}
+
+void tpd::Texture::recordOwnershipRelease(
+    const vk::CommandBuffer cmd,
+    const uint32_t srcFamilyIndex,
+    const uint32_t dstFamilyIndex,
+    const vk::ImageLayout finalLayout) const noexcept
+{
+    auto barrier = vk::ImageMemoryBarrier2{};
+    barrier.image = _image;
+    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelCount, 0, 1 };
+    barrier.srcQueueFamilyIndex = srcFamilyIndex;
+    barrier.dstQueueFamilyIndex = dstFamilyIndex;
+    barrier.oldLayout = _layout;
+    barrier.newLayout = finalLayout;
+    barrier.srcStageMask  = vk::PipelineStageFlagBits2::eTransfer;  // releasing after image uploading
+    barrier.srcAccessMask = vk::AccessFlagBits2::eTransferWrite;    // ensure memory write is available
+
+    // TODO: consider VK_DEPENDENCY_QUEUE_FAMILY_OWNERSHIP_TRANSFER_USE_ALL_STAGES_BIT_KHR to avoid full pipeline stalls
+    const auto dependency = vk::DependencyInfo{}.setImageMemoryBarriers(barrier);
+    cmd.pipelineBarrier2(dependency);
+}
+
+void tpd::Texture::recordOwnershipAcquire(
+    const vk::CommandBuffer cmd,
+    const uint32_t srcFamilyIndex,
+    const uint32_t dstFamilyIndex,
+    const vk::ImageLayout finalLayout) noexcept
+{
+    const auto [dstStageMask, dstAccessMask] = getDstSync(finalLayout);
+    auto barrier = vk::ImageMemoryBarrier2{};
+    barrier.image = _image;
+    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelCount, 0, 1 };
+    barrier.srcQueueFamilyIndex = srcFamilyIndex;
+    barrier.dstQueueFamilyIndex = dstFamilyIndex;
+    barrier.oldLayout = _layout;
+    barrier.newLayout = finalLayout;
+    barrier.dstStageMask  = dstStageMask;
+    barrier.dstAccessMask = dstAccessMask;
+
+    // TODO: consider VK_DEPENDENCY_QUEUE_FAMILY_OWNERSHIP_TRANSFER_USE_ALL_STAGES_BIT_KHR to avoid full pipeline stalls
+    const auto dependency = vk::DependencyInfo{}.setImageMemoryBarriers(barrier);
+    cmd.pipelineBarrier2(dependency);
+
+    // The layout transition during queue ownership transfer happens-after the release operation and
+    // happens-before the acquire operation. This seems like the best place to update the layout state.
+    _layout = finalLayout;
+}
+
+std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Texture::getDstSync(const vk::ImageLayout layout) const {
+    using PipelineStage = vk::PipelineStageFlagBits2;
+    using AccessMask    = vk::AccessFlagBits2;
+
+    constexpr auto depthStage   = PipelineStage::eEarlyFragmentTests | PipelineStage::eLateFragmentTests;
+    constexpr auto sampledStage = PipelineStage::eVertexShader | PipelineStage::eFragmentShader | PipelineStage::eComputeShader;
+
+    using enum vk::ImageLayout;
+    switch (layout) {
+        case eShaderReadOnlyOptimal:       return std::make_pair(sampledStage, AccessMask::eShaderSampledRead);
+        case eDepthStencilReadOnlyOptimal: return std::make_pair(sampledStage | depthStage, AccessMask::eShaderSampledRead);
+        default:                           return Image::getDstSync(layout);
+    }
 }

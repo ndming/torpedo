@@ -6,6 +6,7 @@
 
 #include <mutex>
 #include <queue>
+#include <thread>
 
 namespace tpd {
     template<typename T> requires std::is_base_of_v<Destroyable, T> && std::is_final_v<T>
@@ -13,10 +14,10 @@ namespace tpd {
     public:
         struct Task {
             vk::Device device;
+            vk::Semaphore semaphore;
             vk::Fence fence;
-            vk::CommandPool commandPool;
-            vk::ArrayProxy<vk::CommandBuffer> commandBuffers;
             std::unique_ptr<T, Deleter<T>> resource;
+            std::vector<std::pair<vk::CommandPool, vk::CommandBuffer>> buffers;
         };
 
         DeletionWorker(std::pmr::memory_resource* resourcePool, std::mutex& commandPoolMutex, std::string identifier);
@@ -25,9 +26,8 @@ namespace tpd {
         DeletionWorker& operator=(const DeletionWorker&) = delete;
 
         void submit(
-            vk::Device device, vk::Fence fence, vk::CommandPool pool,
-            vk::ArrayProxy<vk::CommandBuffer>&& commandBuffers,
-            std::unique_ptr<T, Deleter<T>> resource);
+            vk::Device device, vk::Semaphore semaphore, vk::Fence fence, std::unique_ptr<T, Deleter<T>> resource,
+            std::vector<std::pair<vk::CommandPool, vk::CommandBuffer>>&& commandBuffers = {});
 
         void waitEmpty();
 
@@ -56,20 +56,21 @@ namespace tpd {
     DeletionWorker<T>::DeletionWorker(std::pmr::memory_resource* resourcePool, std::mutex& commandPoolMutex, std::string identifier)
         : _workerThread{ std::thread(&DeletionWorker::deletionWork, this) }
         , _tasks{ resourcePool }, _commandPoolMutex{ commandPoolMutex }, _identifier{ std::move(identifier) } {
-        PLOGD << "Launched 1 deletion worker: " << _identifier;
+        PLOGD << "DeletionWorker - Launched 1 deletion worker: " << _identifier;
     }
 
     template<typename T> requires std::is_base_of_v<Destroyable, T> && std::is_final_v<T>
     void DeletionWorker<T>::submit(
         const vk::Device device,
+        const vk::Semaphore semaphore,
         const vk::Fence fence,
-        const vk::CommandPool pool,
-        vk::ArrayProxy<vk::CommandBuffer>&& commandBuffers,
-        std::unique_ptr<T, Deleter<T>> resource)
+        std::unique_ptr<T, Deleter<T>> resource,
+        std::vector<std::pair<vk::CommandPool, vk::CommandBuffer>>&& commandBuffers)
     {
         {
             std::lock_guard lock(_queueMutex);
-            _tasks.emplace_back(device, fence, pool, std::move(commandBuffers), std::move(resource));
+            PLOGD << "DeletionWorker<" << _identifier << "> - Inserting a resource: " << resource.get();
+            _tasks.emplace_back(device, semaphore, fence, std::move(resource), std::move(commandBuffers));
         }
         _queueCondition.notify_one();
     }
@@ -91,7 +92,7 @@ namespace tpd {
             }
             _queueCondition.notify_one();
             _workerThread.join();
-            PLOGD << "Shut down 1 deletion worker: " << _identifier;
+            PLOGD << "DeletionWorker - Shut down 1 deletion worker: " << _identifier;
         }
     }
 
@@ -109,7 +110,7 @@ namespace tpd {
 
             if (_stopWorker && _tasks.empty()) break;
 
-            const auto [device, fence, pool, buffers, resource] = std::move(_tasks.front());
+            const auto [device, semaphore, fence, resource, buffers] = std::move(_tasks.front());
             _tasks.pop_front();
             lock.unlock();  // shared-data has been read, we can unlock to let other threads add more tasks
 
@@ -121,10 +122,15 @@ namespace tpd {
                 // VkCommandPool in vkFreeCommandBuffers must be synchronized externally
                 // The same is applied to buffers, but the main thread no longer uses them
                 std::lock_guard poolLock(_commandPoolMutex);
-                device.freeCommandBuffers(pool, buffers);
+                for (const auto [pool, buffer] : buffers) device.freeCommandBuffers(pool, buffer);
             }
-            resource->destroy();         // VMA allocator is thread-safe internally, so is device
-            device.destroyFence(fence);  // the fence is no longer the concern of the main thread
+            // A Destroyable uses VMA allocator internally, which is thread-safe
+            resource->destroy();
+            // The destruction of semaphore and fence are thread-safe
+            if (semaphore) device.destroySemaphore(semaphore);
+            if (fence)     device.destroyFence(fence);
+
+            PLOGD << "DeletionWorker<" << _identifier << "> - Destroyed a resource: " << resource.get();
 
             // Notify the main thread who could potentially be waiting until all tasks are free
             // If that's not the case, this notified signal can be lost without causing any issue

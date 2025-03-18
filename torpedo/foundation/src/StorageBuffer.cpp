@@ -62,7 +62,7 @@ void tpd::StorageBuffer::recordOwnershipAcquire(
     barrier.srcQueueFamilyIndex = srcFamilyIndex;
     barrier.dstQueueFamilyIndex = dstFamilyIndex;
     barrier.dstStageMask  = StageMask::eVertexShader | StageMask::eFragmentShader | StageMask::eComputeShader;
-    barrier.dstAccessMask = vk::AccessFlagBits2::eShaderRead;  // ensure memory is visible
+    barrier.dstAccessMask = vk::AccessFlagBits2::eShaderStorageRead | vk::AccessFlagBits2::eShaderStorageWrite;
 
     // TODO: consider VK_DEPENDENCY_QUEUE_FAMILY_OWNERSHIP_TRANSFER_USE_ALL_STAGES_BIT_KHR to avoid full pipeline stalls
     const auto dependency = vk::DependencyInfo{}.setBufferMemoryBarriers(barrier);

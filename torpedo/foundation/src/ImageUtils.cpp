@@ -69,7 +69,7 @@ void tpd::foundation::recordLayoutTransition(
 
     [[unlikely]] default:
         throw std::invalid_argument(
-            "Image - Unsupported image layout transition with " + toString(oldLayout) + " as src layout");
+            "ImageUtils - Unsupported image layout transition with " + toString(oldLayout) + " as src layout");
     }
 
     switch (newLayout) {
@@ -91,12 +91,12 @@ void tpd::foundation::recordLayoutTransition(
 
     case eDepthStencilReadOnlyOptimal:
         dstStage = depthStage | sampledStage;
-        dstAccessMask = AccessMask::eDepthStencilAttachmentRead | AccessMask::eShaderRead | AccessMask::eInputAttachmentRead;
+        dstAccessMask = AccessMask::eDepthStencilAttachmentRead | AccessMask::eShaderSampledRead | AccessMask::eInputAttachmentRead;
         break;
 
     case eShaderReadOnlyOptimal:
         dstStage = sampledStage;
-        dstAccessMask = AccessMask::eShaderRead | AccessMask::eInputAttachmentRead;
+        dstAccessMask = AccessMask::eShaderSampledRead | AccessMask::eInputAttachmentRead;
         break;
 
     case eTransferSrcOptimal:
@@ -115,7 +115,7 @@ void tpd::foundation::recordLayoutTransition(
 
     [[unlikely]] default:
         throw std::invalid_argument(
-            "Image - Unsupported image layout transition with " + toString(newLayout) + " as dst layout");
+            "ImageUtils - Unsupported image layout transition with " + toString(newLayout) + " as dst layout");
     }
 
     const auto subresourceRange = vk::ImageSubresourceRange{}

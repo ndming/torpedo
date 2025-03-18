@@ -53,32 +53,39 @@ namespace tpd {
 
     private:
         void createDrawingCommandPool();
-        void createStartupCommandPool();
-
         vk::CommandPool _drawingCommandPool{};
-        vk::CommandPool _startupCommandPool{};
+
+        void createStartupCommandPools();
+        vk::CommandPool _graphicsCommandPool{};
+        vk::CommandPool _transferCommandPool{};
 
         std::pmr::unsynchronized_pool_resource _engineObjectPool{};
         std::mutex _startupCommandPoolMutex{};
 
-        DeletionWorker<StagingBuffer> _stagingDeletionQueue{ &_engineObjectPool, _startupCommandPoolMutex, "Transfer Cleanup" };
+        DeletionWorker<StagingBuffer> _stagingDeletionQueue{ &_engineObjectPool, _startupCommandPoolMutex, "TransferCleanup" };
 
     protected:
         void createDrawingCommandBuffers();
         std::vector<vk::CommandBuffer> _drawingCommandBuffers{};
 
-        [[nodiscard]] vk::CommandBuffer beginOneTimeTransfer();
-        void endOneTimeTransfer(vk::CommandBuffer buffer, bool wait = true) const;
+        [[nodiscard]] vk::CommandBuffer beginOneTimeTransfer(vk::CommandPool commandPool);
+        void endOneTimeTransfer(vk::CommandBuffer buffer, vk::Fence deletionFence) const;
+
+        [[nodiscard]] vk::SemaphoreSubmitInfo createOwnershipSemaphoreInfo() const;
+        void endReleaseCommands(vk::CommandBuffer buffer, const vk::SemaphoreSubmitInfo& semaphoreInfo) const;
+        void endAcquireCommands(vk::CommandBuffer buffer, const vk::SemaphoreSubmitInfo& semaphoreInfo, vk::Fence deletionFence) const;
 
         using DeviceAllocatorType = std::unique_ptr<DeviceAllocator, Deleter<DeviceAllocator>>;
         DeviceAllocatorType _deviceAllocator{};
 
         [[nodiscard]] virtual const char* getName() const noexcept;
 
+    public:
         void sync(const StorageBuffer& storageBuffer);
         void sync(const SyncGroup<StorageBuffer>& group);
 
-        void sync(Texture& texture, vk::ImageLayout finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal);
+        static constexpr auto TEXTURE_FINAL_LAYOUT = vk::ImageLayout::eShaderReadOnlyOptimal;
+        void sync(Texture& texture);
         void sync(const SyncGroup<Texture>& group);
 
         void syncAndGenMips(Texture& texture);

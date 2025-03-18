@@ -47,6 +47,11 @@ namespace tpd {
         void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept override;
         void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept override;
 
+        void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex, vk::ImageLayout finalLayout) const noexcept;
+        void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex, vk::ImageLayout finalLayout) noexcept;
+
+        [[nodiscard]] std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getDstSync(vk::ImageLayout layout) const override;
+
         [[nodiscard]] vk::Extent2D getSize() const noexcept;
         [[nodiscard]] uint32_t getMipLevelCount() const noexcept override;
 

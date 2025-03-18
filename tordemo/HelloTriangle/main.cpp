@@ -2,7 +2,9 @@
 #include <torpedo/rendering/ForwardEngine.h>
 #include <torpedo/utils/Log.h>
 
-#include <torpedo/foundation/Texture.h>
+#include <torpedo/foundation/StorageBuffer.h>
+
+#include <exception>
 
 static constexpr auto positions = std::array{
     0.0f, -0.5f,  0.0f,  // 1st vertex
@@ -28,6 +30,12 @@ int main() {
 
         auto engine = tpd::ForwardEngine{};
         engine.init(renderer);
+
+        auto storage = tpd::StorageBuffer::Builder()
+            .alloc(sizeof(float) * positions.size())
+            .build(engine.getDeviceAllocator());
+        storage.setSyncData(positions.data(), sizeof(float) * positions.size());
+        engine.sync(storage);
 
         renderer.getContext().loop([&] {
             if (const auto [valid, image, imageIndex] = renderer.beginFrame(); valid) {

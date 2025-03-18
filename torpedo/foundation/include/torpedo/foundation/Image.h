@@ -23,6 +23,9 @@ namespace tpd {
         [[nodiscard]] virtual vk::ImageAspectFlags getAspectMask() const noexcept = 0;
         [[nodiscard]] virtual uint32_t getMipLevelCount() const noexcept;
 
+        [[nodiscard]] virtual std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getSrcSync(vk::ImageLayout layout) const;
+        [[nodiscard]] virtual std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getDstSync(vk::ImageLayout layout) const;
+
         vk::Image _image;
         vk::ImageLayout _layout;
         vk::Format _format;
