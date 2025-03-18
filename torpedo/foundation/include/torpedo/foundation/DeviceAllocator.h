@@ -54,8 +54,23 @@ namespace tpd {
 
     class Destroyable {
     public:
-        virtual ~Destroyable() = default;
-        virtual void destroy() noexcept = 0;
+        Destroyable(VmaAllocation allocation, const DeviceAllocator& allocator)
+            : _allocation{ allocation }, _allocator{ allocator } {}
+
+        Destroyable(const Destroyable&) = delete;
+        Destroyable& operator=(const Destroyable&) = delete;
+
+        virtual void destroy() noexcept {
+            _allocation = nullptr;
+        }
+
+        virtual ~Destroyable() noexcept {
+            Destroyable::destroy();
+        }
+
+    protected:
+        VmaAllocation _allocation;
+        const DeviceAllocator& _allocator;
     };
 }
 

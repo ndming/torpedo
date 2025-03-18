@@ -17,8 +17,6 @@ namespace tpd {
 
     protected:
         vk::Buffer _buffer;
-        VmaAllocation _allocation;
-        const DeviceAllocator& _allocator;
     };
 }
 
@@ -27,7 +25,7 @@ namespace tpd {
 // =========================== //
 
 inline tpd::Buffer::Buffer(const vk::Buffer buffer, VmaAllocation allocation, const DeviceAllocator& allocator)
-    : _buffer{ buffer }, _allocation{ allocation }, _allocator{ allocator } {
+    : Destroyable{ allocation, allocator }, _buffer{ buffer } {
     if (!buffer || !allocation) [[unlikely]] {
         throw std::invalid_argument("Buffer - vk::Buffer is in invalid state: consider using a builder");
     }
@@ -40,8 +38,8 @@ inline vk::Buffer tpd::Buffer::getVulkanBuffer() const noexcept {
 inline void tpd::Buffer::destroy() noexcept {
     if (_allocation) {
         _allocator.deallocateBuffer(_buffer, _allocation);
-        _allocation = nullptr;
     }
+    Destroyable::destroy();
 }
 
 inline tpd::Buffer::~Buffer() noexcept {

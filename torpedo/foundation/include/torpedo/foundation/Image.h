@@ -29,10 +29,6 @@ namespace tpd {
         vk::Image _image;
         vk::ImageLayout _layout;
         vk::Format _format;
-
-    private:
-        VmaAllocation _allocation;
-        const DeviceAllocator& _allocator;
     };
 }
 
@@ -43,7 +39,7 @@ namespace tpd {
 inline tpd::Image::Image(
     const vk::Image image, const vk::ImageLayout layout, const vk::Format format,
     VmaAllocation allocation, const DeviceAllocator& allocator)
-    : _image{ image }, _layout{ layout }, _format{ format }, _allocation{ allocation }, _allocator{ allocator } {
+    : Destroyable{ allocation, allocator }, _image{ image }, _layout{ layout }, _format{ format } {
     if (!image || !allocation) [[unlikely]] {
         throw std::invalid_argument("Image - vk::Image is in invalid state: consider using a builder");
     }
@@ -60,8 +56,8 @@ inline uint32_t tpd::Image::getMipLevelCount() const noexcept {
 inline void tpd::Image::destroy() noexcept {
     if (_allocation) {
         _allocator.deallocateImage(_image, _allocation);
-        _allocation = nullptr;
     }
+    Destroyable::destroy();
 }
 
 inline tpd::Image::~Image() noexcept {
