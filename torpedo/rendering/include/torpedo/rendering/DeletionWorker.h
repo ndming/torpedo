@@ -127,13 +127,15 @@ namespace tpd {
             // A Destroyable uses VMA allocator internally, which is thread-safe
             resource->destroy();
             // The destruction of semaphore and fence are thread-safe
-            if (semaphore) device.destroySemaphore(semaphore);
-            if (fence)     device.destroyFence(fence);
+            if (semaphore)
+                device.destroySemaphore(semaphore);
+            if (fence) [[likely]]
+                device.destroyFence(fence);
 
             PLOGD << "DeletionWorker<" << _identifier << "> - Destroyed a resource: " << resource.get();
 
             // Notify the main thread who could potentially be waiting until all tasks are free
-            // If that's not the case, this notified signal can be lost without causing any issue
+            // If that's not the case, this signal can be lost without causing any issue
             _queueCondition.notify_one();
         }
     }

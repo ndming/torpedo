@@ -106,6 +106,7 @@ vk::CommandBuffer tpd::ForwardEngine::draw(const vk::Image image) const {
 
 void tpd::ForwardEngine::destroy() noexcept {
     if (_initialized) {
+        // Make sure the GPU has stopped doing its things
         _device.waitIdle();
     }
     Engine::destroy();

@@ -31,11 +31,11 @@ int main() {
         auto engine = tpd::ForwardEngine{};
         engine.init(renderer);
 
-        auto storage = tpd::StorageBuffer::Builder()
+        const auto storage = tpd::StorageBuffer::Builder()
             .alloc(sizeof(float) * positions.size())
-            .build(engine.getDeviceAllocator());
-        storage.setSyncData(positions.data(), sizeof(float) * positions.size());
-        engine.sync(storage);
+            .build(engine.getDeviceAllocator(), engine.useEntityPool());
+        storage->setSyncData(positions.data(), sizeof(float) * positions.size());
+        engine.sync(*storage);
 
         renderer.getContext().loop([&] {
             if (const auto [valid, image, imageIndex] = renderer.beginFrame(); valid) {
@@ -43,6 +43,7 @@ int main() {
                 renderer.endFrame(buffer, imageIndex);
             }
         });
+        engine.waitIdle();
     } catch (const std::exception& e) {
         tpd::utils::logError(e.what());
     }

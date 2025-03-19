@@ -22,6 +22,11 @@ namespace tpd {
 
         [[nodiscard]] virtual vk::CommandBuffer draw(vk::Image image) const = 0;
 
+        [[nodiscard]] std::pmr::memory_resource* useMemoryPool() noexcept;
+        [[nodiscard]] std::pmr::memory_resource* useEntityPool() noexcept;
+
+        void waitIdle() const noexcept;
+
         virtual void destroy() noexcept;
         virtual ~Engine() noexcept;
 
@@ -59,10 +64,11 @@ namespace tpd {
         vk::CommandPool _graphicsCommandPool{};
         vk::CommandPool _transferCommandPool{};
 
-        std::pmr::unsynchronized_pool_resource _engineObjectPool{};
-        std::mutex _startupCommandPoolMutex{};
+        std::pmr::unsynchronized_pool_resource _memoryPool{};
+        std::pmr::unsynchronized_pool_resource _entityPool{};
 
-        DeletionWorker<StagingBuffer> _stagingDeletionQueue{ &_engineObjectPool, _startupCommandPoolMutex, "TransferCleanup" };
+        std::mutex _startupCommandPoolMutex{};
+        DeletionWorker<StagingBuffer> _stagingDeletionQueue{ &_memoryPool, _startupCommandPoolMutex, "TransferCleanup" };
 
     protected:
         void createDrawingCommandBuffers();
@@ -99,6 +105,18 @@ namespace tpd {
 
 inline const tpd::DeviceAllocator& tpd::Engine::getDeviceAllocator() const noexcept {
     return *_deviceAllocator;
+}
+
+inline std::pmr::memory_resource* tpd::Engine::useMemoryPool() noexcept {
+    return &_memoryPool;
+}
+
+inline std::pmr::memory_resource* tpd::Engine::useEntityPool() noexcept {
+    return &_entityPool;
+}
+
+inline void tpd::Engine::waitIdle() const noexcept {
+    _device.waitIdle();
 }
 
 inline const char* tpd::Engine::getName() const noexcept {

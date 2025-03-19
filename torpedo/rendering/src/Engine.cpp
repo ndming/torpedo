@@ -97,7 +97,7 @@ void tpd::Engine::init(Renderer& renderer) {
     _deviceAllocator = DeviceAllocator::Builder()
         .flags(VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT | VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT)
         .vulkanApiVersion(VK_API_VERSION_1_3)
-        .build(renderer.getVulkanInstance(), _physicalDevice, _device, &_engineObjectPool);
+        .build(renderer.getVulkanInstance(), _physicalDevice, _device, &_memoryPool);
 
     PLOGI << "Using VMA API version: 1.3";
     PLOGD << "VMA created with the following flags (2):";
@@ -209,7 +209,7 @@ void tpd::Engine::sync(const StorageBuffer& storageBuffer) {
 
     auto stagingBuffer = StagingBuffer::Builder()
         .alloc(storageBuffer.getSyncDataSize())
-        .build(*_deviceAllocator, &_engineObjectPool);
+        .build(*_deviceAllocator, &_memoryPool);
     stagingBuffer->setData(storageBuffer.getSyncData());
 
     const auto releaseCommand = beginOneTimeTransfer(_transferCommandPool);
@@ -245,7 +245,7 @@ void tpd::Engine::sync(Texture& texture) {
 
     auto stagingBuffer = StagingBuffer::Builder()
         .alloc(texture.getSyncDataSize())
-        .build(*_deviceAllocator, &_engineObjectPool);
+        .build(*_deviceAllocator, &_memoryPool);
     stagingBuffer->setData(texture.getSyncData());
 
     const auto releaseCommand = beginOneTimeTransfer(_transferCommandPool);
@@ -283,7 +283,7 @@ void tpd::Engine::syncAndGenMips(Texture& texture) {
 
     auto stagingBuffer = StagingBuffer::Builder()
         .alloc(texture.getSyncDataSize())
-        .build(*_deviceAllocator, &_engineObjectPool);
+        .build(*_deviceAllocator, &_memoryPool);
     stagingBuffer->setData(texture.getSyncData());
 
     const auto releaseCommand = beginOneTimeTransfer(_transferCommandPool);
