@@ -23,13 +23,8 @@ namespace tpd {
         [[nodiscard]] const DeviceAllocator& getDeviceAllocator() const noexcept;
 
         [[nodiscard]] virtual vk::CommandBuffer draw(vk::Image image) const = 0;
-
-        [[nodiscard]] std::pmr::memory_resource* useMemoryPool() noexcept;
-        [[nodiscard]] std::pmr::memory_resource* useEntityPool() noexcept;
-
         void waitIdle() const noexcept;
 
-        virtual void destroy() noexcept;
         virtual ~Engine() noexcept;
 
     protected:
@@ -92,6 +87,8 @@ namespace tpd {
         [[nodiscard]] virtual const char* getName() const noexcept;
         virtual void onInitialized() {}
 
+        virtual void destroy() noexcept;
+
     public:
         void sync(const StorageBuffer& storageBuffer);
         void sync(const SyncGroup<StorageBuffer>& group);
@@ -115,14 +112,6 @@ namespace tpd {
 
 inline const tpd::DeviceAllocator& tpd::Engine::getDeviceAllocator() const noexcept {
     return *_deviceAllocator;
-}
-
-inline std::pmr::memory_resource* tpd::Engine::useMemoryPool() noexcept {
-    return &_memoryPool;
-}
-
-inline std::pmr::memory_resource* tpd::Engine::useEntityPool() noexcept {
-    return &_entityPool;
 }
 
 inline void tpd::Engine::waitIdle() const noexcept {

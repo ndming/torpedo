@@ -12,7 +12,6 @@ namespace tpd {
 
         [[nodiscard]] const char* getName() const noexcept override;
 
-        void destroy() noexcept override;
         ~ForwardEngine() noexcept override;
 
     private:
@@ -29,6 +28,8 @@ namespace tpd {
 
         static vk::PhysicalDeviceVulkan13Features getVulkan13Features();
         static vk::PhysicalDeviceVulkan12Features getVulkan12Features();
+
+        void destroy() noexcept override;
 
         template<RendererImpl R>
         friend class Context;

@@ -22,17 +22,16 @@ static constexpr auto indices = std::array<uint16_t, 3>{ 0, 1, 2 };
 int main() {
     tpd::utils::plantConsoleLogger();
     const auto context = tpd::Context<tpd::SurfaceRenderer>::create();
+    const auto engine = context->bindEngine<tpd::ForwardEngine>();
+
+    auto storage = tpd::StorageBuffer::Builder()
+        .alloc(sizeof(float) * positions.size())
+        .build(engine->getDeviceAllocator());
+    storage.setSyncData(positions.data(), sizeof(float) * positions.size());
+    engine->sync(storage);
 
     const auto renderer = context->initRenderer();
     renderer->getWindow()->setTitle("Hello, Triangle");
-
-    const auto engine = context->bindEngine<tpd::ForwardEngine>();
-
-    const auto storage = tpd::StorageBuffer::Builder()
-        .alloc(sizeof(float) * positions.size())
-        .build(engine->getDeviceAllocator(), engine->useEntityPool());
-    storage->setSyncData(positions.data(), sizeof(float) * positions.size());
-    engine->sync(*storage);
 
     renderer->getWindow()->loop([&] {
         if (const auto [valid, image, imageIndex] = renderer->beginFrame(); valid) {

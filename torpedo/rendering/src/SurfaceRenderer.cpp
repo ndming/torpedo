@@ -220,7 +220,7 @@ void tpd::SurfaceRenderer::createSwapChain() {
     _swapChainImageFormat = swapChain.surfaceFormat.format;
     _swapChainImageExtent = swapChain.extent;
 
-    PLOGD << "Swap chain created for tpd::StandardRenderer with:";
+    PLOGD << "Swap chain created for tpd::SurfaceRenderer with:";
     PLOGD << " - Images count: " << _swapChainImages.size();
     PLOGD << " - Present mode: " << rendering::toString(swapChain.presentMode);
     PLOGD << " - Image extent: " << rendering::toString(_swapChainImageExtent);
@@ -229,7 +229,7 @@ void tpd::SurfaceRenderer::createSwapChain() {
     for (auto i = 0; i < _swapChainImages.size(); ++i) {
         bootstrap::setVulkanObjectName(
             static_cast<VkImage>(_swapChainImages[i]), vk::ObjectType::eImage,
-            "tpd::StandardRenderer - SwapChain Image " + std::to_string(i),
+            "tpd::SurfaceRenderer - SwapChain Image " + std::to_string(i),
             _instance, _device);
     }
 #endif
@@ -261,7 +261,7 @@ void tpd::SurfaceRenderer::createSwapChainImageViews() {
     for (auto i = 0; i < _swapChainImageViews.size(); ++i) {
         bootstrap::setVulkanObjectName(
             static_cast<VkImageView>(_swapChainImageViews[i]), vk::ObjectType::eImageView,
-            "tpd::StandardRenderer - SwapChain ImageView " + std::to_string(i),
+            "tpd::SurfaceRenderer - SwapChain ImageView " + std::to_string(i),
             _instance, _device);
     }
 #endif
@@ -313,7 +313,7 @@ bool tpd::SurfaceRenderer::acquireSwapChainImage(const vk::Semaphore semaphore, 
         return false;
     }
     if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) [[unlikely]] {
-        throw std::runtime_error("StandardRenderer - Failed to acquire a swap chain image");
+        throw std::runtime_error("SurfaceRenderer - Failed to acquire a swap chain image");
     }
 
     return true;
@@ -369,7 +369,7 @@ void tpd::SurfaceRenderer::presentSwapChainImage(const uint32_t imageIndex, cons
         _framebufferResized = false;
         refreshSwapChain();
     } else if (result != VK_SUCCESS) [[unlikely]] {
-        throw std::runtime_error("StandardRenderer - Failed to present a swap chain image");
+        throw std::runtime_error("SurfaceRenderer - Failed to present a swap chain image");
     }
 }
 

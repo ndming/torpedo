@@ -18,8 +18,6 @@ namespace tpd {
         [[nodiscard]] virtual uint32_t getCurrentDrawingFrame() const noexcept;
 
         virtual void resetEngine() noexcept;
-        virtual void destroy() noexcept;
-
         virtual ~Renderer() noexcept;
 
     protected:
@@ -39,6 +37,8 @@ namespace tpd {
 
         vk::PhysicalDevice _physicalDevice{};
         vk::Device _device{};
+
+        virtual void destroy() noexcept;
 
     private:
         template<RendererImpl R>

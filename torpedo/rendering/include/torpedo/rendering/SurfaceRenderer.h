@@ -49,8 +49,6 @@ namespace tpd {
         [[nodiscard]] uint32_t getCurrentDrawingFrame() const noexcept override;
 
         void resetEngine() noexcept override;
-        void destroy() noexcept override;
-
         ~SurfaceRenderer() noexcept override;
 
     private:
@@ -102,6 +100,8 @@ namespace tpd {
 
         void refreshSwapChain();
         void cleanupSwapChain() const noexcept;
+
+        void destroy() noexcept override;
 
         template<RendererImpl R>
         friend class Context;

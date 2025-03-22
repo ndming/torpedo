@@ -16,11 +16,16 @@ namespace tpd {
         Context(const Context&) = delete;
         Context& operator=(const Context&) = delete;
 
-        [[nodiscard]] std::unique_ptr<R, Deleter<R>> initRenderer(uint32_t frameWidth, uint32_t frameHeight);
-        [[nodiscard]] std::unique_ptr<R, Deleter<R>> initRenderer(bool fullscreen = false);
+        [[nodiscard]] R* initRenderer(uint32_t frameWidth, uint32_t frameHeight);
+        [[nodiscard]] R* initRenderer(bool fullscreen = false);
 
         template<EngineImpl E>
         [[nodiscard]] std::unique_ptr<E, Deleter<E>> bindEngine();
+
+        template<EngineImpl E>
+        void destroyEngine(std::unique_ptr<E, Deleter<E>> engine) noexcept;
+
+        ~Context() noexcept;
 
     private:
         // Keep Context, Renderer, Engine, and their resources close on the heap
@@ -37,9 +42,6 @@ namespace tpd {
         void createDebugMessenger();
         vk::DebugUtilsMessengerEXT _debugMessenger{};
 #endif
-
-        vk::PhysicalDevice _physicalDevice{};
-        vk::Device _device{};
     };
 
     namespace rendering {
@@ -142,7 +144,7 @@ void tpd::Context<R>::createDebugMessenger() {
 #endif // NDEBUG - Context::createDebugMessenger
 
 template<tpd::RendererImpl R>
-std::unique_ptr<R, tpd::Deleter<R>> tpd::Context<R>::initRenderer(const uint32_t frameWidth, const uint32_t frameHeight) {
+R* tpd::Context<R>::initRenderer(const uint32_t frameWidth, const uint32_t frameHeight) {
     if (_renderer->_initialized) [[unlikely]] {
         PLOGW << "Context - A Renderer has already been initialized with the current Context: "
                  "create a new Context if you want to have another Renderer, returning nullptr";
@@ -153,11 +155,11 @@ std::unique_ptr<R, tpd::Deleter<R>> tpd::Context<R>::initRenderer(const uint32_t
     _renderer->init(frameWidth, frameHeight, &_contextPool);
     _renderer->_initialized = true;
 
-    return std::unique_ptr<R, Deleter<R>>(_renderer, Deleter<R>{ &_contextPool });
+    return _renderer;
 }
 
 template<tpd::RendererImpl R>
-std::unique_ptr<R, tpd::Deleter<R>> tpd::Context<R>::initRenderer(const bool fullscreen) {
+R* tpd::Context<R>::initRenderer(const bool fullscreen) {
     if (_renderer->_initialized) [[unlikely]] {
         PLOGW << "Context - A Renderer has already been initialized with the current Context: "
                  "create a new Context if you want to have another Renderer, returning nullptr";
@@ -168,25 +170,32 @@ std::unique_ptr<R, tpd::Deleter<R>> tpd::Context<R>::initRenderer(const bool ful
     _renderer->init(fullscreen, &_contextPool);
     _renderer->_initialized = true;
 
-    return std::unique_ptr<R, Deleter<R>>(_renderer, Deleter<R>{ &_contextPool });
+    // If there's already an Engine bound to this Context, init the Renderer with its Vulkan resources
+    if (_engine) {
+        _renderer->_physicalDevice = _engine->_physicalDevice;
+        _renderer->_device = _engine->_device;
+
+        _renderer->engineInit(_engine->_graphicsFamilyIndex, _engine->_presentFamilyIndex);
+        _renderer->_engineInitialized = true;
+    }
+
+    return _renderer;
 }
 
 template<tpd::RendererImpl R>
 template<tpd::EngineImpl E>
 std::unique_ptr<E, tpd::Deleter<E>> tpd::Context<R>::bindEngine() {
-    if (!_renderer->_initialized) [[unlikely]] {
-        PLOGE << "Context - Binding an Engine without having initialized the Context's associated renderer: "
-                 "due to the way Vulkan's backend works, init a Renderer first using Context::initRenderer()";
-        throw std::runtime_error("Context - Failed to bind an engine: uninitialized Renderer");
-    }
-
     if (_engine && typeid(E) == typeid(*_engine)) [[unlikely]] {
         PLOGW << "Context - An Engine of the same type has already been bound with the current Context: returning null";
         return nullptr;
     }
 
-    if (_engine) {
-        _engine->destroy();  // safe to call multiple times
+    if (_engine) [[unlikely]] {
+        PLOGW << "Context - Binding to a different Engine while the previously bound one is still alive: "
+                 "all draw commands of the old Engine may result in undefined behavior, proceed with care";
+        // Detach the Renderer from the previously bound Engine
+        _renderer->resetEngine();
+        _engine->_renderer = nullptr;
         _engine = nullptr;
     }
 
@@ -199,18 +208,44 @@ std::unique_ptr<E, tpd::Deleter<E>> tpd::Context<R>::bindEngine() {
     _engine->_renderer = _renderer;
     _engine->init(_instance, _renderer->getVulkanSurface(), _renderer->getDeviceExtensions());
 
-    // Inform the renderer about the selected Vulkan resources, then tell the Engine
-    // which Renderer should also clear their resources in the event the Engine is destroyed
-    _renderer->_physicalDevice = _engine->_physicalDevice;
-    _renderer->_device = _engine->_device;
+    // If the renderer has not been initialized yet, chances are the call site want to defer the window
+    // creation phase to the last minute when the Engine is ready to draw. Therefore, we skip Renderer
+    // initialization here and leave it to initRenderer
+    if (_renderer->_initialized) {
+        // Inform the renderer about the selected Vulkan resources
+        _renderer->_physicalDevice = _engine->_physicalDevice;
+        _renderer->_device = _engine->_device;
 
-    // It's the Renderer's turn to initialize its own rendering resources (e.g. swap chain)
-    _renderer->engineInit(_engine->_graphicsFamilyIndex, _engine->_presentFamilyIndex);
-    _renderer->_engineInitialized = true;
+        // It's the Renderer's turn to initialize its own rendering resources (e.g. swap chain)
+        _renderer->engineInit(_engine->_graphicsFamilyIndex, _engine->_presentFamilyIndex);
+        _renderer->_engineInitialized = true;
+    }
 
-    // This means all Vulkan and Engine resources have been initialized,
-    // and the associated Renderer has initialized their Vulkan objects.
+    // This means the Engine is ready to draw frames
     _engine->_initialized = true;
 
     return std::unique_ptr<E, Deleter<E>>(engine, Deleter<E>{ &_contextPool });
+}
+
+template<tpd::RendererImpl R>
+template<tpd::EngineImpl E>
+void tpd::Context<R>::destroyEngine(std::unique_ptr<E, Deleter<E>> engine) noexcept {
+    if (!engine) [[unlikely]] {
+        PLOGW << "Context - Destroying an Engine that has likely already been destroyed: is this a joke?";
+        return;
+    }
+    if (!_engine || _engine != engine.get()) [[unlikely]] {
+        PLOGW << "Context - Destroying an Engine that has not been bound to this Context: "
+                 "a Context can only destroy an Engine that was previously bound to it";
+        return;
+    }
+
+    engine.reset();
+    _engine = nullptr;
+}
+
+template<tpd::RendererImpl R>
+tpd::Context<R>::~Context() noexcept {
+    _renderer->destroy();  // don't call delete here
+    _contextPool.deallocate(_renderer, sizeof(R), alignof(R));
 }

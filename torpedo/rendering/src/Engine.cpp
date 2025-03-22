@@ -11,10 +11,6 @@ void tpd::Engine::init(
     const vk::SurfaceKHR surface,
     std::vector<const char*>&& rendererDeviceExtensions)
 {
-    // It's possible this engine has already been initialized,
-    // in which case we must destroy all previously created resources
-    destroy();
-
     auto extensions = getDeviceExtensions();
     extensions.insert(extensions.end(),
         std::make_move_iterator(rendererDeviceExtensions.begin()),
@@ -310,8 +306,12 @@ void tpd::Engine::destroy() noexcept {
         _device.destroyCommandPool(_transferCommandPool);
         _device.destroyCommandPool(_graphicsCommandPool);
 
-        _renderer->resetEngine();
-        _renderer = nullptr;
+        // It's possible that the Context has bound to another Engine, in which case resetting the renderer
+        // would destroy the incorrect resources. We check the pointer state to tell if this has happened.
+        if (_renderer) {
+            _renderer->resetEngine();
+            _renderer = nullptr;
+        }
 
         _device.destroy();
         _device = nullptr;
