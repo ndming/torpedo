@@ -1,6 +1,6 @@
 #pragma once
 
-#include "torpedo/foundation/DeviceAllocator.h"
+#include <torpedo/foundation/DeviceAllocator.h>
 
 #include <plog/Log.h>
 

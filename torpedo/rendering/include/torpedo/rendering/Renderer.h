@@ -1,51 +1,48 @@
 #pragma once
 
-#include "torpedo/rendering/Engine.h"
+#include <vulkan/vulkan.hpp>
 
 namespace tpd {
+    class Renderer;
+
+    template<typename T>
+    concept RendererImpl = std::is_base_of_v<Renderer, T> && std::is_final_v<T>;
+
     class Renderer {
     public:
-        Renderer() = default;
-        virtual void init(uint32_t framebufferWidth, uint32_t framebufferHeight) = 0;
-
         Renderer(const Renderer&) = delete;
         Renderer& operator=(const Renderer&) = delete;
 
-        [[nodiscard]] virtual vk::Extent2D getFramebufferSize() const = 0;
-        [[nodiscard]] virtual uint32_t getInFlightFramesCount() const = 0;
-
-        [[nodiscard]] virtual uint32_t getCurrentFrame() const;
-        [[nodiscard]] vk::Instance getVulkanInstance() const;
-        [[nodiscard]] virtual vk::SurfaceKHR getVulkanSurface() const;
+        [[nodiscard]] virtual vk::Extent2D getFramebufferSize() const noexcept = 0;
+        [[nodiscard]] virtual uint32_t getInFlightFramesCount() const noexcept;
+        [[nodiscard]] virtual uint32_t getCurrentDrawingFrame() const noexcept;
 
         virtual void resetEngine() noexcept;
-        virtual void reset() noexcept;
+        virtual void destroy() noexcept;
 
         virtual ~Renderer() noexcept;
 
     protected:
-        void init();
-        bool _initialized{ false };
-
         [[nodiscard]] virtual std::vector<const char*> getInstanceExtensions() const;
+        [[nodiscard]] virtual std::vector<const char*> getDeviceExtensions() const;
+
+        Renderer() = default;
         vk::Instance _instance{};
 
-        [[nodiscard]] virtual std::vector<const char*> getDeviceExtensions() const;
-        virtual void engineInit(vk::Device device, const PhysicalDeviceSelection& physicalDeviceSelection);
+        virtual void init(uint32_t frameWidth, uint32_t frameHeight, std::pmr::memory_resource* contextPool = nullptr) = 0;
+        bool _initialized{ false };
+
+        [[nodiscard]] virtual vk::SurfaceKHR getVulkanSurface() const;
+
+        virtual void engineInit(uint32_t graphicsFamilyIndex, uint32_t presentFamilyIndex) = 0;
         bool _engineInitialized{ false };
 
         vk::PhysicalDevice _physicalDevice{};
         vk::Device _device{};
 
     private:
-        void createInstance(std::vector<const char*>&& instanceExtensions);
-
-#ifndef NDEBUG
-        void createDebugMessenger();
-        vk::DebugUtilsMessengerEXT _debugMessenger{};
-#endif
-
-        friend void Engine::init(Renderer&);
+        template<RendererImpl R>
+        friend class Context;
     };
 }
 
@@ -53,7 +50,11 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS //
 // =========================== //
 
-inline uint32_t tpd::Renderer::getCurrentFrame() const {
+inline uint32_t tpd::Renderer::getInFlightFramesCount() const noexcept {
+    return 1;
+}
+
+inline uint32_t tpd::Renderer::getCurrentDrawingFrame() const noexcept {
     return 0;
 }
 

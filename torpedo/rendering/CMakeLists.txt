@@ -15,12 +15,13 @@ FetchContent_MakeAvailable(plog)
 # MODULE SOURCE FILES
 # ======================================================================================================================
 set(TORPEDO_RENDERING_SOURCES
+        src/Context.cpp
         src/DeletionWorker.cpp
         src/Engine.cpp
         src/ForwardEngine.cpp
         src/HeadlessRenderer.cpp
         src/Renderer.cpp
-        src/StandardRenderer.cpp
+        src/SurfaceRenderer.cpp
         src/SyncGroup.cpp
         src/Utils.cpp
 )

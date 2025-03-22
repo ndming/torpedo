@@ -1,3 +1,3 @@
-#include "torpedo/rendering/DeletionWorker.h"
+#include "torpedo/rendering/Context.h"
 
 // Such empty, the curse of template programming

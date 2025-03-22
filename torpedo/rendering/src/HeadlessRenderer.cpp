@@ -2,12 +2,11 @@
 
 #include <plog/Log.h>
 
-void tpd::HeadlessRenderer::init(const uint32_t framebufferWidth, const uint32_t framebufferHeight) {
-    if (!_initialized) [[likely]] {
-        PLOGI << "Initializing renderer: OffScreenRenderer";
-        _framebufferSize = vk::Extent2D{ framebufferWidth, framebufferHeight };
-        Renderer::init();
-    } else {
-        PLOGI << "Skipping already initialized renderer: OffScreenRenderer";
+void tpd::HeadlessRenderer::init(const uint32_t frameWidth, const uint32_t frameHeight, std::pmr::memory_resource* contextPool) {
+    if (_initialized) [[unlikely]] {
+        PLOGI << "Skipping already initialized renderer: tpd::SurfaceRenderer";
+        return;
     }
+    PLOGI << "Initializing renderer: HeadlessRenderer";
+    _framebufferSize = vk::Extent2D{ frameWidth, frameHeight };
 }

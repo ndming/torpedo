@@ -1,5 +1,6 @@
 #pragma once
 
+#include "torpedo/rendering/Renderer.h"
 #include "torpedo/rendering/DeletionWorker.h"
 #include "torpedo/rendering/SyncGroup.h"
 
@@ -9,14 +10,15 @@
 #include <torpedo/foundation/Texture.h>
 
 namespace tpd {
-    class Renderer;
+    class Engine;
+
+    template<typename T>
+    concept EngineImpl = std::is_base_of_v<Engine, T> && std::is_final_v<T>;
 
     class Engine {
     public:
         Engine(const Engine&) = delete;
         Engine& operator=(const Engine&) = delete;
-
-        void init(Renderer& renderer);
 
         [[nodiscard]] const DeviceAllocator& getDeviceAllocator() const noexcept;
 
@@ -32,8 +34,10 @@ namespace tpd {
 
     protected:
         Engine() = default;
-        bool _initialized{ false };
         Renderer* _renderer{ nullptr };
+
+        void init(vk::Instance instance, vk::SurfaceKHR surface, std::vector<const char*>&& rendererDeviceExtensions);
+        bool _initialized{ false };
 
         [[nodiscard]] virtual std::vector<const char*> getDeviceExtensions() const;
 
@@ -51,6 +55,7 @@ namespace tpd {
         uint32_t _graphicsFamilyIndex{};
         uint32_t _transferFamilyIndex{};
         uint32_t _computeFamilyIndex{};
+        uint32_t _presentFamilyIndex{};
 
         vk::Queue _graphicsQueue{};
         vk::Queue _transferQueue{};
@@ -85,6 +90,7 @@ namespace tpd {
         DeviceAllocatorType _deviceAllocator{};
 
         [[nodiscard]] virtual const char* getName() const noexcept;
+        virtual void onInitialized() {}
 
     public:
         void sync(const StorageBuffer& storageBuffer);
@@ -96,6 +102,10 @@ namespace tpd {
 
         void syncAndGenMips(Texture& texture);
         void syncAndGenMips(const SyncGroup<Texture>& group);
+
+    private:
+        template<RendererImpl R>
+        friend class Context;
     };
 }
 

@@ -1,5 +1,4 @@
 #include "torpedo/rendering/ForwardEngine.h"
-#include "torpedo/rendering/Renderer.h"
 #include "torpedo/rendering/Utils.h"
 
 #include <torpedo/bootstrap/DeviceBuilder.h>
@@ -77,7 +76,7 @@ vk::PhysicalDeviceVulkan12Features tpd::ForwardEngine::getVulkan12Features() {
 }
 
 vk::CommandBuffer tpd::ForwardEngine::draw(const vk::Image image) const {
-    const auto currentFrame = _renderer->getCurrentFrame();
+    const auto currentFrame = _renderer->getCurrentDrawingFrame();
     const auto buffer = _drawingCommandBuffers[currentFrame];
 
     buffer.reset();

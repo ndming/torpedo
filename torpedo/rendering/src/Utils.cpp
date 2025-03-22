@@ -15,3 +15,11 @@ void tpd::rendering::logExtensions(
         PLOGD << " - " << extension;
     }
 }
+
+std::string tpd::rendering::formatDriverVersion(const uint32_t version) {
+    const auto major  = (version >> 22) & 0x3FF;  // 10 bits
+    const auto minor  = (version >> 12) & 0x3FF;  // 10 bits
+    const auto patch  = (version >> 4) & 0xFF;    //  8 bits
+    const auto branch = (version & 0xFF);         //  4 bits
+    return std::format("{}.{}.{}.{}", major, minor, patch, branch);
+}

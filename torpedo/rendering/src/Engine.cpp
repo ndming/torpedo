@@ -1,5 +1,4 @@
 #include "torpedo/rendering/Engine.h"
-#include "torpedo/rendering/Renderer.h"
 #include "torpedo/rendering/Utils.h"
 
 #include <torpedo/bootstrap/DebugUtils.h>
@@ -7,30 +6,32 @@
 
 #include <plog/Log.h>
 
-void tpd::Engine::init(Renderer& renderer) {
+void tpd::Engine::init(
+    const vk::Instance instance,
+    const vk::SurfaceKHR surface,
+    std::vector<const char*>&& rendererDeviceExtensions)
+{
     // It's possible this engine has already been initialized,
     // in which case we must destroy all previously created resources
     destroy();
 
-    auto rendererDeviceExtensions = renderer.getDeviceExtensions();
     auto extensions = getDeviceExtensions();
     extensions.insert(extensions.end(),
         std::make_move_iterator(rendererDeviceExtensions.begin()),
         std::make_move_iterator(rendererDeviceExtensions.end()));
 
     // Init physical device and create the logical device
-    const auto selection = pickPhysicalDevice(extensions, renderer.getVulkanInstance(), renderer.getVulkanSurface());
-    _physicalDevice = selection.physicalDevice;
-    _device = createDevice(extensions, {
-        selection.graphicsQueueFamilyIndex, selection.transferQueueFamilyIndex,
-        selection.computeQueueFamilyIndex, selection.presentQueueFamilyIndex });
+    const auto [physicalDevice, graphicsIndex, transferIndex, presentIndex, computeIndex] = pickPhysicalDevice(extensions, instance, surface);
+    _physicalDevice = physicalDevice;
+    _device = createDevice(extensions, { graphicsIndex, transferIndex, computeIndex, presentIndex });
 
     PLOGI << "Found a suitable device for " << getName() << ": " << _physicalDevice.getProperties().deviceName.data();
 
     // Init all queue-related info
-    _graphicsFamilyIndex = selection.graphicsQueueFamilyIndex;
-    _transferFamilyIndex = selection.transferQueueFamilyIndex;
-    _computeFamilyIndex  = selection.computeQueueFamilyIndex;
+    _graphicsFamilyIndex = graphicsIndex;
+    _transferFamilyIndex = transferIndex;
+    _computeFamilyIndex  = computeIndex;
+    _presentFamilyIndex  = presentIndex;
 
     _graphicsQueue = _device.getQueue(_graphicsFamilyIndex, 0);
     _transferQueue = _device.getQueue(_transferFamilyIndex, 0);
@@ -51,38 +52,24 @@ void tpd::Engine::init(Renderer& renderer) {
 
     bootstrap::setVulkanObjectName(
         static_cast<VkPhysicalDevice>(_physicalDevice), vk::ObjectType::ePhysicalDevice,
-        getName() + std::string{ " - PhysicalDevice" },
-        renderer.getVulkanInstance(), _device);
+        getName() + std::string{ " - PhysicalDevice" }, instance, _device);
 
     bootstrap::setVulkanObjectName(
         static_cast<VkDevice>(_device), vk::ObjectType::eDevice,
-        getName() + std::string{ " - Device" },
-        renderer.getVulkanInstance(), _device);
+        getName() + std::string{ " - Device" }, instance, _device);
 
     bootstrap::setVulkanObjectName(
         static_cast<VkQueue>(_graphicsQueue), vk::ObjectType::eQueue,
-        getName() + std::string{ " - GraphicsQueue" },
-        renderer.getVulkanInstance(), _device);
+        getName() + std::string{ " - GraphicsQueue" }, instance, _device);
 
     bootstrap::setVulkanObjectName(
         static_cast<VkQueue>(_transferQueue), vk::ObjectType::eQueue,
-        getName() + std::string{ " - TransferQueue" },
-        renderer.getVulkanInstance(), _device);
+        getName() + std::string{ " - TransferQueue" }, instance, _device);
 
     bootstrap::setVulkanObjectName(
         static_cast<VkQueue>(_computeQueue), vk::ObjectType::eQueue,
-        getName() + std::string{ " - ComputeQueue" },
-        renderer.getVulkanInstance(), _device);
+        getName() + std::string{ " - ComputeQueue" }, instance, _device);
 #endif
-
-    // Pass the selected devices to associated renderer
-    renderer.engineInit(_device, selection);
-    // When destroying the engine, we will also need to clear the Vulkan objects init to the renderer
-    _renderer = &renderer;
-
-    // This means a physical and logical device have been selected,
-    // and the associated Renderer has obtained the those devices
-    _initialized = true;
 
     // Create common drawing and transfer resources
     createStartupCommandPools();
@@ -90,23 +77,20 @@ void tpd::Engine::init(Renderer& renderer) {
     createDrawingCommandPool();
     createDrawingCommandBuffers();
 
-    PLOGD << "No. of drawing command buffers created: " << _drawingCommandBuffers.size();
-    PLOGD << "No. of in-flight frames from renderer:  " << renderer.getInFlightFramesCount();
+    PLOGD << "Number of drawing command buffers created: " << _drawingCommandBuffers.size();
 
     // Create a device allocator
     _deviceAllocator = DeviceAllocator::Builder()
         .flags(VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT | VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT)
         .vulkanApiVersion(VK_API_VERSION_1_3)
-        .build(renderer.getVulkanInstance(), _physicalDevice, _device, &_memoryPool);
+        .build(instance, _physicalDevice, _device, &_memoryPool);
 
     PLOGI << "Using VMA API version: 1.3";
     PLOGD << "VMA created with the following flags (2):";
     PLOGD << " - VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT";
     PLOGD << " - VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT";
 
-    // This means all Vulkan and Engine resources have been initialized,
-    // and the associated Renderer has obtained relevant Vulkan objects
-    _initialized = true;
+    onInitialized();
 }
 
 std::vector<const char*> tpd::Engine::getDeviceExtensions() const {
@@ -176,7 +160,7 @@ void tpd::Engine::endReleaseCommands(const vk::CommandBuffer buffer, const vk::S
 
     auto releaseInfo = vk::CommandBufferSubmitInfo{};
     releaseInfo.commandBuffer = buffer;
-    releaseInfo.deviceMask = 0;
+    releaseInfo.deviceMask = 0b1;  // ignored by single-GPU setups
 
     const auto releaseSubmitInfo = vk::SubmitInfo2{}
         .setCommandBufferInfos(releaseInfo)
@@ -193,7 +177,7 @@ void tpd::Engine::endAcquireCommands(
 
     auto acquireInfo = vk::CommandBufferSubmitInfo{};
     acquireInfo.commandBuffer = buffer;
-    acquireInfo.deviceMask = 0;
+    acquireInfo.deviceMask = 0b1;  // ignored by single-GPU setups
 
     const auto acquireSubmitInfo = vk::SubmitInfo2{}
         .setCommandBufferInfos(acquireInfo)

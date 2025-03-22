@@ -1,9 +1,9 @@
-#include "torpedo/rendering/StandardRenderer.h"
+#include "torpedo/rendering/SurfaceRenderer.h"
 #include "torpedo/rendering/Utils.h"
 
 #include <torpedo/bootstrap/SwapChainBuilder.h>
-#include <torpedo/bootstrap/PhysicalDeviceSelector.h>
 #include <torpedo/bootstrap/DebugUtils.h>
+#include <torpedo/foundation/AllocationUtils.h>
 
 #include <plog/Log.h>
 
@@ -11,26 +11,52 @@
 #include <iostream>
 #include <ranges>
 
-tpd::StandardRenderer::Context::Context(const vk::Extent2D initialFramebufferSize) {
+tpd::SurfaceRenderer::Window::Window(const vk::Extent2D initialFramebufferSize) {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     const auto w = static_cast<int>(initialFramebufferSize.width);
     const auto h = static_cast<int>(initialFramebufferSize.height);
-    _window = glfwCreateWindow(w, h, "torpedo", nullptr, nullptr);
+    _glfwWindow = glfwCreateWindow(w, h, "torpedo", nullptr, nullptr);
+
+    if (!_glfwWindow) {
+        throw std::runtime_error("SurfaceRenderer::Window - Failed to create a GLFW window");
+    }
 }
 
-void tpd::StandardRenderer::Context::loop(const std::function<void()>& onRender) const {
-    while (!glfwWindowShouldClose(_window)) [[likely]] {
+tpd::SurfaceRenderer::Window::Window(const bool fullscreen) {
+    glfwInit();
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+    if (fullscreen) {
+        const auto monitor = glfwGetPrimaryMonitor();
+        if (!monitor) {
+            throw std::runtime_error("SurfaceRenderer::Window - Failed to get a primary monitor");
+        }
+        const auto mode = glfwGetVideoMode(monitor);
+        glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+        _glfwWindow = glfwCreateWindow(mode->width, mode->height, "torpedo", monitor, nullptr);
+    } else {
+        _glfwWindow = glfwCreateWindow(1280, 720, "torpedo", nullptr, nullptr);
+        glfwMaximizeWindow(_glfwWindow);
+    }
+
+    if (!_glfwWindow) {
+        throw std::runtime_error("SurfaceRenderer::Window - Failed to create a GLFW window");
+    }
+}
+
+void tpd::SurfaceRenderer::Window::loop(const std::function<void()>& onRender) const {
+    while (!glfwWindowShouldClose(_glfwWindow)) [[likely]] {
         glfwPollEvents();
         onRender();
     }
 }
 
-void tpd::StandardRenderer::Context::loop(const std::function<void(float)>& onRender) const {
+void tpd::SurfaceRenderer::Window::loop(const std::function<void(float)>& onRender) const {
     auto lastTime = std::chrono::high_resolution_clock::now();
 
-    while (!glfwWindowShouldClose(_window)) [[likely]] {
+    while (!glfwWindowShouldClose(_glfwWindow)) [[likely]] {
         glfwPollEvents();
 
         const auto currentTime = std::chrono::high_resolution_clock::now();
@@ -41,64 +67,62 @@ void tpd::StandardRenderer::Context::loop(const std::function<void(float)>& onRe
     }
 }
 
-tpd::StandardRenderer::Context::~Context() {
-    glfwDestroyWindow(_window);
+tpd::SurfaceRenderer::Window::~Window() {
+    glfwDestroyWindow(_glfwWindow);
+    _glfwWindow = nullptr;
     glfwTerminate();
 }
 
-void tpd::StandardRenderer::init(const uint32_t framebufferWidth, const uint32_t framebufferHeight) {
-    if (!_initialized) [[likely]] {
-        PLOGI << "Initializing renderer: tpd::StandardRenderer";
+#if defined(_WIN32)
+static constexpr auto surfaceExtensions = std::array {
+    vk::KHRSurfaceExtensionName,
+    "VK_KHR_win32_surface",
+};
+#elif defined(__linux__)
+#if defined(WAYLAND)
+static constexpr auto surfaceExtensions = std::array {
+    vk::KHRSurfaceExtensionName,
+    "VK_KHR_wayland_surface",
+};
+#else
+static constexpr auto surfaceExtensions = std::array {
+    vk::KHRSurfaceExtensionName,
+    "VK_KHR_xcb_surface",
+    "VK_KHR_xlib_surface",
+};
+#endif
+#elif defined(__APPLE__)
+static constexpr auto surfaceExtensions = std::array {
+    vk::KHRSurfaceExtensionName,
+    "VK_MVK_macos_surface",
+};
+#elif defined(__ANDROID__)
+static constexpr auto surfaceExtensions = std::array {
+    vk::KHRSurfaceExtensionName,
+    "VK_KHR_android_surface",
+};
+#else
+PLOGI << "Detected no surface capability support, prefer working with tpd::HeadlessRenderer";
+static constexpr auto surfaceExtensions = std::array<const char*, 0>{};
+#endif
 
-        _context = std::make_unique<Context>(vk::Extent2D{ framebufferWidth, framebufferHeight });
-        glfwSetWindowUserPointer(_context->_window, this);
-        glfwSetFramebufferSizeCallback(_context->_window, framebufferResizeCallback);
-
-        Renderer::init();
-        createSurface();
-    } else {
-        PLOGI << "Skipping already initialized renderer: tpd::StandardRenderer";
-    }
-}
-
-std::vector<const char*> tpd::StandardRenderer::getInstanceExtensions() const {
-    // Override to add extensions from GLFW
-    uint32_t glfwExtensionCount{ 0 };
-    const auto glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+std::vector<const char*> tpd::SurfaceRenderer::getInstanceExtensions() const {
+    // Override to add extensions supporting surface representation
     // We must also append extensions from parents, if any
     auto parentExtensions = Renderer::getInstanceExtensions();
 
     // Minimize memory allocation as much as possible
     auto extensions = std::vector<const char*>{};
-    extensions.reserve(glfwExtensionCount + parentExtensions.size());
+    extensions.reserve(surfaceExtensions.size() + parentExtensions.size());
 
-    extensions.insert(extensions.begin(), glfwExtensions, glfwExtensions + glfwExtensionCount);
-    rendering::logExtensions("Instance", "tpd::StandardRenderer", extensions);
+    extensions.insert(extensions.begin(), surfaceExtensions.begin(), surfaceExtensions.end());
+    rendering::logExtensions("Instance", "tpd::SurfaceRenderer", extensions);
 
     extensions.insert(extensions.end(), std::make_move_iterator(parentExtensions.begin()), std::make_move_iterator(parentExtensions.end()));
     return extensions;
 }
 
-void tpd::StandardRenderer::framebufferResizeCallback(GLFWwindow* window, [[maybe_unused]] int width, [[maybe_unused]] int height) {
-    const auto renderer = static_cast<StandardRenderer*>(glfwGetWindowUserPointer(window));
-    renderer->_framebufferResized = true;
-}
-
-vk::Extent2D tpd::StandardRenderer::getFramebufferSize() const {
-    if (!_engineInitialized) [[unlikely]] {
-        PLOGW << "tpd::StandardRenderer - Requesting framebuffer size from a Renderer without any associated Engine: "
-                 "the framebuffer size is undefined and should only be queried after the Engine::init(Renderer) call";
-    }
-    return _swapChainImageExtent;
-}
-
-void tpd::StandardRenderer::createSurface() {
-    if (glfwCreateWindowSurface(_instance, _context->_window, nullptr, reinterpret_cast<VkSurfaceKHR*>(&_surface)) != VK_SUCCESS) [[unlikely]] {
-        throw std::runtime_error("StandardRenderer - Failed to create a Vulkan surface");
-    }
-}
-
-std::vector<const char*> tpd::StandardRenderer::getDeviceExtensions() const {
+std::vector<const char*> tpd::SurfaceRenderer::getDeviceExtensions() const {
     // We must also append extensions required by parents, if any
     auto parentExtensions = Renderer::getDeviceExtensions();
     auto extensions = std::vector<const char*>{};
@@ -106,25 +130,69 @@ std::vector<const char*> tpd::StandardRenderer::getDeviceExtensions() const {
 
     // A present renderer must be able to display rendered images
     extensions.push_back(vk::KHRSwapchainExtensionName);
-    rendering::logExtensions("Device", "tpd::StandardRenderer", extensions);
+    rendering::logExtensions("Device", "tpd::SurfaceRenderer", extensions);
 
     extensions.insert(extensions.end(), std::make_move_iterator(parentExtensions.begin()), std::make_move_iterator(parentExtensions.end()));
     return extensions;
 }
 
-void tpd::StandardRenderer::engineInit(const vk::Device device, const PhysicalDeviceSelection& physicalDeviceSelection) {
-    // Clean up previously initialized swap chain resources before changing to new devices
-    resetEngine();
+void tpd::SurfaceRenderer::init(const uint32_t frameWidth, const uint32_t frameHeight, std::pmr::memory_resource* contextPool) {
+    if (_initialized) [[unlikely]] {
+        PLOGI << "Skipping already initialized renderer: tpd::SurfaceRenderer";
+        return;
+    }
+    PLOGI << "Initializing renderer: tpd::SurfaceRenderer";
+    // Creating a GLFW window
+    _window = foundation::make_unique<Window>(contextPool, vk::Extent2D{ frameWidth, frameHeight });
+    glfwSetWindowUserPointer(_window->_glfwWindow, this);
+    glfwSetFramebufferSizeCallback(_window->_glfwWindow, framebufferResizeCallback);
 
-    // Use parent to set new devices then update relevant queue information
-    Renderer::engineInit(device, physicalDeviceSelection);
+    // Bind the created window to the Vulkan surface
+    createSurface();
+    PLOGD << "Number of in-flight frames run by tpd::SurfaceRenderer: " << getInFlightFramesCount();
+}
 
+void tpd::SurfaceRenderer::init(const bool fullscreen, std::pmr::memory_resource* contextPool) {
+    if (_initialized) [[unlikely]] {
+        PLOGI << "Skipping already initialized renderer: tpd::SurfaceRenderer";
+        return;
+    }
+    PLOGI << "Initializing renderer: tpd::SurfaceRenderer";
+    _window = foundation::make_unique<Window>(contextPool, fullscreen);
+    glfwSetWindowUserPointer(_window->_glfwWindow, this);
+    glfwSetFramebufferSizeCallback(_window->_glfwWindow, framebufferResizeCallback);
+
+    // Bind the created window to the Vulkan surface
+    createSurface();
+    PLOGD << "Number of in-flight frames run by tpd::SurfaceRenderer:  " << getInFlightFramesCount();
+}
+
+void tpd::SurfaceRenderer::framebufferResizeCallback(GLFWwindow* window, [[maybe_unused]] int width, [[maybe_unused]] int height) {
+    const auto renderer = static_cast<SurfaceRenderer*>(glfwGetWindowUserPointer(window));
+    renderer->_framebufferResized = true;
+}
+
+vk::Extent2D tpd::SurfaceRenderer::getFramebufferSize() const noexcept {
+    if (!_engineInitialized) [[unlikely]] {
+        PLOGW << "tpd::SurfaceRenderer - Requesting framebuffer size from a Renderer associated with an unbounded Context: "
+                 "the framebuffer size is undefined and should only be queried after the Context::bindEngine() call";
+    }
+    return _swapChainImageExtent;
+}
+
+void tpd::SurfaceRenderer::createSurface() {
+    if (glfwCreateWindowSurface(_instance, _window->_glfwWindow, nullptr, reinterpret_cast<VkSurfaceKHR*>(&_surface)) != VK_SUCCESS) [[unlikely]] {
+        throw std::runtime_error("SurfaceRenderer - Failed to create a Vulkan surface");
+    }
+}
+
+void tpd::SurfaceRenderer::engineInit(const uint32_t graphicsFamilyIndex, const uint32_t presentFamilyIndex) {
     // Just because graphics and present almost always come from the same queue family in practice, the Vulkan spec
     // doesn't impose such an assumption. We thus must account for the fact that these queues are distinct.
-    _graphicsFamilyIndex = physicalDeviceSelection.graphicsQueueFamilyIndex;
-    _presentFamilyIndex  = physicalDeviceSelection.presentQueueFamilyIndex;
-    _graphicsQueue = _device.getQueue(physicalDeviceSelection.graphicsQueueFamilyIndex, 0);
-    _presentQueue  = _device.getQueue(physicalDeviceSelection.presentQueueFamilyIndex,  0);
+    _graphicsFamilyIndex = graphicsFamilyIndex;
+    _presentFamilyIndex  = presentFamilyIndex;
+    _graphicsQueue = _device.getQueue(_graphicsFamilyIndex, 0);
+    _presentQueue  = _device.getQueue(_presentFamilyIndex,  0);
 
     // Create new swap chain resources
     createSwapChain();
@@ -134,9 +202,9 @@ void tpd::StandardRenderer::engineInit(const vk::Device device, const PhysicalDe
     createSyncPrimitives();
 }
 
-void tpd::StandardRenderer::createSwapChain() {
+void tpd::SurfaceRenderer::createSwapChain() {
     int width, height;
-    glfwGetFramebufferSize(_context->_window, &width, &height);
+    glfwGetFramebufferSize(_window->_glfwWindow, &width, &height);
 
     const auto swapChain = SwapChainBuilder()
         .desiredSurfaceFormat(vk::Format::eR8G8B8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear)
@@ -167,7 +235,7 @@ void tpd::StandardRenderer::createSwapChain() {
 #endif
 }
 
-void tpd::StandardRenderer::createSwapChainImageViews() {
+void tpd::SurfaceRenderer::createSwapChainImageViews() {
     const auto toImageView = [this](const auto& image) {
         constexpr auto aspectFlags = vk::ImageAspectFlagBits::eColor;
         constexpr auto mipLevels = 1;
@@ -199,7 +267,7 @@ void tpd::StandardRenderer::createSwapChainImageViews() {
 #endif
 }
 
-void tpd::StandardRenderer::createSyncPrimitives() {
+void tpd::SurfaceRenderer::createSyncPrimitives() {
     for (auto& [imageReady, renderDone, frameDrawFence] : _syncs) {
         imageReady = _device.createSemaphore({});
         renderDone = _device.createSemaphore({});
@@ -207,7 +275,7 @@ void tpd::StandardRenderer::createSyncPrimitives() {
     }
 }
 
-tpd::StandardRenderer::Presentable tpd::StandardRenderer::beginFrame() {
+tpd::SurfaceRenderer::Presentable tpd::SurfaceRenderer::beginFrame() {
     auto frameData = Presentable{};
 
     using limits = std::numeric_limits<uint64_t>;
@@ -228,23 +296,30 @@ tpd::StandardRenderer::Presentable tpd::StandardRenderer::beginFrame() {
     return frameData;
 }
 
-bool tpd::StandardRenderer::acquireSwapChainImage(const vk::Semaphore semaphore, uint32_t* imageIndex) {
-    using limits = std::numeric_limits<uint64_t>;
-    const auto result = _device.acquireNextImageKHR(_swapChain, limits::max(), semaphore, nullptr);
+bool tpd::SurfaceRenderer::acquireSwapChainImage(const vk::Semaphore semaphore, uint32_t* imageIndex) {
+    // We don't use Vulkan-Hpp here to acquire image since the hpp-function aggressively throws
+    // when the result is not VK_SUCCESS; for swap chain image acquire, this is not always an error.
+    const auto acquireInfo = VkAcquireNextImageInfoKHR{
+        .sType = VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR,
+        .swapchain = _swapChain,
+        .timeout = std::numeric_limits<uint64_t>::max(),
+        .semaphore = semaphore,
+        .deviceMask = 0b1,  // ignored by single-GPU setups
+    };
+    const auto result = vkAcquireNextImage2KHR(_device, &acquireInfo, imageIndex);
 
-    if (result.result == vk::Result::eErrorOutOfDateKHR) [[unlikely]] {
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) [[unlikely]] {
         refreshSwapChain();
         return false;
     }
-    if (result.result != vk::Result::eSuccess && result.result != vk::Result::eSuboptimalKHR) [[unlikely]] {
+    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) [[unlikely]] {
         throw std::runtime_error("StandardRenderer - Failed to acquire a swap chain image");
     }
 
-    *imageIndex = result.value;
     return true;
 }
 
-void tpd::StandardRenderer::endFrame(const vk::ArrayProxy<vk::CommandBuffer>& buffers, const uint32_t imageIndex) {
+void tpd::SurfaceRenderer::endFrame(const vk::ArrayProxy<vk::CommandBuffer>& buffers, const uint32_t imageIndex) {
     const auto bufferInfos = buffers
         | std::views::transform([](const auto buffer) { return vk::CommandBufferSubmitInfo{ buffer, 0 }; })
         | std::ranges::to<std::vector>();
@@ -275,24 +350,35 @@ void tpd::StandardRenderer::endFrame(const vk::ArrayProxy<vk::CommandBuffer>& bu
     _currentFrame = (_currentFrame + 1) % IN_FLIGHT_FRAMES;
 }
 
-void tpd::StandardRenderer::presentSwapChainImage(const uint32_t imageIndex, const vk::Semaphore semaphore) {
-    const auto presentInfo = vk::PresentInfoKHR{ semaphore, _swapChain, imageIndex };
+void tpd::SurfaceRenderer::presentSwapChainImage(const uint32_t imageIndex, const vk::Semaphore semaphore) {
+    // Similar to image acquire, presenting an image cannot be done with Vulkan-Hpp
+    const auto waitSemaphore = static_cast<VkSemaphore>(semaphore);
+    const auto swapChain = static_cast<VkSwapchainKHR>(_swapChain);
 
-    if (const auto result = _graphicsQueue.presentKHR(&presentInfo);
-        result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || _framebufferResized) [[unlikely]] {
+    const auto presentInfo = VkPresentInfoKHR{
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &waitSemaphore,
+        .swapchainCount = 1,
+        .pSwapchains = &swapChain,
+        .pImageIndices = &imageIndex,
+    };
+
+    if (const auto result = vkQueuePresentKHR(_presentQueue, &presentInfo);
+        result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || _framebufferResized) [[unlikely]] {
         _framebufferResized = false;
         refreshSwapChain();
-    } else if (result != vk::Result::eSuccess) [[unlikely]] {
+    } else if (result != VK_SUCCESS) [[unlikely]] {
         throw std::runtime_error("StandardRenderer - Failed to present a swap chain image");
     }
 }
 
-void tpd::StandardRenderer::refreshSwapChain() {
+void tpd::SurfaceRenderer::refreshSwapChain() {
     // We're not refreshing while the window is being minimized
     auto width = 0, height = 0;
-    glfwGetFramebufferSize(_context->_window, &width, &height);
+    glfwGetFramebufferSize(_window->_glfwWindow, &width, &height);
     while (width == 0 || height == 0) {
-        glfwGetFramebufferSize(_context->_window, &width, &height);
+        glfwGetFramebufferSize(_window->_glfwWindow, &width, &height);
         glfwWaitEvents();
     }
 
@@ -305,12 +391,12 @@ void tpd::StandardRenderer::refreshSwapChain() {
     createSwapChainImageViews();
 }
 
-void tpd::StandardRenderer::cleanupSwapChain() const noexcept {
+void tpd::SurfaceRenderer::cleanupSwapChain() const noexcept {
     std::ranges::for_each(_swapChainImageViews, [this](const auto& it) { _device.destroyImageView(it); });
     _device.destroySwapchainKHR(_swapChain);
 }
 
-void tpd::StandardRenderer::resetEngine() noexcept {
+void tpd::SurfaceRenderer::resetEngine() noexcept {
     if (_engineInitialized) {
         // Make sure the GPU has stopped doing its things
         _device.waitIdle();
@@ -328,15 +414,15 @@ void tpd::StandardRenderer::resetEngine() noexcept {
     Renderer::resetEngine();
 }
 
-void tpd::StandardRenderer::reset() noexcept {
+void tpd::SurfaceRenderer::destroy() noexcept {
     resetEngine();
     if (_initialized) {
         _instance.destroySurfaceKHR(_surface);
-        _context.reset();  // tear down GLFW
+        _window.reset();
     }
-    Renderer::reset();
+    Renderer::destroy();
 }
 
-tpd::StandardRenderer::~StandardRenderer() noexcept {
-    reset();
+tpd::SurfaceRenderer::~SurfaceRenderer() noexcept {
+    destroy();
 }

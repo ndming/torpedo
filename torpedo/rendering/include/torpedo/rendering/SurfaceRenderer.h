@@ -2,30 +2,32 @@
 
 #include "torpedo/rendering/Renderer.h"
 
-#include <GLFW/glfw3.h>
+#include <torpedo/foundation/AllocationUtils.h>
 
+#include <GLFW/glfw3.h>
 #include <functional>
 
 namespace tpd {
-    class StandardRenderer final : public Renderer {
+    class SurfaceRenderer final : public Renderer {
     public:
-        class Context final {
+        class Window final {
         public:
-            explicit Context(vk::Extent2D initialFramebufferSize);
+            explicit Window(vk::Extent2D initialFramebufferSize);
+            explicit Window(bool fullscreen);
 
-            Context(const Context&) = delete;
-            Context& operator=(const Context&) = delete;
+            Window(const Window&) = delete;
+            Window& operator=(const Window&) = delete;
 
-            void setWindowTitle(std::string_view title) const;
+            void setTitle(std::string_view title) const;
 
             void loop(const std::function<void()>&      onRender) const;
             void loop(const std::function<void(float)>& onRender) const;
 
-            ~Context();
+            ~Window();
 
         private:
-            GLFWwindow* _window;
-            friend class StandardRenderer;
+            GLFWwindow* _glfwWindow;
+            friend class SurfaceRenderer;
         };
 
         struct Presentable {
@@ -34,40 +36,40 @@ namespace tpd {
             uint32_t imageIndex{};
         };
 
-        StandardRenderer() = default;
-        void init(uint32_t framebufferWidth, uint32_t framebufferHeight) override;
-
-        StandardRenderer(const StandardRenderer&) = delete;
-        StandardRenderer& operator=(const StandardRenderer&) = delete;
+        SurfaceRenderer(const SurfaceRenderer&) = delete;
+        SurfaceRenderer& operator=(const SurfaceRenderer&) = delete;
 
         [[nodiscard]] Presentable beginFrame();
         void endFrame(const vk::ArrayProxy<vk::CommandBuffer>& buffers, uint32_t imageIndex);
 
-        [[nodiscard]] const Context& getContext() const;
+        [[nodiscard]] const std::unique_ptr<Window, Deleter<Window>>& getWindow() const;
 
-        [[nodiscard]] vk::Extent2D getFramebufferSize() const override;
-        [[nodiscard]] uint32_t getInFlightFramesCount() const override;
-
-        [[nodiscard]] uint32_t getCurrentFrame() const override;
-        [[nodiscard]] vk::SurfaceKHR getVulkanSurface() const override;
+        [[nodiscard]] vk::Extent2D getFramebufferSize() const noexcept override;
+        [[nodiscard]] uint32_t getInFlightFramesCount() const noexcept override;
+        [[nodiscard]] uint32_t getCurrentDrawingFrame() const noexcept override;
 
         void resetEngine() noexcept override;
-        void reset() noexcept override;
+        void destroy() noexcept override;
 
-        ~StandardRenderer() noexcept override;
+        ~SurfaceRenderer() noexcept override;
 
     private:
         [[nodiscard]] std::vector<const char*> getInstanceExtensions() const override;
-        std::unique_ptr<Context> _context{};
+        [[nodiscard]] std::vector<const char*> getDeviceExtensions() const override;
+
+        SurfaceRenderer() = default;
+        void init(uint32_t frameWidth, uint32_t frameHeight, std::pmr::memory_resource* contextPool) override;
+        void init(bool fullscreen, std::pmr::memory_resource* contextPool);
+        std::unique_ptr<Window, Deleter<Window>> _window{};
 
         static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
         bool _framebufferResized{ false };
 
+        [[nodiscard]] vk::SurfaceKHR getVulkanSurface() const override;
         void createSurface();
         vk::SurfaceKHR _surface{};
 
-        [[nodiscard]] std::vector<const char*> getDeviceExtensions() const override;
-        void engineInit(vk::Device device, const PhysicalDeviceSelection& physicalDeviceSelection) override;
+        void engineInit(uint32_t graphicsFamilyIndex, uint32_t presentFamilyIndex) override;
         uint32_t _graphicsFamilyIndex{ 0 };
         uint32_t _presentFamilyIndex { 0 };
         vk::Queue _graphicsQueue{};
@@ -103,6 +105,9 @@ namespace tpd {
 
         static std::string toString(vk::Extent2D extent);
         static std::string toString(vk::PresentModeKHR presentMode);
+
+        template<RendererImpl R>
+        friend class Context;
     };
 }
 
@@ -110,36 +115,36 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS //
 // =========================== //
 
-inline void tpd::StandardRenderer::Context::setWindowTitle(const std::string_view title) const {
-    glfwSetWindowTitle(_window, title.data());
+inline void tpd::SurfaceRenderer::Window::setTitle(const std::string_view title) const {
+    glfwSetWindowTitle(_glfwWindow, title.data());
 }
 
-inline const tpd::StandardRenderer::Context& tpd::StandardRenderer::getContext() const {
+inline const std::unique_ptr<tpd::SurfaceRenderer::Window, tpd::Deleter<tpd::SurfaceRenderer::Window>>& tpd::SurfaceRenderer::getWindow() const {
     if (!_initialized) [[unlikely]] {
         throw std::runtime_error(
-            "StandardRenderer - getContext called before initialization: "
-            "did you forget to call StandardRenderer::init()?");
+            "SurfaceRenderer - getWindow called before initialization: "
+            "did you forget to call SurfaceRenderer::init()?");
     }
-    return *_context;
+    return _window;
 }
 
-inline uint32_t tpd::StandardRenderer::getInFlightFramesCount() const {
+inline uint32_t tpd::SurfaceRenderer::getInFlightFramesCount() const noexcept {
     return IN_FLIGHT_FRAMES;
 }
 
-inline uint32_t tpd::StandardRenderer::getCurrentFrame() const {
+inline uint32_t tpd::SurfaceRenderer::getCurrentDrawingFrame() const noexcept {
     return _currentFrame;
 }
 
-inline vk::SurfaceKHR tpd::StandardRenderer::getVulkanSurface() const {
+inline vk::SurfaceKHR tpd::SurfaceRenderer::getVulkanSurface() const {
     return _surface;
 }
 
-inline std::string tpd::StandardRenderer::toString(const vk::Extent2D extent) {
+inline std::string tpd::SurfaceRenderer::toString(const vk::Extent2D extent) {
     return "(" + std::to_string(extent.width) + ", " + std::to_string(extent.height) + ")";
 }
 
-inline std::string tpd::StandardRenderer::toString(const vk::PresentModeKHR presentMode) {
+inline std::string tpd::SurfaceRenderer::toString(const vk::PresentModeKHR presentMode) {
     using enum vk::PresentModeKHR;
     switch (presentMode) {
         case eImmediate:               return "Immediate";
