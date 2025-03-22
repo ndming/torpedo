@@ -24,10 +24,10 @@ int main() {
     const auto context = tpd::Context<tpd::SurfaceRenderer>::create();
     const auto engine = context->bindEngine<tpd::ForwardEngine>();
 
-    auto storage = tpd::StorageBuffer::Builder()
+    const auto storage = tpd::StorageBuffer::Builder()
         .alloc(sizeof(float) * positions.size())
+        .syncData(positions.data())
         .build(engine->getDeviceAllocator());
-    storage.setSyncData(positions.data(), sizeof(float) * positions.size());
     engine->sync(storage);
 
     const auto renderer = context->initRenderer();

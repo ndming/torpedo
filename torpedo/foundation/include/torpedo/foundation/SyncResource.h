@@ -9,7 +9,7 @@ namespace tpd {
         SyncResource& operator=(const SyncResource&) = delete;
 
         void setSyncData(const void* data, uint32_t byteSize) noexcept;
-        bool hasSyncData() const noexcept;
+        [[nodiscard]] bool hasSyncData() const noexcept;
 
         [[nodiscard]] const std::byte* getSyncData() const noexcept;
         [[nodiscard]] uint32_t getSyncDataSize() const noexcept;
@@ -20,10 +20,12 @@ namespace tpd {
         virtual ~SyncResource() = default;
 
     protected:
-        SyncResource() = default;
+        explicit SyncResource(const void* data = nullptr, const uint32_t byteSize = 0)
+            : _data{ static_cast<const std::byte*>(data) }, _size{ byteSize } {
+        }
 
     private:
-        const std::byte* _data{ nullptr };
-        uint32_t _size{ 0 };
+        const std::byte* _data;
+        uint32_t _size;
     };
 }

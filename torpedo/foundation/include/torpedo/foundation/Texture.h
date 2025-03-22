@@ -14,6 +14,8 @@ namespace tpd {
             Builder& initialLayout(vk::ImageLayout layout) noexcept;
             Builder& mipLevelCount(uint32_t levels) noexcept;
 
+            Builder& syncData(const void* data, uint32_t size) noexcept;
+
             [[nodiscard]] Texture build(const DeviceAllocator& allocator) const;
 
             [[nodiscard]] std::unique_ptr<Texture, Deleter<Texture>> build(
@@ -27,11 +29,15 @@ namespace tpd {
             vk::Format _format{ vk::Format::eR8G8B8A8Srgb };
             vk::ImageLayout _layout{ vk::ImageLayout::eUndefined };
             uint32_t _mipLevelCount{ 1 };
+
+            const void* _data{ nullptr };
+            uint32_t _dataSize{ 0 };
         };
 
-        Texture(vk::Extent2D size, uint32_t mipLevelCount,
+        Texture(vk::Extent2D dims, uint32_t mipLevelsCount,
             vk::Image image, vk::ImageLayout layout, vk::Format format,
-            VmaAllocation allocation, const DeviceAllocator& allocator);
+            VmaAllocation allocation, const DeviceAllocator& allocator,
+            const void* data = nullptr, uint32_t dataByteSize = 0);
 
         Texture(const Texture&) = delete;
         Texture& operator=(const Texture&) = delete;
@@ -52,12 +58,12 @@ namespace tpd {
 
         [[nodiscard]] std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getDstSync(vk::ImageLayout layout) const override;
 
-        [[nodiscard]] vk::Extent2D getSize() const noexcept;
-        [[nodiscard]] uint32_t getMipLevelCount() const noexcept override;
+        [[nodiscard]] vk::Extent2D getDimensions() const noexcept;
+        [[nodiscard]] uint32_t getMipLevelsCount() const noexcept override;
 
     private:
-        vk::Extent2D _size;       // width and height in pixels
-        uint32_t _mipLevelCount;  // including the base mip
+        vk::Extent2D _dims;        // width and height in pixels
+        uint32_t _mipLevelsCount;  // including the base mip
     };
 }
 
@@ -86,19 +92,27 @@ inline tpd::Texture::Builder& tpd::Texture::Builder::mipLevelCount(const uint32_
     return *this;
 }
 
+inline tpd::Texture::Builder& tpd::Texture::Builder::syncData(const void* data, const uint32_t size) noexcept {
+    _data = data;
+    _dataSize = size;
+    return *this;
+}
+
 inline tpd::Texture::Texture(
-    const vk::Extent2D size, const uint32_t mipLevelCount,
+    const vk::Extent2D dims, const uint32_t mipLevelsCount,
     const vk::Image image, const vk::ImageLayout layout, const vk::Format format,
-    VmaAllocation allocation, const DeviceAllocator& allocator)
+    VmaAllocation allocation, const DeviceAllocator& allocator,
+    const void* data, const uint32_t dataByteSize)
     : Image{ image, layout, format, allocation, allocator }
-    , _size{ size }
-    , _mipLevelCount{ mipLevelCount } {
+    , SyncResource{ data, dataByteSize }
+    , _dims{ dims }
+    , _mipLevelsCount{ mipLevelsCount } {
 }
 
-inline vk::Extent2D tpd::Texture::getSize() const noexcept {
-    return _size;
+inline vk::Extent2D tpd::Texture::getDimensions() const noexcept {
+    return _dims;
 }
 
-inline uint32_t tpd::Texture::getMipLevelCount() const noexcept {
-    return _mipLevelCount;
+inline uint32_t tpd::Texture::getMipLevelsCount() const noexcept {
+    return _mipLevelsCount;
 }

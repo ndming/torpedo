@@ -4,7 +4,7 @@
 tpd::Texture tpd::Texture::Builder::build(const DeviceAllocator& allocator) const {
     auto allocation  = VmaAllocation{};
     const auto image = createImage(allocator, &allocation);
-    return Texture{ vk::Extent2D{ _w, _h }, _mipLevelCount, image, _layout, _format, allocation, allocator };
+    return Texture{ vk::Extent2D{ _w, _h }, _mipLevelCount, image, _layout, _format, allocation, allocator, _data, _dataSize };
 }
 
 std::unique_ptr<tpd::Texture, tpd::Deleter<tpd::Texture>> tpd::Texture::Builder::build(
@@ -13,7 +13,8 @@ std::unique_ptr<tpd::Texture, tpd::Deleter<tpd::Texture>> tpd::Texture::Builder:
 {
     auto allocation  = VmaAllocation{};
     const auto image = createImage(allocator, &allocation);
-    return foundation::make_unique<Texture>(pool, vk::Extent2D{ _w, _h }, _mipLevelCount, image, _layout, _format, allocation, allocator);
+    return foundation::make_unique<Texture>(
+        pool, vk::Extent2D{ _w, _h }, _mipLevelCount, image, _layout, _format, allocation, allocator, _data, _dataSize);
 }
 
 vk::Image tpd::Texture::Builder::createImage(const DeviceAllocator& allocator, VmaAllocation* allocation) const {
@@ -85,7 +86,7 @@ void tpd::Texture::recordBufferTransfer(
         .setImageOffset({ 0, 0, 0 })
         .setBufferRowLength(0)    // tightly packed
         .setBufferImageHeight(0)  // tightly packed
-        .setImageExtent({ _size.width, _size.height, 1 })
+        .setImageExtent({ _dims.width, _dims.height, 1 })
         .setImageSubresource({ getAspectMask(), mipLevel, 0 , 1 });
 
     const auto copyInfo = vk::CopyBufferToImageInfo2{}
@@ -126,14 +127,14 @@ void tpd::Texture::recordMipsGeneration(const vk::CommandBuffer cmd, const vk::P
         .setPImageMemoryBarriers(&barrier);
     const auto aspectMask = getAspectMask();
 
-    auto mipWidth  = static_cast<int32_t>(_size.width);
-    auto mipHeight = static_cast<int32_t>(_size.height);
+    auto mipWidth  = static_cast<int32_t>(_dims.width);
+    auto mipHeight = static_cast<int32_t>(_dims.height);
 
     // At each iteration, we perform mip generation with vkCmdBlitImage from level i - 1 to i
     // For the sake of blit performance, src and dst level should be in transfer read and write, respectively
     // At the beginning of each iteration, level i - 1 (presumably, though very likely) has transfer dst layout
     // At the end of each iteration, level i - 1 has shader read layout
-    for (uint32_t i = 1; i < _mipLevelCount; i++) {
+    for (uint32_t i = 1; i < _mipLevelsCount; i++) {
         barrier.subresourceRange.baseMipLevel = i - 1;
         barrier.oldLayout = _layout;  // the layout prior to mip generation, likely to be transfer dst (how could it not?)
         barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
@@ -183,7 +184,7 @@ void tpd::Texture::recordMipsGeneration(const vk::CommandBuffer cmd, const vk::P
     }
 
     // Transition the last mip level's layout
-    barrier.subresourceRange.baseMipLevel = _mipLevelCount - 1;
+    barrier.subresourceRange.baseMipLevel = _mipLevelsCount - 1;
     barrier.oldLayout = _layout;  // the last level just received its blit data, no transition was done to it
     barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     barrier.srcAccessMask = AccessMask::eTransferWrite;
@@ -203,7 +204,7 @@ void tpd::Texture::recordOwnershipRelease(
 {
     auto barrier = vk::ImageMemoryBarrier2{};
     barrier.image = _image;
-    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelCount, 0, 1 };
+    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelsCount, 0, 1 };
     barrier.srcQueueFamilyIndex = srcFamilyIndex;
     barrier.dstQueueFamilyIndex = dstFamilyIndex;
     barrier.srcStageMask  = vk::PipelineStageFlagBits2::eTransfer;  // releasing after image uploading
@@ -221,7 +222,7 @@ void tpd::Texture::recordOwnershipAcquire(
 {
     auto barrier = vk::ImageMemoryBarrier2{};
     barrier.image = _image;
-    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelCount, 0, 1 };
+    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelsCount, 0, 1 };
     barrier.srcQueueFamilyIndex = srcFamilyIndex;
     barrier.dstQueueFamilyIndex = dstFamilyIndex;
     // Without specifying the final layout, this overload assumes
@@ -242,7 +243,7 @@ void tpd::Texture::recordOwnershipRelease(
 {
     auto barrier = vk::ImageMemoryBarrier2{};
     barrier.image = _image;
-    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelCount, 0, 1 };
+    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelsCount, 0, 1 };
     barrier.srcQueueFamilyIndex = srcFamilyIndex;
     barrier.dstQueueFamilyIndex = dstFamilyIndex;
     barrier.oldLayout = _layout;
@@ -264,7 +265,7 @@ void tpd::Texture::recordOwnershipAcquire(
     const auto [dstStageMask, dstAccessMask] = getDstSync(finalLayout);
     auto barrier = vk::ImageMemoryBarrier2{};
     barrier.image = _image;
-    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelCount, 0, 1 };
+    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelsCount, 0, 1 };
     barrier.srcQueueFamilyIndex = srcFamilyIndex;
     barrier.dstQueueFamilyIndex = dstFamilyIndex;
     barrier.oldLayout = _layout;

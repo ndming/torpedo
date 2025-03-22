@@ -3,7 +3,9 @@
 tpd::StorageBuffer tpd::StorageBuffer::Builder::build(const DeviceAllocator& allocator) const {
     auto allocation = VmaAllocation{};
     const auto buffer = creatBuffer(allocator, &allocation);
-    return StorageBuffer{ buffer, allocation, allocator };
+    // If the call site set data but not its size, we default to the buffer's size
+    const auto dataSize = _data && _dataSize == 0 ? static_cast<uint32_t>(_allocSize) : _dataSize;
+    return StorageBuffer{ buffer, allocation, allocator, _data, dataSize };
 }
 
 std::unique_ptr<tpd::StorageBuffer, tpd::Deleter<tpd::StorageBuffer>> tpd::StorageBuffer::Builder::build(
@@ -12,7 +14,8 @@ std::unique_ptr<tpd::StorageBuffer, tpd::Deleter<tpd::StorageBuffer>> tpd::Stora
 {
     auto allocation = VmaAllocation{};
     const auto buffer = creatBuffer(allocator, &allocation);
-    return foundation::make_unique<StorageBuffer>(pool, buffer, allocation, allocator);
+    const auto dataSize = _data && _dataSize == 0 ? static_cast<uint32_t>(_allocSize) : _dataSize;
+    return foundation::make_unique<StorageBuffer>(pool, buffer, allocation, allocator, _data, dataSize);
 }
 
 vk::Buffer tpd::StorageBuffer::Builder::creatBuffer(const DeviceAllocator& allocator, VmaAllocation* allocation) const {
