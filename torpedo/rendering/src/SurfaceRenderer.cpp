@@ -164,7 +164,7 @@ void tpd::SurfaceRenderer::init(const bool fullscreen, std::pmr::memory_resource
 
     // Bind the created window to the Vulkan surface
     createSurface();
-    PLOGD << "Number of in-flight frames run by tpd::SurfaceRenderer:  " << getInFlightFramesCount();
+    PLOGD << "Number of in-flight frames run by tpd::SurfaceRenderer: " << getInFlightFramesCount();
 }
 
 void tpd::SurfaceRenderer::framebufferResizeCallback(GLFWwindow* window, [[maybe_unused]] int width, [[maybe_unused]] int height) {

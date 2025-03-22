@@ -30,7 +30,7 @@ int main() {
         .build(engine->getDeviceAllocator());
     engine->sync(storage);
 
-    const auto renderer = context->initRenderer();
+    const auto renderer = context->initRenderer(1280, 720);
     renderer->getWindow()->setTitle("Hello, Triangle");
 
     renderer->getWindow()->loop([&] {

@@ -155,6 +155,15 @@ R* tpd::Context<R>::initRenderer(const uint32_t frameWidth, const uint32_t frame
     _renderer->init(frameWidth, frameHeight, &_contextPool);
     _renderer->_initialized = true;
 
+    // If there's already an Engine bound to this Context, init the Renderer with its Vulkan resources
+    if (_engine) {
+        _renderer->_physicalDevice = _engine->_physicalDevice;
+        _renderer->_device = _engine->_device;
+
+        _renderer->engineInit(_engine->_graphicsFamilyIndex, _engine->_presentFamilyIndex);
+        _renderer->_engineInitialized = true;
+    }
+
     return _renderer;
 }
 
