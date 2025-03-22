@@ -103,9 +103,6 @@ namespace tpd {
         void refreshSwapChain();
         void cleanupSwapChain() const noexcept;
 
-        static std::string toString(vk::Extent2D extent);
-        static std::string toString(vk::PresentModeKHR presentMode);
-
         template<RendererImpl R>
         friend class Context;
     };
@@ -138,21 +135,4 @@ inline uint32_t tpd::SurfaceRenderer::getCurrentDrawingFrame() const noexcept {
 
 inline vk::SurfaceKHR tpd::SurfaceRenderer::getVulkanSurface() const {
     return _surface;
-}
-
-inline std::string tpd::SurfaceRenderer::toString(const vk::Extent2D extent) {
-    return "(" + std::to_string(extent.width) + ", " + std::to_string(extent.height) + ")";
-}
-
-inline std::string tpd::SurfaceRenderer::toString(const vk::PresentModeKHR presentMode) {
-    using enum vk::PresentModeKHR;
-    switch (presentMode) {
-        case eImmediate:               return "Immediate";
-        case eMailbox:                 return "Mailbox";
-        case eFifo :                   return "Fifo";
-        case eFifoRelaxed:             return "FifoRelaxed";
-        case eSharedDemandRefresh:     return "SharedDemandRefresh";
-        case eSharedContinuousRefresh: return "SharedContinuousRefresh";
-        default: return "Unrecognized present mode at enum: " + std::to_string(static_cast<int>(presentMode));
-    }
 }

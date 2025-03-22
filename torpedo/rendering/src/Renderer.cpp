@@ -6,7 +6,7 @@ std::vector<const char*> tpd::Renderer::getInstanceExtensions() const {
     auto extensions = std::vector {
         vk::EXTDebugUtilsExtensionName,  // for naming Vulkan objects
     };
-    rendering::logExtensions("Instance", "tpd::Renderer", extensions);
+    rendering::logDebugExtensions("Instance", "tpd::Renderer", extensions);
     return extensions;
 #else
     return {};
@@ -14,7 +14,7 @@ std::vector<const char*> tpd::Renderer::getInstanceExtensions() const {
 }
 
 std::vector<const char*> tpd::Renderer::getDeviceExtensions() const {
-    rendering::logExtensions("Device", "tpd::Renderer");
+    rendering::logDebugExtensions("Device", "tpd::Renderer");
     return {};
 }
 

@@ -98,7 +98,7 @@ std::vector<const char*> tpd::Engine::getDeviceExtensions() const {
         vk::EXTMemoryBudgetExtensionName,    // help VMA estimate memory budget more accurately
         vk::EXTMemoryPriorityExtensionName,  // incorporate memory priority to the allocator
     };
-    rendering::logExtensions("Device", Engine::getName(), extensions);
+    rendering::logDebugExtensions("Device", Engine::getName(), extensions);
     return extensions;
 }
 

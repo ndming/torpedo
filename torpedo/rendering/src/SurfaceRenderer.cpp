@@ -116,7 +116,7 @@ std::vector<const char*> tpd::SurfaceRenderer::getInstanceExtensions() const {
     extensions.reserve(surfaceExtensions.size() + parentExtensions.size());
 
     extensions.insert(extensions.begin(), surfaceExtensions.begin(), surfaceExtensions.end());
-    rendering::logExtensions("Instance", "tpd::SurfaceRenderer", extensions);
+    rendering::logDebugExtensions("Instance", "tpd::SurfaceRenderer", extensions);
 
     extensions.insert(extensions.end(), std::make_move_iterator(parentExtensions.begin()), std::make_move_iterator(parentExtensions.end()));
     return extensions;
@@ -130,7 +130,7 @@ std::vector<const char*> tpd::SurfaceRenderer::getDeviceExtensions() const {
 
     // A present renderer must be able to display rendered images
     extensions.push_back(vk::KHRSwapchainExtensionName);
-    rendering::logExtensions("Device", "tpd::SurfaceRenderer", extensions);
+    rendering::logDebugExtensions("Device", "tpd::SurfaceRenderer", extensions);
 
     extensions.insert(extensions.end(), std::make_move_iterator(parentExtensions.begin()), std::make_move_iterator(parentExtensions.end()));
     return extensions;
@@ -222,8 +222,8 @@ void tpd::SurfaceRenderer::createSwapChain() {
 
     PLOGD << "Swap chain created for tpd::StandardRenderer with:";
     PLOGD << " - Images count: " << _swapChainImages.size();
-    PLOGD << " - Present mode: " << toString(swapChain.presentMode);
-    PLOGD << " - Image extent: " << toString(_swapChainImageExtent);
+    PLOGD << " - Present mode: " << rendering::toString(swapChain.presentMode);
+    PLOGD << " - Image extent: " << rendering::toString(_swapChainImageExtent);
 
 #ifndef NDEBUG
     for (auto i = 0; i < _swapChainImages.size(); ++i) {

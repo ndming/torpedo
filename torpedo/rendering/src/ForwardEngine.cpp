@@ -9,7 +9,7 @@
 
 std::vector<const char*> tpd::ForwardEngine::getDeviceExtensions() const {
     auto parentExtensions = Engine::getDeviceExtensions();
-    rendering::logExtensions("Device", "tpd::ForwardEngine");
+    rendering::logDebugExtensions("Device", "tpd::ForwardEngine");
     return parentExtensions;
 }
 
