@@ -24,4 +24,4 @@ set(PROJECT_ROOT ${CMAKE_SOURCE_DIR})
 # SUB-PROJECTS
 # ======================================================================================================================
 add_subdirectory(${PROJECT_ROOT}/torpedo)
-add_subdirectory(${PROJECT_ROOT}/tordemo)
+add_subdirectory(${PROJECT_ROOT}/demo)
