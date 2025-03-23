@@ -5,17 +5,11 @@
 namespace tpd {
     class ForwardEngine final : public Engine {
     public:
-        ForwardEngine(const ForwardEngine&) = delete;
-        ForwardEngine& operator=(const ForwardEngine&) = delete;
-
         [[nodiscard]] vk::CommandBuffer draw(vk::Image image) const override;
 
         [[nodiscard]] const char* getName() const noexcept override;
 
-        ~ForwardEngine() noexcept override;
-
     private:
-        ForwardEngine() = default;
         [[nodiscard]] std::vector<const char*> getDeviceExtensions() const override;
 
         [[nodiscard]] PhysicalDeviceSelection pickPhysicalDevice(
@@ -28,11 +22,6 @@ namespace tpd {
 
         static vk::PhysicalDeviceVulkan13Features getVulkan13Features();
         static vk::PhysicalDeviceVulkan12Features getVulkan12Features();
-
-        void destroy() noexcept override;
-
-        template<RendererImpl R>
-        friend class Context;
     };
 }
 

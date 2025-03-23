@@ -1,4 +1,4 @@
-#include "torpedo/utils/Log.h"
+#include "torpedo/utility/Log.h"
 
 #include <plog/Init.h>
 #include <plog/Util.h>

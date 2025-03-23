@@ -10,3 +10,7 @@ void tpd::HeadlessRenderer::init(const uint32_t frameWidth, const uint32_t frame
     PLOGI << "Initializing renderer: HeadlessRenderer";
     _framebufferSize = vk::Extent2D{ frameWidth, frameHeight };
 }
+
+void tpd::HeadlessRenderer::engineInit(uint32_t graphicsFamilyIndex, uint32_t presentFamilyIndex) {
+
+}

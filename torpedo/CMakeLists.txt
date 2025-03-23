@@ -1,20 +1,39 @@
-# ======================================================================================================================
-# GENERAL COMPILER FLAGS
-# ======================================================================================================================
+# ====================== #
+# GENERAL COMPILER FLAGS #
+# ====================== #
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 
-# ======================================================================================================================
-# TORPEDO BACKEND
-# ======================================================================================================================
+# ========================= #
+# TORPEDO BACKEND AND TOOLS #
+# ========================= #
 find_package(Vulkan REQUIRED)
 
 
-# ======================================================================================================================
-# UTILITY FUNCTION FOR COMPILING GLSL SOURCES AS PART OF BUILD
-# ======================================================================================================================
+# ================================================== #
+# UTILITY FUNCTION FOR DEFINING A SUB-PROJECT MODULE #
+# ================================================== #
+function(torpedo_define_module TARGET_NAME MODULE_SOURCES)
+    # Working with static libraries
+    add_library(${TARGET_NAME} STATIC)
+
+    # Extract and define alias (namespace) target
+    string(REPLACE "_" ";" PARTS ${TARGET_NAME}) # Split at '_'
+    list(GET PARTS 0 NAMESPACE)
+    list(GET PARTS 1 MODULE_NAME)
+    add_library("${NAMESPACE}::${MODULE_NAME}" ALIAS ${TARGET_NAME})
+
+    # Set compiler options and module sources
+    set_target_properties(${TARGET_NAME} PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS OFF COMPILE_WARNING_AS_ERROR ON)
+    target_sources(${TARGET_NAME} PRIVATE ${MODULE_SOURCES})
+endfunction()
+
+
+# ==================================================== #
+# UTILITY FUNCTION FOR COMPILING GLSL AS PART OF BUILD #
+# ==================================================== #
 
 # Where to look for the compiler
 find_program(GLSL_COMPILER glslc HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
@@ -43,11 +62,9 @@ function(torpedo_compile_glsl TARGET_NAME SPIR_V_OUTPUT_DIR GLSL_SOURCE_FILES)
 endfunction()
 
 
-# ======================================================================================================================
-# CLANG UTILS
-# ======================================================================================================================
-
-# If a target is compiled against Clang, this utility function can help set up correct compilation and linking options
+# =================================================== #
+# UTILITY FUNCTION FOR CLANG OPTION AND LINKING SETUP #
+# =================================================== #
 function(torpedo_setup_clang TARGET_NAME)
     if (WIN32)
         # The current Vulkan-Hpp implementation internally uses strncpy which is marked deprecated for Clang on Windows.
@@ -61,11 +78,13 @@ function(torpedo_setup_clang TARGET_NAME)
 endfunction()
 
 
-# ======================================================================================================================
-# SUB-PROJECT MODULES
-# ======================================================================================================================
+# =================== #
+# SUB-PROJECT MODULES #
+# =================== #
 set(TORPEDO_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 add_subdirectory(${TORPEDO_SOURCE_DIR}/bootstrap)
 add_subdirectory(${TORPEDO_SOURCE_DIR}/foundation)
 add_subdirectory(${TORPEDO_SOURCE_DIR}/rendering)
-add_subdirectory(${TORPEDO_SOURCE_DIR}/utils)
+add_subdirectory(${TORPEDO_SOURCE_DIR}/volumetric)
+add_subdirectory(${TORPEDO_SOURCE_DIR}/differential)
+add_subdirectory(${TORPEDO_SOURCE_DIR}/utility)

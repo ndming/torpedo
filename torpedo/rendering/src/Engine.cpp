@@ -2,6 +2,7 @@
 #include "torpedo/rendering/Utils.h"
 
 #include <torpedo/bootstrap/DebugUtils.h>
+#include <torpedo/bootstrap/DeviceBuilder.h>
 #include <torpedo/foundation/StagingBuffer.h>
 
 #include <plog/Log.h>
@@ -66,13 +67,12 @@ void tpd::Engine::init(
         static_cast<VkQueue>(_computeQueue), vk::ObjectType::eQueue,
         getName() + std::string{ " - ComputeQueue" }, instance, _device);
 #endif
-
-    // Create common drawing and transfer resources
+    // Create command pools
+    createDrawingCommandPool();
     createStartupCommandPools();
 
-    createDrawingCommandPool();
+    // Drawing command buffers used by downstream
     createDrawingCommandBuffers();
-
     PLOGD << "Number of drawing command buffers created: " << _drawingCommandBuffers.size();
 
     // Create a device allocator
@@ -86,6 +86,7 @@ void tpd::Engine::init(
     PLOGD << " - VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT";
     PLOGD << " - VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT";
 
+    // Tell downstream to init their resources
     onInitialized();
 }
 
@@ -96,6 +97,39 @@ std::vector<const char*> tpd::Engine::getDeviceExtensions() const {
     };
     rendering::logDebugExtensions("Device", Engine::getName(), extensions);
     return extensions;
+}
+
+tpd::PhysicalDeviceSelection tpd::Engine::pickPhysicalDevice(
+    const std::vector<const char*>& deviceExtensions,
+    const vk::Instance instance,
+    const vk::SurfaceKHR surface) const
+{
+    auto selector = PhysicalDeviceSelector()
+        .requestComputeQueueFamily();
+
+    const auto requestingPresentFamily = static_cast<VkSurfaceKHR>(surface) != VK_NULL_HANDLE;
+    if (requestingPresentFamily) {
+        selector.requestPresentQueueFamily(surface);
+    }
+
+    const auto selection = selector.select(instance, deviceExtensions);
+    PLOGD << "Queue family indices selected:";
+    PLOGD << " - Graphics: " << selection.graphicsQueueFamilyIndex;
+    PLOGD << " - Transfer: " << selection.transferQueueFamilyIndex;
+    if (requestingPresentFamily) {
+        PLOGD << " - Present:  " << selection.presentQueueFamilyIndex;
+    }
+
+    return selection;
+}
+
+vk::Device tpd::Engine::createDevice(
+    const std::vector<const char*>& deviceExtensions,
+    const std::initializer_list<uint32_t> queueFamilyIndices) const
+{
+    return DeviceBuilder()
+        .queueFamilyIndices(queueFamilyIndices)
+        .build(_physicalDevice, deviceExtensions);
 }
 
 void tpd::Engine::createDrawingCommandPool() {

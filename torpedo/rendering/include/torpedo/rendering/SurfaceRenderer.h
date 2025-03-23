@@ -47,6 +47,7 @@ namespace tpd {
         [[nodiscard]] vk::Extent2D getFramebufferSize() const noexcept override;
         [[nodiscard]] uint32_t getInFlightFramesCount() const noexcept override;
         [[nodiscard]] uint32_t getCurrentDrawingFrame() const noexcept override;
+        [[nodiscard]] bool hasSurfaceRenderingSupport() const noexcept override;
 
         void resetEngine() noexcept override;
         ~SurfaceRenderer() noexcept override;
@@ -131,6 +132,10 @@ inline uint32_t tpd::SurfaceRenderer::getInFlightFramesCount() const noexcept {
 
 inline uint32_t tpd::SurfaceRenderer::getCurrentDrawingFrame() const noexcept {
     return _currentFrame;
+}
+
+inline bool tpd::SurfaceRenderer::hasSurfaceRenderingSupport() const noexcept {
+    return true;
 }
 
 inline vk::SurfaceKHR tpd::SurfaceRenderer::getVulkanSurface() const {

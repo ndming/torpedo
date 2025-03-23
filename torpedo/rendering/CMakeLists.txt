@@ -1,9 +1,9 @@
-# ======================================================================================================================
-# 3RD-PARTY LIBRARIES
-# ======================================================================================================================
+# ====================== #
+# 3RD-PARTY DEPENDENCIES #
+# ====================== #
 include(FetchContent)
 
-# For Windowing context
+# For Window management
 FetchContent_Declare(glfw GIT_REPOSITORY https://github.com/glfw/glfw.git GIT_TAG 3.4)
 FetchContent_MakeAvailable(glfw)
 
@@ -11,9 +11,9 @@ FetchContent_MakeAvailable(glfw)
 FetchContent_Declare(plog GIT_REPOSITORY https://github.com/SergiusTheBest/plog.git GIT_TAG 1.1.10)
 FetchContent_MakeAvailable(plog)
 
-# ======================================================================================================================
-# MODULE SOURCE FILES
-# ======================================================================================================================
+# =================== #
+# MODULE SOURCE FILES #
+# =================== #
 set(TORPEDO_RENDERING_SOURCES
         src/Context.cpp
         src/DeletionWorker.cpp
@@ -26,15 +26,11 @@ set(TORPEDO_RENDERING_SOURCES
         src/Utils.cpp
 )
 
-
-# ======================================================================================================================
-# TORPEDO RENDERING MODULE
-# ======================================================================================================================
+# ======================== #
+# TORPEDO RENDERING MODULE #
+# ======================== #
 set(TARGET torpedo_rendering)
-add_library(${TARGET} STATIC)
-add_library(torpedo::rendering ALIAS ${TARGET})
-set_target_properties(${TARGET} PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS OFF COMPILE_WARNING_AS_ERROR ON)
-target_sources(${TARGET} PRIVATE ${TORPEDO_RENDERING_SOURCES})
+torpedo_define_module(${TARGET} "${TORPEDO_RENDERING_SOURCES}")
 
 # Where to look for header files
 target_include_directories(${TARGET} PUBLIC include)
@@ -45,9 +41,9 @@ target_link_libraries(${TARGET} PUBLIC torpedo::foundation)
 target_link_libraries(${TARGET} PUBLIC glfw)
 target_link_libraries(${TARGET} PUBLIC plog::plog)
 
-# ======================================================================================================================
-# CLANG SPECIFICS
-# ======================================================================================================================
+# =============== #
+# CLANG SPECIFICS #
+# =============== #
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     torpedo_setup_clang(${TARGET})
 endif()

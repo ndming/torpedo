@@ -6,7 +6,7 @@ add_executable(${TARGET} main.cpp)
 # Dependencies
 # ------------
 target_link_libraries(${TARGET} PRIVATE torpedo::rendering)
-target_link_libraries(${TARGET} PRIVATE torpedo::utils)
+target_link_libraries(${TARGET} PRIVATE torpedo::utility)
 
 # Where to look for compiled shader files
 # ---------------------------------------

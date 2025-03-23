@@ -23,6 +23,7 @@ namespace tpd {
         [[nodiscard]] const DeviceAllocator& getDeviceAllocator() const noexcept;
 
         [[nodiscard]] virtual vk::CommandBuffer draw(vk::Image image) const = 0;
+
         void waitIdle() const noexcept;
 
         virtual ~Engine() noexcept;
@@ -38,11 +39,11 @@ namespace tpd {
 
         [[nodiscard]] virtual PhysicalDeviceSelection pickPhysicalDevice(
             const std::vector<const char*>& deviceExtensions,
-            vk::Instance instance, vk::SurfaceKHR surface) const = 0;
+            vk::Instance instance, vk::SurfaceKHR surface) const;
 
         [[nodiscard]] virtual vk::Device createDevice(
             const std::vector<const char*>& deviceExtensions,
-            std::initializer_list<uint32_t> queueFamilyIndices) const = 0;
+            std::initializer_list<uint32_t> queueFamilyIndices) const;
 
         vk::PhysicalDevice _physicalDevice{};
         vk::Device _device{};
@@ -74,6 +75,14 @@ namespace tpd {
         void createDrawingCommandBuffers();
         std::vector<vk::CommandBuffer> _drawingCommandBuffers{};
 
+        using DeviceAllocatorType = std::unique_ptr<DeviceAllocator, Deleter<DeviceAllocator>>;
+        DeviceAllocatorType _deviceAllocator{};  // must be declared after _memoryPool
+
+        [[nodiscard]] virtual const char* getName() const noexcept;
+        virtual void onInitialized() {}
+
+        virtual void destroy() noexcept;
+
         [[nodiscard]] vk::CommandBuffer beginOneTimeTransfer(vk::CommandPool commandPool);
         void endOneTimeTransfer(vk::CommandBuffer buffer, vk::Fence deletionFence) const;
 
@@ -81,15 +90,6 @@ namespace tpd {
         void endReleaseCommands(vk::CommandBuffer buffer, const vk::SemaphoreSubmitInfo& semaphoreInfo) const;
         void endAcquireCommands(vk::CommandBuffer buffer, const vk::SemaphoreSubmitInfo& semaphoreInfo, vk::Fence deletionFence) const;
 
-        using DeviceAllocatorType = std::unique_ptr<DeviceAllocator, Deleter<DeviceAllocator>>;
-        DeviceAllocatorType _deviceAllocator{};
-
-        [[nodiscard]] virtual const char* getName() const noexcept;
-        virtual void onInitialized() {}
-
-        virtual void destroy() noexcept;
-
-    public:
         void sync(const StorageBuffer& storageBuffer);
         void sync(const SyncGroup<StorageBuffer>& group);
 
@@ -100,7 +100,6 @@ namespace tpd {
         void syncAndGenMips(Texture& texture);
         void syncAndGenMips(const SyncGroup<Texture>& group);
 
-    private:
         template<RendererImpl R>
         friend class Context;
     };

@@ -16,6 +16,7 @@ namespace tpd {
         [[nodiscard]] virtual vk::Extent2D getFramebufferSize() const noexcept = 0;
         [[nodiscard]] virtual uint32_t getInFlightFramesCount() const noexcept;
         [[nodiscard]] virtual uint32_t getCurrentDrawingFrame() const noexcept;
+        [[nodiscard]] virtual bool hasSurfaceRenderingSupport() const noexcept;
 
         virtual void resetEngine() noexcept;
         virtual ~Renderer() noexcept;
@@ -27,7 +28,7 @@ namespace tpd {
         Renderer() = default;
         vk::Instance _instance{};
 
-        virtual void init(uint32_t frameWidth, uint32_t frameHeight, std::pmr::memory_resource* contextPool = nullptr) = 0;
+        virtual void init(uint32_t frameWidth, uint32_t frameHeight, std::pmr::memory_resource* contextPool) = 0;
         bool _initialized{ false };
 
         [[nodiscard]] virtual vk::SurfaceKHR getVulkanSurface() const;
@@ -58,6 +59,18 @@ inline uint32_t tpd::Renderer::getCurrentDrawingFrame() const noexcept {
     return 0;
 }
 
+inline bool tpd::Renderer::hasSurfaceRenderingSupport() const noexcept {
+    return false;
+}
+
 inline vk::SurfaceKHR tpd::Renderer::getVulkanSurface() const {
     return {};
 }
+
+// ========================= //
+// UTILITY MACRO DEFINITIONS //
+// ========================= //
+
+#define TPD_CONTEXT_AWARE_INITIALIZATION(ClassName) \
+    template<RendererImpl R>                        \
+    friend class Context;

@@ -194,6 +194,11 @@ R* tpd::Context<R>::initRenderer(const bool fullscreen) {
 template<tpd::RendererImpl R>
 template<tpd::EngineImpl E>
 std::unique_ptr<E, tpd::Deleter<E>> tpd::Context<R>::bindEngine() {
+    if (!_renderer->_initialized && _renderer->hasSurfaceRenderingSupport()) [[unlikely]] {
+        PLOGW << "Context - Danger! Binding an Engine while the associated Renderer has not been initialized: "
+                 "the renderer has support for surface rendering, and should be initialized prior to Engine binding";
+    }
+
     if (_engine && typeid(E) == typeid(*_engine)) [[unlikely]] {
         PLOGW << "Context - An Engine of the same type has already been bound with the current Context: returning null";
         return nullptr;

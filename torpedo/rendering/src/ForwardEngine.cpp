@@ -55,7 +55,7 @@ vk::Device tpd::ForwardEngine::createDevice(
     PLOGD << " - Vulkan13Features: dynamicRendering, synchronization2";
     PLOGD << " - Vulkan12Features: bufferDeviceAddress, descriptorIndexing";
 
-    return  DeviceBuilder()
+    return DeviceBuilder()
         .deviceFeatures(&deviceFeatures)
         .queueFamilyIndices(queueFamilyIndices)
         .build(_physicalDevice, deviceExtensions);
@@ -101,16 +101,4 @@ vk::CommandBuffer tpd::ForwardEngine::draw(const vk::Image image) const {
 
     buffer.end();
     return buffer;
-}
-
-void tpd::ForwardEngine::destroy() noexcept {
-    if (_initialized) {
-        // Make sure the GPU has stopped doing its things
-        _device.waitIdle();
-    }
-    Engine::destroy();
-}
-
-tpd::ForwardEngine::~ForwardEngine() noexcept {
-    destroy();
 }

@@ -1,9 +1,7 @@
 #include <torpedo/rendering/Context.h>
 #include <torpedo/rendering/SurfaceRenderer.h>
 #include <torpedo/rendering/ForwardEngine.h>
-#include <torpedo/utils/Log.h>
-
-#include <torpedo/foundation/StorageBuffer.h>
+#include <torpedo/utility/Log.h>
 
 static constexpr auto positions = std::array{
     0.0f, -0.5f,  0.0f,  // 1st vertex
@@ -23,12 +21,6 @@ int main() {
     tpd::utils::plantConsoleLogger();
     const auto context = tpd::Context<tpd::SurfaceRenderer>::create();
     const auto engine = context->bindEngine<tpd::ForwardEngine>();
-
-    const auto storage = tpd::StorageBuffer::Builder()
-        .alloc(sizeof(float) * positions.size())
-        .syncData(positions.data())
-        .build(engine->getDeviceAllocator());
-    engine->sync(storage);
 
     const auto renderer = context->initRenderer(1280, 720);
     renderer->getWindow()->setTitle("Hello, Triangle");
