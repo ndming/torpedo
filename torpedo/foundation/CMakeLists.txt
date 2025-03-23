@@ -1,6 +1,5 @@
-# ======================================================================================================================
-# LIBARY SOURCE FILES
-# ======================================================================================================================
+# MODULE SOURCE FILES
+# -------------------
 set(TORPEDO_FOUNDATION_SOURCES
         src/AllocationUtils.cpp
         src/Buffer.cpp
@@ -14,27 +13,24 @@ set(TORPEDO_FOUNDATION_SOURCES
         src/StorageBuffer.cpp
         src/SyncResource.cpp
         src/Texture.cpp
-        src/VmaUsage.cpp
-)
+        src/VmaUsage.cpp)
 
-# ======================================================================================================================
-# TORPEDO FOUNDATION LIBARY
-# ======================================================================================================================
+
+# TORPEDO FOUNDATION MODULE
+# -------------------------
 set(TARGET torpedo_foundation)
 torpedo_define_module(${TARGET} "${TORPEDO_FOUNDATION_SOURCES}")
-
 # Where to look for header files
 target_include_directories(${TARGET} PUBLIC include)
 target_include_directories(${TARGET} PUBLIC ${Vulkan_INCLUDE_DIRS})
-
 # Dependencies
 target_link_libraries(${TARGET} PUBLIC ${Vulkan_LIBRARIES})
 
-# ======================================================================================================================
+
 # CLANG SPECIFICS
-# ======================================================================================================================
+# ---------------
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    torpedo_setup_clang(${TARGET})
+    torpedo_setup_clang(${TARGET} PRIVATE)
 
     if (WIN32)
         # The VMA library does not use nullability completeness annotations which would trigger warnings,

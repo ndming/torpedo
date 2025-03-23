@@ -5,6 +5,6 @@
 namespace tpd {
     class GaussianEngine final : public Engine {
     public:
-        [[nodiscard]] vk::CommandBuffer draw(vk::Image image) const override;
+        [[nodiscard]] DrawPackage draw(vk::Image image) const override;
     };
 }

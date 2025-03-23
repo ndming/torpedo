@@ -1,32 +1,5 @@
-# ======================================================================================================================
-# EXTERNAL DEPENDENCIES
-# ======================================================================================================================
-include(FetchContent)
-
-# For Windowing context
-FetchContent_Declare(
-        glfw
-        GIT_REPOSITORY https://github.com/glfw/glfw.git
-        GIT_TAG 3.4)
-FetchContent_MakeAvailable(glfw)
-
-# For basic linear algebra
-FetchContent_Declare(
-        glm
-        GIT_REPOSITORY https://github.com/g-truc/glm.git
-        GIT_TAG 1.0.1)
-FetchContent_MakeAvailable(glm)
-
-# For debug logging
-FetchContent_Declare(
-        plog
-        GIT_REPOSITORY https://github.com/SergiusTheBest/plog.git
-        GIT_TAG 1.1.10)
-FetchContent_MakeAvailable(plog)
-
-# ======================================================================================================================
-# LIBARY SOURCE FILES
-# ======================================================================================================================
+# MODULE SOURCE FILES
+# -------------------
 set(TORPEDO_GRAPHICS_SOURCES
         src/Camera.cpp
         src/Composable.cpp
@@ -50,12 +23,11 @@ set(TORPEDO_GRAPHICS_SOURCES
         src/material/PhongMaterial.cpp
         src/material/PhongMaterialInstance.cpp
         src/renderer/ForwardRenderer.cpp
-        src/renderer/StandardRenderer.cpp
-)
+        src/renderer/StandardRenderer.cpp)
 
-# ======================================================================================================================
-# TORPEDO GRAPHICS LIBARY
-# ======================================================================================================================
+
+# TORPEDO GRAPHICS MODULE
+# -----------------------
 set(TARGET torpedo_graphics)
 add_library(${TARGET} STATIC)
 add_library(torpedo::graphics ALIAS ${TARGET})

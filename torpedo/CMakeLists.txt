@@ -1,20 +1,17 @@
-# ====================== #
-# GENERAL COMPILER FLAGS #
-# ====================== #
+# GENERAL COMPILER FLAGS
+# ----------------------
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 
-# ========================= #
-# TORPEDO BACKEND AND TOOLS #
-# ========================= #
+# TORPEDO BACKEND AND TOOLS
+# -------------------------
 find_package(Vulkan REQUIRED)
 
 
-# ================================================== #
-# UTILITY FUNCTION FOR DEFINING A SUB-PROJECT MODULE #
-# ================================================== #
+# UTILITY FUNCTION FOR DEFINING A SUB-PROJECT MODULE
+# --------------------------------------------------
 function(torpedo_define_module TARGET_NAME MODULE_SOURCES)
     # Working with static libraries
     add_library(${TARGET_NAME} STATIC)
@@ -31,10 +28,8 @@ function(torpedo_define_module TARGET_NAME MODULE_SOURCES)
 endfunction()
 
 
-# ==================================================== #
-# UTILITY FUNCTION FOR COMPILING GLSL AS PART OF BUILD #
-# ==================================================== #
-
+# UTILITY FUNCTION FOR COMPILING GLSL AS PART OF BUILD
+# ----------------------------------------------------
 # Where to look for the compiler
 find_program(GLSL_COMPILER glslc HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
 message(STATUS "Using GLSL compiler at: ${GLSL_COMPILER}")
@@ -62,25 +57,23 @@ function(torpedo_compile_glsl TARGET_NAME SPIR_V_OUTPUT_DIR GLSL_SOURCE_FILES)
 endfunction()
 
 
-# =================================================== #
-# UTILITY FUNCTION FOR CLANG OPTION AND LINKING SETUP #
-# =================================================== #
-function(torpedo_setup_clang TARGET_NAME)
+# UTILITY FUNCTION FOR CLANG OPTION AND LINKING SETUP
+# ---------------------------------------------------
+function(torpedo_setup_clang TARGET_NAME VISIBILITY)
     if (WIN32)
         # The current Vulkan-Hpp implementation internally uses strncpy which is marked deprecated for Clang on Windows.
         # This would trigger a warning which is treated as compilation error, so we disable it here
-        target_compile_options(${TARGET_NAME} PRIVATE -Wno-deprecated-declarations)
+        target_compile_options(${TARGET_NAME} ${VISIBILITY} -Wno-deprecated-declarations)
     else ()
         # Use libc++ for Clang on non-Windows platforms
-        target_compile_options(${TARGET_NAME} PRIVATE -stdlib=libc++)
-        target_link_libraries(${TARGET_NAME} PRIVATE :libc++.a :libc++abi.a)
+        target_compile_options(${TARGET_NAME} ${VISIBILITY} -stdlib=libc++)
+        target_link_libraries(${TARGET_NAME} ${VISIBILITY} :libc++.a :libc++abi.a)
     endif ()
 endfunction()
 
 
-# =================== #
-# SUB-PROJECT MODULES #
-# =================== #
+# SUB-PROJECT MODULES
+# -------------------
 set(TORPEDO_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 add_subdirectory(${TORPEDO_SOURCE_DIR}/bootstrap)
 add_subdirectory(${TORPEDO_SOURCE_DIR}/foundation)
