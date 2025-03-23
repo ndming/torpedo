@@ -20,9 +20,14 @@ namespace tpd {
         Engine(const Engine&) = delete;
         Engine& operator=(const Engine&) = delete;
 
-        [[nodiscard]] const DeviceAllocator& getDeviceAllocator() const noexcept;
+        struct DrawPackage {
+            vk::CommandBuffer primaryBuffer;
+            vk::PipelineStageFlags2 doneStage;
+        };
 
-        [[nodiscard]] virtual vk::CommandBuffer draw(vk::Image image) const = 0;
+        [[nodiscard]] virtual DrawPackage draw(vk::Image image) const = 0;
+
+        [[nodiscard]] const DeviceAllocator& getDeviceAllocator() const noexcept;
 
         void waitIdle() const noexcept;
 

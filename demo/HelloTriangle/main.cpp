@@ -26,9 +26,9 @@ int main() {
     renderer->getWindow()->setTitle("Hello, Triangle");
 
     renderer->getWindow()->loop([&] {
-        if (const auto [valid, image, imageIndex] = renderer->beginFrame(); valid) {
-            const auto buffer = engine->draw(image);
-            renderer->endFrame(buffer, imageIndex);
+        if (const auto [valid, image, imageIndex] = renderer->onFrame(); valid) {
+            const auto [primaryBuffer, doneStage] = engine->draw(image);
+            renderer->submitFrame(primaryBuffer, doneStage, imageIndex);
         }
     });
     engine->waitIdle();

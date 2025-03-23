@@ -5,7 +5,7 @@
 namespace tpd {
     class ForwardEngine final : public Engine {
     public:
-        [[nodiscard]] vk::CommandBuffer draw(vk::Image image) const override;
+        [[nodiscard]] DrawPackage draw(vk::Image image) const override;
 
         [[nodiscard]] const char* getName() const noexcept override;
 

@@ -75,7 +75,7 @@ vk::PhysicalDeviceVulkan12Features tpd::ForwardEngine::getVulkan12Features() {
     return features;
 }
 
-vk::CommandBuffer tpd::ForwardEngine::draw(const vk::Image image) const {
+tpd::Engine::DrawPackage tpd::ForwardEngine::draw(const vk::Image image) const {
     const auto currentFrame = _renderer->getCurrentDrawingFrame();
     const auto buffer = _drawingCommandBuffers[currentFrame];
 
@@ -100,5 +100,5 @@ vk::CommandBuffer tpd::ForwardEngine::draw(const vk::Image image) const {
         vk::ImageLayout::eGeneral, vk::ImageLayout::ePresentSrcKHR);
 
     buffer.end();
-    return buffer;
+    return { buffer, vk::PipelineStageFlagBits2::eAllGraphics };
 }

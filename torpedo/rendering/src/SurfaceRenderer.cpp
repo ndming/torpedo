@@ -275,7 +275,7 @@ void tpd::SurfaceRenderer::createSyncPrimitives() {
     }
 }
 
-tpd::SurfaceRenderer::Presentable tpd::SurfaceRenderer::beginFrame() {
+tpd::SurfaceRenderer::Presentable tpd::SurfaceRenderer::onFrame() {
     auto frameData = Presentable{};
 
     using limits = std::numeric_limits<uint64_t>;
@@ -319,10 +319,14 @@ bool tpd::SurfaceRenderer::acquireSwapChainImage(const vk::Semaphore semaphore, 
     return true;
 }
 
-void tpd::SurfaceRenderer::endFrame(const vk::ArrayProxy<vk::CommandBuffer>& buffers, const uint32_t imageIndex) {
-    const auto bufferInfos = buffers
-        | std::views::transform([](const auto buffer) { return vk::CommandBufferSubmitInfo{ buffer, 0 }; })
-        | std::ranges::to<std::vector>();
+void tpd::SurfaceRenderer::submitFrame(
+    const vk::CommandBuffer primaryBuffer,
+    const vk::PipelineStageFlags2 doneStage,
+    const uint32_t imageIndex)
+{
+    auto bufferInfo = vk::CommandBufferSubmitInfo{};
+    bufferInfo.commandBuffer = primaryBuffer;
+    bufferInfo.deviceMask    = 0b1;
 
     auto waitInfo = vk::SemaphoreSubmitInfo{};
     waitInfo.semaphore = _syncs[_currentFrame].imageReady;
@@ -332,13 +336,13 @@ void tpd::SurfaceRenderer::endFrame(const vk::ArrayProxy<vk::CommandBuffer>& buf
 
     auto signalInfo = vk::SemaphoreSubmitInfo{};
     signalInfo.semaphore = _syncs[_currentFrame].renderDone;
-    signalInfo.stageMask = vk::PipelineStageFlagBits2::eAllGraphics;  // TODO: find a more optimal mask
+    signalInfo.stageMask = doneStage;
     signalInfo.deviceIndex = 0;  // synchronize across GPUs
     signalInfo.value = 1;        // for timeline semaphores
 
     auto submitInfo = vk::SubmitInfo2{};
-    submitInfo.commandBufferInfoCount = bufferInfos.size();
-    submitInfo.pCommandBufferInfos = bufferInfos.data();
+    submitInfo.commandBufferInfoCount = 1;
+    submitInfo.pCommandBufferInfos = &bufferInfo;
     submitInfo.waitSemaphoreInfoCount = 1;
     submitInfo.pWaitSemaphoreInfos = &waitInfo;
     submitInfo.signalSemaphoreInfoCount = 1;
