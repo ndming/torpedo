@@ -102,7 +102,8 @@ tpd::PhysicalDeviceSelector::QueueFamilyIndices tpd::PhysicalDeviceSelector::fin
             indices.presentFamily = i;
             // In some (rare) cases, if we've found a present family whose index is different from that of graphics,
             // we ignore it but remember its index in case we cannot find a family supports both graphics and present
-            if (!indices.graphicsFamily.has_value() || indices.graphicsFamily.has_value() && i != indices.graphicsFamily.value()) [[unlikely]] {
+            if (_requestGraphicsQueueFamily && !indices.graphicsFamily.has_value() ||
+                indices.graphicsFamily.has_value() && i != indices.graphicsFamily.value()) [[unlikely]] {
                 distinctPresentFamily = i;
                 indices.presentFamily.reset();
             }
@@ -122,7 +123,7 @@ tpd::PhysicalDeviceSelector::QueueFamilyIndices tpd::PhysicalDeviceSelector::fin
             indices.transferFamily.reset();
         }
 
-        if (queueFamiliesComplete(indices) && foundAsyncTransfer && foundAsyncCompute) {
+        if (queueFamiliesComplete(indices) && foundAsyncTransfer && (foundAsyncCompute || !_requestComputeQueueFamily)) {
             break;
         }
     }
