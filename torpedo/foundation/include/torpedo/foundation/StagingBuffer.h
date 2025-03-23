@@ -21,9 +21,6 @@ namespace tpd {
 
         StagingBuffer(std::size_t size, vk::Buffer buffer, VmaAllocation allocation, const DeviceAllocator& allocator);
 
-        StagingBuffer(const StagingBuffer&) = delete;
-        StagingBuffer& operator=(const StagingBuffer&) = delete;
-
         void setData(const void* data, std::size_t byteSize = 0) const;
 
     private:

@@ -27,9 +27,6 @@ namespace tpd {
             std::byte* pMappedData, uint32_t bufferCount, std::size_t bufferSize, std::size_t allocSize,
             vk::Buffer buffer, VmaAllocation allocation, const DeviceAllocator& allocator);
 
-        RingBuffer(const RingBuffer&) = delete;
-        RingBuffer& operator=(const RingBuffer&) = delete;
-
         void updateData(uint32_t bufferIndex, const void* data, std::size_t byteSize = 0) const;
         void updateData(const void* data, std::size_t byteSize = 0) const;
 

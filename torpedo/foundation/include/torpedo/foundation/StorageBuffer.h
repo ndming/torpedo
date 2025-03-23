@@ -31,9 +31,6 @@ namespace tpd {
             vk::Buffer buffer, VmaAllocation allocation, const DeviceAllocator& allocator,
             const void* data = nullptr, uint32_t dataByteSize = 0);
 
-        StorageBuffer(const StorageBuffer&) = delete;
-        StorageBuffer& operator=(const StorageBuffer&) = delete;
-
         void recordBufferTransfer(vk::CommandBuffer cmd, vk::Buffer stagingBuffer) const noexcept;
 
         void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept override;

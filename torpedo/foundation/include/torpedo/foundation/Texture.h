@@ -39,9 +39,6 @@ namespace tpd {
             VmaAllocation allocation, const DeviceAllocator& allocator,
             const void* data = nullptr, uint32_t dataByteSize = 0);
 
-        Texture(const Texture&) = delete;
-        Texture& operator=(const Texture&) = delete;
-
         [[nodiscard]] vk::ImageAspectFlags getAspectMask() const noexcept override;
 
         [[nodiscard]] bool isDepth() const noexcept;

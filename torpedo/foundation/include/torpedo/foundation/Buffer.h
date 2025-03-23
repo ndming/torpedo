@@ -7,9 +7,6 @@ namespace tpd {
     public:
         Buffer(vk::Buffer buffer, VmaAllocation allocation, const DeviceAllocator& allocator);
 
-        Buffer(const Buffer&) = delete;
-        Buffer& operator=(const Buffer&) = delete;
-
         [[nodiscard]] vk::Buffer getVulkanBuffer() const noexcept;
 
         void destroy() noexcept override;

@@ -9,9 +9,6 @@ namespace tpd {
             vk::Image image, vk::ImageLayout layout, vk::Format format,
             VmaAllocation allocation, const DeviceAllocator& allocator);
 
-        Image(const Image&) = delete;
-        Image& operator=(const Image&) = delete;
-
         void recordImageTransition(vk::CommandBuffer cmd, vk::ImageLayout newLayout);
 
         [[nodiscard]] vk::Image getVulkanImage() const noexcept;

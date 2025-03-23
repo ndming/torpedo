@@ -36,9 +36,6 @@ namespace tpd {
             uint32_t imageIndex{};
         };
 
-        SurfaceRenderer(const SurfaceRenderer&) = delete;
-        SurfaceRenderer& operator=(const SurfaceRenderer&) = delete;
-
         [[nodiscard]] Presentable beginFrame();
         void endFrame(const vk::ArrayProxy<vk::CommandBuffer>& buffers, uint32_t imageIndex);
 

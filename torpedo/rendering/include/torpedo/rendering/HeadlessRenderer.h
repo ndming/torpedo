@@ -5,9 +5,6 @@
 namespace tpd {
     class HeadlessRenderer final : public Renderer {
     public:
-        HeadlessRenderer(const HeadlessRenderer&) = delete;
-        HeadlessRenderer& operator=(const HeadlessRenderer&) = delete;
-
         [[nodiscard]] vk::Extent2D getFramebufferSize() const noexcept override;
         [[nodiscard]] uint32_t getInFlightFramesCount() const noexcept override;
 
