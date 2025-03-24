@@ -1,0 +1,7 @@
+name: torpedo
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - cmake=3.29
+  - clangdev=19.1.7
