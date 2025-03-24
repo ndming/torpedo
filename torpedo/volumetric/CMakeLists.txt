@@ -14,6 +14,12 @@ target_include_directories(${TARGET} PUBLIC include)
 target_link_libraries(${TARGET} PUBLIC torpedo::rendering)
 
 
+# SHADER ASSETS
+# -------------
+# Where to look for assets dir, access via TORPEDO_VOLUMETRIC_ASSETS_DIR
+torpedo_define_assets_dir(${TARGET} VOLUMETRIC ${CMAKE_CURRENT_BINARY_DIR})
+
+
 # CLANG SPECIFICS
 # ---------------
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")

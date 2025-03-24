@@ -222,9 +222,9 @@ std::unique_ptr<E, tpd::Deleter<E>> tpd::Context<R>::bindEngine() {
     _engine->_renderer = _renderer;
     _engine->init(_instance, _renderer->getVulkanSurface(), _renderer->getDeviceExtensions());
 
-    // If the renderer has not been initialized yet, chances are the call site want to defer the window
-    // creation phase to the last minute when the Engine is ready to draw. Therefore, we skip Renderer
-    // initialization here and leave it to initRenderer
+    // If the renderer has not been initialized yet, chances are the call site wants to defer the window creation phase
+    // to the last minute when the Engine is ready to draw. Therefore, we skip Renderer's initialization here and leave
+    // it to initRenderer
     if (_renderer->_initialized) {
         // Inform the renderer about the selected Vulkan resources
         _renderer->_physicalDevice = _engine->_physicalDevice;

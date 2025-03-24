@@ -66,22 +66,20 @@ namespace tpd {
         void createDrawingCommandPool();
         vk::CommandPool _drawingCommandPool{};
 
-        void createStartupCommandPools();
+        void createSyncWorkCommandPools();
+        std::mutex _syncWorkCommandPoolMutex{};
         vk::CommandPool _graphicsCommandPool{};
         vk::CommandPool _transferCommandPool{};
 
-        std::pmr::unsynchronized_pool_resource _memoryPool{};
-        std::pmr::unsynchronized_pool_resource _entityPool{};
-
-        std::mutex _startupCommandPoolMutex{};
-        DeletionWorker<StagingBuffer> _stagingDeletionQueue{ &_memoryPool, _startupCommandPoolMutex, "TransferCleanup" };
+        std::pmr::unsynchronized_pool_resource _syncResourcePool{};
+        DeletionWorker<StagingBuffer> _stagingDeletionQueue{ &_syncResourcePool, _syncWorkCommandPoolMutex, "TransferCleanup" };
 
     protected:
         void createDrawingCommandBuffers();
         std::vector<vk::CommandBuffer> _drawingCommandBuffers{};
 
         using DeviceAllocatorType = std::unique_ptr<DeviceAllocator, Deleter<DeviceAllocator>>;
-        DeviceAllocatorType _deviceAllocator{};  // must be declared after _memoryPool
+        DeviceAllocatorType _deviceAllocator{};  // must be declared after _syncResourcePool
 
         [[nodiscard]] virtual const char* getName() const noexcept;
         virtual void onInitialized() {}

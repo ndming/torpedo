@@ -28,6 +28,20 @@ function(torpedo_define_module TARGET_NAME MODULE_SOURCES)
 endfunction()
 
 
+# UTILITY FUNCTION FOR DEFINING A MACRO PATH TO INTERNAL ASSETS DIR
+# -----------------------------------------------------------------
+function(torpedo_define_assets_dir TARGET_NAME MODULE_NAME MODULE_BINARY_DIR)
+    if(CMAKE_CONFIGURATION_TYPES)
+        # Multi-configuration generators (Visual Studio, Xcode)
+        set(ASSETS_DIR_VALUE "${MODULE_BINARY_DIR}/${CMAKE_CFG_INTDIR}/assets")
+    else()
+        # Single-configuration generators (Makefiles, Ninja)
+        set(ASSETS_DIR_VALUE "${MODULE_BINARY_DIR}/assets")
+    endif()
+    target_compile_definitions(${TARGET_NAME} PRIVATE TORPEDO_${MODULE_NAME}_ASSETS_DIR=\"${ASSETS_DIR_VALUE}\")
+endfunction()
+
+
 # UTILITY FUNCTION FOR COMPILING GLSL AS PART OF BUILD
 # ----------------------------------------------------
 # Where to look for the compiler

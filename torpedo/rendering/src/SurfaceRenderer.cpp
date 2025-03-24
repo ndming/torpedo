@@ -4,6 +4,7 @@
 #include <torpedo/bootstrap/SwapChainBuilder.h>
 #include <torpedo/bootstrap/DebugUtils.h>
 #include <torpedo/foundation/AllocationUtils.h>
+#include <torpedo/foundation/ImageUtils.h>
 
 #include <plog/Log.h>
 
@@ -221,9 +222,11 @@ void tpd::SurfaceRenderer::createSwapChain() {
     _swapChainImageExtent = swapChain.extent;
 
     PLOGD << "Swap chain created for tpd::SurfaceRenderer with:";
-    PLOGD << " - Images count: " << _swapChainImages.size();
     PLOGD << " - Present mode: " << rendering::toString(swapChain.presentMode);
     PLOGD << " - Image extent: " << rendering::toString(_swapChainImageExtent);
+    PLOGD << " - Image format: " << foundation::toString(_swapChainImageFormat);
+    PLOGD << " - Color space:  " << rendering::toString(swapChain.surfaceFormat.colorSpace);
+    PLOGD << " - Image count:  " << _swapChainImages.size();
 
 #ifndef NDEBUG
     for (auto i = 0; i < _swapChainImages.size(); ++i) {

@@ -69,7 +69,7 @@ void tpd::Engine::init(
 #endif
     // Create command pools
     createDrawingCommandPool();
-    createStartupCommandPools();
+    createSyncWorkCommandPools();
 
     // Drawing command buffers used by downstream
     createDrawingCommandBuffers();
@@ -79,7 +79,7 @@ void tpd::Engine::init(
     _deviceAllocator = DeviceAllocator::Builder()
         .flags(VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT | VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT)
         .vulkanApiVersion(VK_API_VERSION_1_3)
-        .build(instance, _physicalDevice, _device, &_memoryPool);
+        .build(instance, _physicalDevice, _device, &_syncResourcePool);
 
     PLOGI << "Using VMA API version: 1.3";
     PLOGD << "VMA created with the following flags (2):";
@@ -140,7 +140,7 @@ void tpd::Engine::createDrawingCommandPool() {
     _drawingCommandPool = _device.createCommandPool(poolInfo);
 }
 
-void tpd::Engine::createStartupCommandPools() {
+void tpd::Engine::createSyncWorkCommandPools() {
     // These pools allocate command buffers for one-shot transfers at the start of the program
     _graphicsCommandPool = _device.createCommandPool({ vk::CommandPoolCreateFlagBits::eTransient, _graphicsFamilyIndex });
     _transferCommandPool = _device.createCommandPool({ vk::CommandPoolCreateFlagBits::eTransient, _transferFamilyIndex });
@@ -161,7 +161,7 @@ vk::CommandBuffer tpd::Engine::beginOneTimeTransfer(const vk::CommandPool comman
         .setCommandBufferCount(1);
 
     // The command pool might be accessed from the deletion worker thread
-    std::lock_guard lock(_startupCommandPoolMutex);
+    std::lock_guard lock(_syncWorkCommandPoolMutex);
     const auto buffer = _device.allocateCommandBuffers(allocInfo)[0];
 
     constexpr auto beginInfo = vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit };
@@ -223,7 +223,7 @@ void tpd::Engine::sync(const StorageBuffer& storageBuffer) {
 
     auto stagingBuffer = StagingBuffer::Builder()
         .alloc(storageBuffer.getSyncDataSize())
-        .build(*_deviceAllocator, &_memoryPool);
+        .build(*_deviceAllocator, &_syncResourcePool);
     stagingBuffer->setData(storageBuffer.getSyncData());
 
     const auto releaseCommand = beginOneTimeTransfer(_transferCommandPool);
@@ -259,7 +259,7 @@ void tpd::Engine::sync(Texture& texture) {
 
     auto stagingBuffer = StagingBuffer::Builder()
         .alloc(texture.getSyncDataSize())
-        .build(*_deviceAllocator, &_memoryPool);
+        .build(*_deviceAllocator, &_syncResourcePool);
     stagingBuffer->setData(texture.getSyncData());
 
     const auto releaseCommand = beginOneTimeTransfer(_transferCommandPool);
@@ -297,7 +297,7 @@ void tpd::Engine::syncAndGenMips(Texture& texture) {
 
     auto stagingBuffer = StagingBuffer::Builder()
         .alloc(texture.getSyncDataSize())
-        .build(*_deviceAllocator, &_memoryPool);
+        .build(*_deviceAllocator, &_syncResourcePool);
     stagingBuffer->setData(texture.getSyncData());
 
     const auto releaseCommand = beginOneTimeTransfer(_transferCommandPool);
