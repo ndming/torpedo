@@ -20,9 +20,8 @@ namespace tpd {
     };
 }
 
-// =========================== //
-// INLINE FUNCTION DEFINITIONS //
-// =========================== //
+// INLINE FUNCTION DEFINITIONS
+// ---------------------------
 
 inline vk::Extent2D tpd::HeadlessRenderer::getFramebufferSize() const noexcept {
     return _framebufferSize;

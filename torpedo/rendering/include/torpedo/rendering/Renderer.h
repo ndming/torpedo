@@ -47,9 +47,8 @@ namespace tpd {
     };
 }
 
-// =========================== //
-// INLINE FUNCTION DEFINITIONS //
-// =========================== //
+// INLINE FUNCTION DEFINITIONS
+// ---------------------------
 
 inline uint32_t tpd::Renderer::getInFlightFramesCount() const noexcept {
     return 1;

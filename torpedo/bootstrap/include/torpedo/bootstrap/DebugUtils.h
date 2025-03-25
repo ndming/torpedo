@@ -19,9 +19,8 @@ namespace tpd::bootstrap {
         vk::Instance instance, vk::Device device);
 }
 
-// ============================= //
-// TEMPLATE FUNCTION DEFINITIONS //
-// ============================= //
+// TEMPLATE FUNCTION DEFINITIONS
+// -----------------------------
 
 void tpd::bootstrap::setVulkanObjectName(
     const auto handle,

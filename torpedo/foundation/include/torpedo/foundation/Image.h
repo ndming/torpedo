@@ -29,9 +29,8 @@ namespace tpd {
     };
 }
 
-// =========================== //
-// INLINE FUNCTION DEFINITIONS //
-// =========================== //
+// INLINE FUNCTION DEFINITIONS
+// ---------------------------
 
 inline tpd::Image::Image(
     const vk::Image image, const vk::ImageLayout layout, const vk::Format format,

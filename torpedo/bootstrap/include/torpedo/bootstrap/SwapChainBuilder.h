@@ -38,9 +38,8 @@ namespace tpd {
     };
 }
 
-// =========================== //
-// INLINE FUNCTION DEFINITIONS //
-// =========================== //
+// INLINE FUNCTION DEFINITIONS
+// ---------------------------
 
 inline tpd::SwapChainBuilder& tpd::SwapChainBuilder::desiredSurfaceFormat(
     const vk::Format format,

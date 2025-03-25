@@ -25,9 +25,8 @@ namespace tpd {
     };
 }
 
-// =========================== //
-// INLINE FUNCTION DEFINITIONS //
-// =========================== //
+// INLINE FUNCTION DEFINITIONS
+// ---------------------------
 
 inline const char* tpd::ForwardEngine::getName() const noexcept {
     return "tpd::ForwardEngine";

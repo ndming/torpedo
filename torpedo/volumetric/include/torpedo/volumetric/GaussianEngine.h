@@ -7,6 +7,8 @@ namespace tpd {
     public:
         [[nodiscard]] DrawPackage draw(vk::Image image) const override;
 
+        [[nodiscard]] const char* getName() const noexcept override;
+
     private:
         [[nodiscard]] PhysicalDeviceSelection pickPhysicalDevice(
             const std::vector<const char*>& deviceExtensions,
@@ -18,4 +20,11 @@ namespace tpd {
 
         void onInitialized() override;
     };
+}
+
+// INLINE FUNCTION DEFINITIONS
+// ---------------------------
+
+inline const char* tpd::ForwardEngine::getName() const noexcept {
+    return "tpd::GaussianEngine";
 }

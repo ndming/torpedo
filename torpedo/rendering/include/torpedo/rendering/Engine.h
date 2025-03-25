@@ -108,9 +108,8 @@ namespace tpd {
     };
 }
 
-// =========================== //
-// INLINE FUNCTION DEFINITIONS //
-// =========================== //
+// INLINE FUNCTION DEFINITIONS
+// ---------------------------
 
 inline const tpd::DeviceAllocator& tpd::Engine::getDeviceAllocator() const noexcept {
     return *_deviceAllocator;

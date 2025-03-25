@@ -41,9 +41,8 @@ namespace tpd {
     };
 }
 
-// =========================== //
-// INLINE FUNCTION DEFINITIONS //
-// =========================== //
+// INLINE FUNCTION DEFINITIONS
+// ---------------------------
 
 inline tpd::RingBuffer::Builder& tpd::RingBuffer::Builder::count(const uint32_t bufferCount) noexcept {
     _bufferCount = bufferCount;

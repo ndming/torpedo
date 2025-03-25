@@ -106,9 +106,8 @@ namespace tpd {
     };
 }
 
-// =========================== //
-// INLINE FUNCTION DEFINITIONS //
-// =========================== //
+// INLINE FUNCTION DEFINITIONS
+// ---------------------------
 
 inline void tpd::SurfaceRenderer::Window::setTitle(const std::string_view title) const {
     glfwSetWindowTitle(_glfwWindow, title.data());

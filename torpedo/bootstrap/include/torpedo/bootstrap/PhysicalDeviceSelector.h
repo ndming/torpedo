@@ -103,9 +103,8 @@ namespace tpd {
     };
 }
 
-// =====================================================================================================================
 // INLINE FUNCTION DEFINITIONS
-// =====================================================================================================================
+// ---------------------------
 
 inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::requestGraphicsQueueFamily() noexcept {
     _requestGraphicsQueueFamily = true;

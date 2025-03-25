@@ -64,9 +64,8 @@ namespace tpd {
     };
 }
 
-// =========================== //
-// INLINE FUNCTION DEFINITIONS //
-// =========================== //
+// INLINE FUNCTION DEFINITIONS
+// ---------------------------
 
 inline tpd::Texture::Builder& tpd::Texture::Builder::extent(const uint32_t width, const uint32_t height) noexcept {
     _w = width;

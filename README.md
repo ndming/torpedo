@@ -8,7 +8,7 @@ are going to be managed via an isolated `conda` environment.
 
 On Windows, MSVC version `>=19.39` must be installed via Visual Studio (version `>=17.9.7`). The library only needs the VS 
 [BuildTools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with the following components 
-in the *Desktop development C++* workload selected:
+in the *Desktop development C++* workload:
 - MSVC v143 - VS2022 C++ x86/64 build tools
 - Windows SDK (either 10 or 11)
 
@@ -25,9 +25,10 @@ cmake -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G Ninja
 ```
 
 <details>
-<summary><span style="font-weight: bold;">There are several other CMake options to further fine-tune the configuration</span></summary>
+<summary><span style="font-weight: bold;">There are additional CMake options to further fine-tune the configuration</span></summary>
 
-- `-DCMAKE_BUILD_DEMO` (`BOOL`): build demo targets, enabled automatically for Debug build only if not explicitly set on the CLI
+- `-DCMAKE_BUILD_DEMO` (`BOOL`): build demo targets, enabled automatically for Debug build only if not explicitly set on 
+the CLI. For other builds, the option is default to `OFF`, unless explicitly set otherwise on the CLI.
 - `-DCMAKE_INSTALL_PREFIX` (`PATH`): automatically set to `CONDA_PREFIX` if such a variable is defined and the option is
 not explicitly set on the CLI. Note that `CONDA_PREFIX` is also defined if a `mamba` environment is activated.
 
