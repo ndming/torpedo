@@ -1,5 +1,6 @@
 ## Build instructions
-Below are the steps to build `torpedo` for use in downstream applications or for debugging during development.
+The default [Release build](#release-build) is recommended for consuming the library, while the [Debug build](#debug-build)
+is suitable for library contributors.
 
 ### Prerequisites
 There are no perequisite dependencies for building the library on Linux since all dependencies, including Vulkan, 
@@ -18,14 +19,23 @@ conda activate torpedo
 ```
 
 ### Release build
-Build the library with Clang:
+Configure the build to use Clang and Ninja (clang-tools are installed in the `conda` environment):
 ```shell
 cmake -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G Ninja
-cmake --build build
 ```
 
-Install the library into the `conda` environment:
+<details>
+<summary><span style="font-weight: bold;">There are several other CMake options to further fine-tune the configuration</span></summary>
+
+- `-DCMAKE_BUILD_DEMO` (`BOOL`): build demo targets, enabled automatically for Debug build only if not explicitly set on the CLI
+- `-DCMAKE_INSTALL_PREFIX` (`PATH`): automatically set to `CONDA_PREFIX` if such a variable is defined and the option is
+not explicitly set on the CLI. Note that `CONDA_PREFIX` is also defined if a `mamba` environment is activated.
+
+</details>
+
+Build and install the library into the `conda` environment:
 ```shell
+cmake --build build
 cmake --install build
 ```
 
@@ -33,7 +43,7 @@ Downstream applications can now consume the library directly as long as they use
 configure their projects.
 
 ### Debug build
-Build the library in `Debug` mode:
+Configure and build the library in `Debug` mode:
 ```shell
 cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G Ninja
 cmake --build build
