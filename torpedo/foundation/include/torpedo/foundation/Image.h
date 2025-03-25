@@ -20,8 +20,8 @@ namespace tpd {
         [[nodiscard]] virtual vk::ImageAspectFlags getAspectMask() const noexcept = 0;
         [[nodiscard]] virtual uint32_t getMipLevelsCount() const noexcept;
 
-        [[nodiscard]] virtual std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getSrcSync(vk::ImageLayout layout) const;
-        [[nodiscard]] virtual std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getDstSync(vk::ImageLayout layout) const;
+        [[nodiscard]] virtual std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getTransitionSrcPoint(vk::ImageLayout oldLayout) const;
+        [[nodiscard]] virtual std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getTransitionDstPoint(vk::ImageLayout newLayout) const;
 
         vk::Image _image;
         vk::ImageLayout _layout;

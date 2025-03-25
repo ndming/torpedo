@@ -7,8 +7,8 @@ void tpd::Image::recordImageTransition(const vk::CommandBuffer cmd, const vk::Im
         return;
     }
 
-    const auto [srcStage, srcAccess] = getSrcSync(oldLayout);
-    const auto [dstStage, dstAccess] = getDstSync(newLayout);
+    const auto [srcStage, srcAccess] = getTransitionSrcPoint(oldLayout);
+    const auto [dstStage, dstAccess] = getTransitionDstPoint(newLayout);
 
     auto barrier = vk::ImageMemoryBarrier2{};
     barrier.image = _image;
@@ -30,7 +30,7 @@ void tpd::Image::recordImageTransition(const vk::CommandBuffer cmd, const vk::Im
     _layout = newLayout;
 }
 
-std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Image::getSrcSync(const vk::ImageLayout layout) const {
+std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Image::getTransitionSrcPoint(const vk::ImageLayout oldLayout) const {
     using PipelineStage = vk::PipelineStageFlagBits2;
     using AccessMask    = vk::AccessFlagBits2;
 
@@ -41,7 +41,7 @@ std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Image::getSrcSync(cons
     constexpr auto sampledStage = PipelineStage::eVertexShader | PipelineStage::eFragmentShader | PipelineStage::eComputeShader;
 
     using enum vk::ImageLayout;
-    switch (layout) {
+    switch (oldLayout) {
     case eUndefined:
     case ePresentSrcKHR:
         break;  // top of pipe, no access
@@ -84,13 +84,13 @@ std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Image::getSrcSync(cons
         break;
 
     [[unlikely]] default:
-        throw std::invalid_argument("Image - Unsupported src sync for layout: " + foundation::toString(layout));
+        throw std::invalid_argument("Image - Unsupported src point for layout: " + foundation::toString(oldLayout));
     }
 
     return std::make_pair(srcStage, srcAccessMask);
 }
 
-std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Image::getDstSync(const vk::ImageLayout layout) const {
+std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Image::getTransitionDstPoint(const vk::ImageLayout newLayout) const {
     using PipelineStage = vk::PipelineStageFlagBits2;
     using AccessMask    = vk::AccessFlagBits2;
 
@@ -101,7 +101,7 @@ std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Image::getDstSync(cons
     vk::AccessFlags2 dstAccessMask = AccessMask::eNone;
 
     using enum vk::ImageLayout;
-    switch (layout) {
+    switch (newLayout) {
     case eGeneral:
     case eFragmentDensityMapOptimalEXT:
         dstStage = PipelineStage::eAllCommands;
@@ -143,7 +143,7 @@ std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Image::getDstSync(cons
         break;
 
     [[unlikely]] default:
-        throw std::invalid_argument("Image - Unsupported dst sync for layout: " + foundation::toString(layout));
+        throw std::invalid_argument("Image - Unsupported dst point for layout: " + foundation::toString(newLayout));
     }
 
     return std::make_pair(dstStage, dstAccessMask);

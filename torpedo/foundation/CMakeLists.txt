@@ -11,6 +11,7 @@ set(TORPEDO_FOUNDATION_SOURCES
         src/ShaderInstance.cpp
         src/StagingBuffer.cpp
         src/StorageBuffer.cpp
+        src/StorageImage.cpp
         src/SyncResource.cpp
         src/Texture.cpp
         src/VmaUsage.cpp)

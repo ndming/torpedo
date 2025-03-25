@@ -40,14 +40,14 @@ vk::Image tpd::Texture::Builder::createImage(const DeviceAllocator& allocator, V
 
     const auto imageCreateInfo = vk::ImageCreateInfo{}
         .setImageType(vk::ImageType::e2D)
-        .setFormat(_format)
         .setExtent(vk::Extent3D{ _w, _h, 1 })
         .setMipLevels(_mipLevelCount)
         .setTiling(vk::ImageTiling::eOptimal)     // for efficient access from shaders
         .setSamples(vk::SampleCountFlagBits::e1)  // sampled textures don't need multi-sampling
         .setUsage(usage)
         .setSharingMode(vk::SharingMode::eExclusive)
-        .setInitialLayout(_layout)  // must not be undefined, except working with Android builds
+        .setInitialLayout(_layout)
+        .setFormat(_format)         // must not be undefined, except working with Android builds
         .setArrayLayers(1);         // multi-view textures are not supported at the moment
     return allocator.allocateDeviceImage(imageCreateInfo, allocation);
 }
@@ -262,7 +262,7 @@ void tpd::Texture::recordOwnershipAcquire(
     const uint32_t dstFamilyIndex,
     const vk::ImageLayout finalLayout) noexcept
 {
-    const auto [dstStageMask, dstAccessMask] = getDstSync(finalLayout);
+    const auto [dstStageMask, dstAccessMask] = getTransitionDstPoint(finalLayout);
     auto barrier = vk::ImageMemoryBarrier2{};
     barrier.image = _image;
     barrier.subresourceRange = { getAspectMask(), 0, _mipLevelsCount, 0, 1 };
@@ -282,17 +282,19 @@ void tpd::Texture::recordOwnershipAcquire(
     _layout = finalLayout;
 }
 
-std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Texture::getDstSync(const vk::ImageLayout layout) const {
+std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Texture::getTransitionDstPoint(const vk::ImageLayout newLayout) const {
     using PipelineStage = vk::PipelineStageFlagBits2;
     using AccessMask    = vk::AccessFlagBits2;
 
     constexpr auto depthStage   = PipelineStage::eEarlyFragmentTests | PipelineStage::eLateFragmentTests;
     constexpr auto sampledStage = PipelineStage::eVertexShader | PipelineStage::eFragmentShader | PipelineStage::eComputeShader;
 
+    // Override to relax the dst access to shader sampled read only, the default dst access includes attachment read, 
+    // which is not applicable to textures
     using enum vk::ImageLayout;
-    switch (layout) {
+    switch (newLayout) {
         case eShaderReadOnlyOptimal:       return std::make_pair(sampledStage, AccessMask::eShaderSampledRead);
         case eDepthStencilReadOnlyOptimal: return std::make_pair(sampledStage | depthStage, AccessMask::eShaderSampledRead);
-        default:                           return Image::getDstSync(layout);
+        default:                           return Image::getTransitionDstPoint(newLayout);
     }
 }

@@ -25,6 +25,6 @@ namespace tpd {
 // INLINE FUNCTION DEFINITIONS
 // ---------------------------
 
-inline const char* tpd::ForwardEngine::getName() const noexcept {
+inline const char* tpd::GaussianEngine::getName() const noexcept {
     return "tpd::GaussianEngine";
 }
