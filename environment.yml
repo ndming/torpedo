@@ -5,3 +5,9 @@ channels:
 dependencies:
   - cmake=3.29
   - clangdev=19.1.7
+  - libvulkan-headers=1.4.304
+  - libvulkan-loader=1.4.304
+  - lld=19.1.7
+  - ninja
+  - shaderc=2023.7
+  - vulkan-memory-allocator=3.1

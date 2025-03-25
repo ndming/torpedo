@@ -29,7 +29,7 @@ endfunction()
 
 # tordemo samples
 add_subdirectory(HelloTriangle)
-add_subdirectory(PhongCube)
-add_subdirectory(TexturedCube)
-add_subdirectory(ModelLoading)
+# add_subdirectory(PhongCube)
+# add_subdirectory(TexturedCube)
+# add_subdirectory(ModelLoading)
 add_subdirectory(HelloGaussian)

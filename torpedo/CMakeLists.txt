@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # TORPEDO BACKEND AND TOOLS
 # -------------------------
-find_package(Vulkan REQUIRED)
+find_package(Vulkan 1.4 REQUIRED)
 
 
 # UTILITY FUNCTION FOR DEFINING A SUB-PROJECT MODULE
