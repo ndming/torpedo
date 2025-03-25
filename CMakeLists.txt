@@ -14,7 +14,7 @@ message(STATUS "Configuring for ${CMAKE_BUILD_TYPE} build")
 
 # Build demo targets by default for Debug build
 if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT TORPEDO_BUILD_DEMO)
-    set(TORPEDO_BUILD_DEMO ON BOOL "Build Torpedo demo targets")
+    set(TORPEDO_BUILD_DEMO ON)
 endif()
 message(STATUS "Build demo: ${TORPEDO_BUILD_DEMO}")
 message(STATUS "Build pedo: ${TORPEDO_BUILD_PEDO}")

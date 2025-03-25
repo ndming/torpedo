@@ -26,20 +26,38 @@ tpd::PhysicalDeviceSelection tpd::PhysicalDeviceSelector::select(
     };
 
     auto selection = PhysicalDeviceSelection{};
-
-    if (const auto found = std::ranges::find_if(physicalDevices, suitable); found != physicalDevices.end()) {
-        selection.physicalDevice = *found;
-
+    auto suitableIntegratedDevice = -1;
+    for (auto i = 0; i < static_cast<int>(physicalDevices.size()); ++i) {
+        if (!suitable(physicalDevices[i])) {
+            continue;
+        }
+        // Found a suitable integrated GPU, but there could be more powerful discrete GPUs waiting down the line
+        if (physicalDevices[i].getProperties().deviceType != vk::PhysicalDeviceType::eDiscreteGpu) {
+            suitableIntegratedDevice = i;
+            continue;
+        }
+        // Found a discrete GPU
+        selection.physicalDevice = physicalDevices[i];
         const auto [graphicsFamily, transferFamily, presentFamily, computeFamily] = findQueueFamilies(selection.physicalDevice);
         if (_requestGraphicsQueueFamily) selection.graphicsQueueFamilyIndex = graphicsFamily.value();
         /* always request transfer */    selection.transferQueueFamilyIndex = transferFamily.value();
         if (_requestPresentQueueFamily)  selection.presentQueueFamilyIndex  = presentFamily.value();
         if (_requestComputeQueueFamily)  selection.computeQueueFamilyIndex  = computeFamily.value();
-    } else [[unlikely]] {
+        return selection;
+    }
+
+    // No suitable GPU found
+    if (suitableIntegratedDevice == -1) [[unlikely]] {
         throw std::runtime_error(
             "PhysicalDeviceSelector - Failed to find a suitable device, consider requesting less extensions and features");
     }
-
+    // Fall back to the suitable integrated GPU
+    selection.physicalDevice = physicalDevices[suitableIntegratedDevice];
+    const auto [graphicsFamily, transferFamily, presentFamily, computeFamily] = findQueueFamilies(selection.physicalDevice);
+    if (_requestGraphicsQueueFamily) selection.graphicsQueueFamilyIndex = graphicsFamily.value();
+    /* always request transfer */    selection.transferQueueFamilyIndex = transferFamily.value();
+    if (_requestPresentQueueFamily)  selection.presentQueueFamilyIndex  = presentFamily.value();
+    if (_requestComputeQueueFamily)  selection.computeQueueFamilyIndex  = computeFamily.value();
     return selection;
 }
 
