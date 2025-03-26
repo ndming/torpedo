@@ -10,4 +10,4 @@ namespace tpd::rendering {
     [[nodiscard]] std::string toString(vk::ColorSpaceKHR colorSpace);
     [[nodiscard]] std::string toString(vk::Extent2D extent);
     [[nodiscard]] std::string toString(vk::PresentModeKHR presentMode);
-}
+}  // namespace tpd::rendering

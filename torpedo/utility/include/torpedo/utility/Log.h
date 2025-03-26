@@ -20,4 +20,4 @@ namespace tpd::utils {
     inline void logError(const std::string_view message) {
         PLOGE << message.data();
     }
-}
+}  // namespace tpd::utils

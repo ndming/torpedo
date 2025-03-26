@@ -7,18 +7,19 @@ namespace tpd {
     public:
         /**
          * Specifies which Vulkan features to enable when creating the device. The passed in pointer must remain valid
-         * before DeviceBuilder::build returns.
+         * before `DeviceBuilder::build` returns.
          *
-         * @param features a pointer to vk::PhysicalDeviceFeatures2 which may have chaining structures through pNext.
-         * @return this object for chaining calls.
+         * @param features a pointer to `vk::PhysicalDeviceFeatures2` which may have chaining structures through `pNext`.
+         * @return `this` object for chaining calls.
          */
         DeviceBuilder& deviceFeatures(vk::PhysicalDeviceFeatures2* features) noexcept;
 
         /**
          * Specifies queue family indices involved in the creation of the device. The indices may be provided in
          * any other and can be duplicated. The builder makes sure to derive a unique set of indices.
+         *
          * @param families a list of queue family indices.
-         * @return this object for chaining calls.
+         * @return `this` object for chaining calls.
          */
         DeviceBuilder& queueFamilyIndices(std::initializer_list<uint32_t> families);
 
@@ -36,4 +37,4 @@ namespace tpd {
         std::array<vk::DeviceQueueCreateInfo, MAX_UNIQUE_FAMILIES> _queueInfos{};
         uint32_t _queueInfoCount{ 0 };
     };
-}
+}  // namespace tpd

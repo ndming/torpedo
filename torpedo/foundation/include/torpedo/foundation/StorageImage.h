@@ -46,10 +46,7 @@ namespace tpd {
         void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept override;
         void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept override;
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline tpd::StorageImage::Builder& tpd::StorageImage::Builder::extent(const uint32_t width, const uint32_t height, const uint32_t depth) noexcept {
     _w = width;

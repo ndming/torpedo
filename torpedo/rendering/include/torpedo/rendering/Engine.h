@@ -106,10 +106,7 @@ namespace tpd {
         template<RendererImpl R>
         friend class Context;
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline const tpd::DeviceAllocator& tpd::Engine::getDeviceAllocator() const noexcept {
     return *_deviceAllocator;

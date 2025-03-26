@@ -56,10 +56,7 @@ namespace tpd {
         std::vector<vk::DescriptorSetLayout> _descriptorSetLayouts;
         std::vector<std::vector<vk::DescriptorSetLayoutBinding>> _descriptorSetLayoutBindingLists;
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline tpd::ShaderLayout::Builder& tpd::ShaderLayout::Builder::descriptorSetCount(const uint32_t count) {
     _descriptorSetLayoutBindingLists.resize(count);

@@ -38,10 +38,7 @@ namespace tpd {
         vk::DescriptorPool _descriptorPool{};
         std::vector<vk::DescriptorSet> _descriptorSets{};
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline tpd::ShaderInstance::ShaderInstance(
     const uint32_t perInstanceSetCount, const vk::DescriptorPool descriptorPool,

@@ -33,10 +33,7 @@ namespace tpd {
         float _minLod{ 0.0f };
         float _maxLod{ 0.0f };
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline tpd::SamplerBuilder& tpd::SamplerBuilder::filter(const vk::Filter magnifiedFilter, const vk::Filter minifiedFilter) noexcept {
     _magFilter = magnifiedFilter;

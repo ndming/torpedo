@@ -62,10 +62,7 @@ namespace tpd {
         vk::Extent2D _dims;        // width and height in pixels
         uint32_t _mipLevelsCount;  // including the base mip
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline tpd::Texture::Builder& tpd::Texture::Builder::extent(const uint32_t width, const uint32_t height) noexcept {
     _w = width;

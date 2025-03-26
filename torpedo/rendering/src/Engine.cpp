@@ -78,10 +78,10 @@ void tpd::Engine::init(
     // Create a device allocator
     _deviceAllocator = DeviceAllocator::Builder()
         .flags(VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT | VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT)
-        .vulkanApiVersion(VK_API_VERSION_1_3)
+        .vulkanApiVersion(VK_API_VERSION_1_4)
         .build(instance, _physicalDevice, _device, &_syncResourcePool);
 
-    PLOGI << "Using VMA API version: 1.3";
+    PLOGI << "Using VMA API version: 1.4";
     PLOGD << "VMA created with the following flags (2):";
     PLOGD << " - VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT";
     PLOGD << " - VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT";

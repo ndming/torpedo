@@ -20,10 +20,7 @@ namespace tpd {
 
         void onInitialized() override;
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline const char* tpd::GaussianEngine::getName() const noexcept {
     return "tpd::GaussianEngine";

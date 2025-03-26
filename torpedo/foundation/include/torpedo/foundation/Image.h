@@ -27,10 +27,7 @@ namespace tpd {
         vk::ImageLayout _layout;
         vk::Format _format;
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline tpd::Image::Image(
     const vk::Image image, const vk::ImageLayout layout, const vk::Format format,

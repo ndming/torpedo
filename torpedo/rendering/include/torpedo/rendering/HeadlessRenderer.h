@@ -18,10 +18,7 @@ namespace tpd {
         template<RendererImpl R>
         friend class Context;
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline vk::Extent2D tpd::HeadlessRenderer::getFramebufferSize() const noexcept {
     return _framebufferSize;

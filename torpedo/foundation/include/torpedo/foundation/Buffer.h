@@ -15,10 +15,7 @@ namespace tpd {
     protected:
         vk::Buffer _buffer;
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline tpd::Buffer::Buffer(const vk::Buffer buffer, VmaAllocation allocation, const DeviceAllocator& allocator)
     : Destroyable{ allocation, allocator }, _buffer{ buffer } {

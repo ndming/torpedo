@@ -5,7 +5,7 @@
 #include <plog/Log.h>
 
 #include <mutex>
-#include <queue>
+#include <deque>
 #include <thread>
 
 namespace tpd {
@@ -139,4 +139,4 @@ namespace tpd {
             _queueCondition.notify_one();
         }
     }
-}
+}  // namespace tpd

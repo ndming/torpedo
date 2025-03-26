@@ -15,7 +15,7 @@ namespace tpd {
     private:
 
     };
-}
+}  // namespace tpd
 
 template<tpd::Synchronizable T>
 std::size_t tpd::SyncGroup<T>::getMaxSyncSize() const noexcept {

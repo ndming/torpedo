@@ -23,10 +23,7 @@ namespace tpd {
         static vk::PhysicalDeviceVulkan13Features getVulkan13Features();
         static vk::PhysicalDeviceVulkan12Features getVulkan12Features();
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline const char* tpd::ForwardEngine::getName() const noexcept {
     return "tpd::ForwardEngine";

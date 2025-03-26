@@ -47,3 +47,4 @@ cmake_uninstall.cmake
 
 # VS Code clutter
 .vscode/
+.cache/

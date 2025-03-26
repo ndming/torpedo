@@ -13,4 +13,4 @@ namespace tpd::foundation {
 
     [[nodiscard]] std::string toString(vk::ImageLayout layout);
     [[nodiscard]] std::string toString(vk::Format format);
-}
+}  // namespace tpd::foundation

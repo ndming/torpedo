@@ -112,8 +112,8 @@ void tpd::Context<R>::createInstance(std::vector<const char*>&& instanceExtensio
 #endif
 
     _instance = InstanceBuilder()
-        .applicationVersion(1, 0, 0)
-        .apiVersion(1, 3, 0)
+        .applicationVersion(0, 0, 0)
+        .apiVersion(1, 4, 0)
         .extensions(std::move(instanceExtensions))
 #ifndef NDEBUG
         .debugInfoCallback(torpedoDebugMessengerCallback)
@@ -122,7 +122,7 @@ void tpd::Context<R>::createInstance(std::vector<const char*>&& instanceExtensio
         .build(instanceCreateFlags);
 #endif
 
-    PLOGI << "Using Vulkan API version: 1.3";
+    PLOGI << "Using Vulkan API version: 1.4";
 }
 
 #ifndef NDEBUG
@@ -195,8 +195,9 @@ template<tpd::RendererImpl R>
 template<tpd::EngineImpl E>
 std::unique_ptr<E, tpd::Deleter<E>> tpd::Context<R>::bindEngine() {
     if (!_renderer->_initialized && _renderer->hasSurfaceRenderingSupport()) [[unlikely]] {
-        PLOGW << "Context - Danger! Binding an Engine while the Renderer has never been initialized: "
+        PLOGE << "Context - Danger! Binding an Engine while the associated Renderer has not been initialized: "
                  "the renderer type has surface support, call Context::initRenderer() prior to Engine binding";
+        throw std::runtime_error("Context - Renderer must be initialized before binding an Engine with surface support");
     }
 
     if (_engine && typeid(E) == typeid(*_engine)) [[unlikely]] {
@@ -222,9 +223,9 @@ std::unique_ptr<E, tpd::Deleter<E>> tpd::Context<R>::bindEngine() {
     _engine->_renderer = _renderer;
     _engine->init(_instance, _renderer->getVulkanSurface(), _renderer->getDeviceExtensions());
 
-    // If the renderer has not been initialized yet, chances are the call site wants to defer the window creation phase
-    // to the last minute when the Engine is ready to draw. Therefore, we skip Renderer's initialization here and leave
-    // it to initRenderer
+    // If the renderer has not been initialized yet, chances are the call site wants to defer the renderer creation to
+    // the last minute when the Engine is ready to draw. Therefore, we skip Renderer's initialization here and leave it 
+    // to initRenderer. This only ever happens for renderers without surface rendering support.
     if (_renderer->_initialized) {
         // Inform the renderer about the selected Vulkan resources
         _renderer->_physicalDevice = _engine->_physicalDevice;

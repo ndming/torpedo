@@ -26,10 +26,7 @@ namespace tpd {
     private:
         std::size_t _bufferSize;
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline tpd::StagingBuffer::Builder& tpd::StagingBuffer::Builder::alloc(const std::size_t byteSize, const Alignment alignment) noexcept {
     _bufferSize = byteSize;

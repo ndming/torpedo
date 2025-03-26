@@ -36,10 +36,7 @@ namespace tpd {
         uint32_t _graphicsFamilyIndex{ 0 };
         uint32_t _presentFamilyIndex{ 0 };
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline tpd::SwapChainBuilder& tpd::SwapChainBuilder::desiredSurfaceFormat(
     const vk::Format format,

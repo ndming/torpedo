@@ -40,10 +40,7 @@ namespace tpd {
 
         static bool allLayersAvailable(const std::vector<const char*>& layers);
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline tpd::InstanceBuilder& tpd::InstanceBuilder::applicationVersion(const uint32_t major, const uint32_t minor, const uint32_t patch) noexcept {
     _applicationInfo.applicationVersion = vk::makeApiVersion(0u, major, minor, patch);

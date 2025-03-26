@@ -39,10 +39,7 @@ namespace tpd {
         std::size_t _perBufferSize;
         std::size_t _perAllocSize;
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline tpd::RingBuffer::Builder& tpd::RingBuffer::Builder::count(const uint32_t bufferCount) noexcept {
     _bufferCount = bufferCount;

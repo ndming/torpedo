@@ -101,10 +101,7 @@ namespace tpd {
         vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT _vertexInputDynamicStateFeatures{};
         [[nodiscard]] bool checkVertexInputDynamicStateFeatures(const vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT& features) const;
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::requestGraphicsQueueFamily() noexcept {
     _requestGraphicsQueueFamily = true;

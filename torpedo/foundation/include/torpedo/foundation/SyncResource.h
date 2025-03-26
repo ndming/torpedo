@@ -28,4 +28,4 @@ namespace tpd {
         const std::byte* _data;
         uint32_t _size;
     };
-}
+}  // namespace tpd

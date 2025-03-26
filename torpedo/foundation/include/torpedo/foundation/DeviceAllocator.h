@@ -72,10 +72,7 @@ namespace tpd {
         VmaAllocation _allocation;
         const DeviceAllocator& _allocator;
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline tpd::DeviceAllocator::Builder& tpd::DeviceAllocator::Builder::flags(const VmaAllocatorCreateFlags flags) noexcept {
     _flags = flags;

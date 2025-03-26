@@ -45,10 +45,7 @@ namespace tpd {
         template<RendererImpl R>
         friend class Context;
     };
-}
-
-// INLINE FUNCTION DEFINITIONS
-// ---------------------------
+}  // namespace tpd
 
 inline uint32_t tpd::Renderer::getInFlightFramesCount() const noexcept {
     return 1;
