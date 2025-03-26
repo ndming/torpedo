@@ -55,8 +55,8 @@ namespace tpd {
 
         [[nodiscard]] std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getTransitionDstPoint(vk::ImageLayout newLayout) const override;
 
-        [[nodiscard]] vk::Extent2D getDimensions() const noexcept;
-        [[nodiscard]] uint32_t getMipLevelsCount() const noexcept override;
+        [[nodiscard]] vk::Extent2D getPixelSize() const noexcept;
+        [[nodiscard]] uint32_t getMipLevelCount() const noexcept override;
 
     private:
         vk::Extent2D _dims;        // width and height in pixels
@@ -102,10 +102,10 @@ inline tpd::Texture::Texture(
     , _mipLevelsCount{ mipLevelsCount } {
 }
 
-inline vk::Extent2D tpd::Texture::getDimensions() const noexcept {
-    return _dims;
+inline vk::Extent2D tpd::Texture::getPixelSize() const noexcept { 
+    return _dims; 
 }
 
-inline uint32_t tpd::Texture::getMipLevelsCount() const noexcept {
+inline uint32_t tpd::Texture::getMipLevelCount() const noexcept {
     return _mipLevelsCount;
 }

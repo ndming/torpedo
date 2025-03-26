@@ -9,6 +9,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # -------------------------
 find_package(Vulkan 1.4 REQUIRED)
 
+# Where to look for GLSL compiler
+find_program(GLSL_COMPILER glslc HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
+if(GLSL_COMPILER)
+    message(STATUS "Using GLSL compiler at: ${GLSL_COMPILER}")
+else()
+    message(STATUS "Could NOT find a compiler for GLSL shaders")
+endif()
+
 
 # UTILITY FUNCTION FOR DEFINING A SUB-PROJECT MODULE
 # --------------------------------------------------
@@ -44,11 +52,6 @@ endfunction()
 
 # UTILITY FUNCTION FOR COMPILING GLSL AS PART OF BUILD
 # ----------------------------------------------------
-# Where to look for the compiler
-find_program(GLSL_COMPILER glslc HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
-message(STATUS "Using GLSL compiler at: ${GLSL_COMPILER}")
-
-# GLSL compilation
 function(torpedo_compile_glsl TARGET_NAME SPIR_V_OUTPUT_DIR GLSL_SOURCE_FILES)
     file(MAKE_DIRECTORY ${SPIR_V_OUTPUT_DIR})
 

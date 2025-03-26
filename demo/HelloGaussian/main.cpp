@@ -13,7 +13,10 @@ int main() {
     const auto engine = context->bindEngine<tpd::GaussianEngine>();
 
     renderer->getWindow()->loop([&] {
-
+        if (const auto [valid, image, imageIndex] = renderer->onFrame(); valid) {
+            const auto [primaryBuffer, doneStage] = engine->draw(image);
+            renderer->submitFrame(primaryBuffer, doneStage, imageIndex);
+        }
     });
     engine->waitIdle();
 }
