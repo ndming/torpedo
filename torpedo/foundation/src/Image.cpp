@@ -1,6 +1,25 @@
 #include "torpedo/foundation/Image.h"
 #include "torpedo/foundation/ImageUtils.h"
 
+vk::ImageView tpd::Image::createImageView(
+    const vk::ImageViewType type,
+    const vk::Device device,
+    const vk::ImageViewCreateFlags flags) const
+{
+    auto imageViewInfo = vk::ImageViewCreateInfo{};
+    imageViewInfo.flags = flags;
+    imageViewInfo.image = _image;
+    imageViewInfo.format = _format;
+    imageViewInfo.viewType = type;
+    imageViewInfo.subresourceRange = { getAspectMask(), 0, getMipLevelCount(), 0, vk::RemainingArrayLayers };
+    imageViewInfo.components.r = vk::ComponentSwizzle::eIdentity;
+    imageViewInfo.components.b = vk::ComponentSwizzle::eIdentity;
+    imageViewInfo.components.g = vk::ComponentSwizzle::eIdentity;
+    imageViewInfo.components.a = vk::ComponentSwizzle::eIdentity;
+
+    return device.createImageView(imageViewInfo);
+}
+
 void tpd::Image::recordImageTransition(const vk::CommandBuffer cmd, const vk::ImageLayout newLayout) {
     const auto oldLayout = _layout;
     if (oldLayout == newLayout) {

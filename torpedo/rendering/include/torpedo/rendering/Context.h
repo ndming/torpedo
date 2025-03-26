@@ -113,7 +113,7 @@ void tpd::Context<R>::createInstance(std::vector<const char*>&& instanceExtensio
 
     _instance = InstanceBuilder()
         .applicationVersion(0, 0, 0)
-        .apiVersion(1, 4, 0)
+        .apiVersion(1, 3, 0)
         .extensions(std::move(instanceExtensions))
 #ifndef NDEBUG
         .debugInfoCallback(torpedoDebugMessengerCallback)
@@ -122,7 +122,7 @@ void tpd::Context<R>::createInstance(std::vector<const char*>&& instanceExtensio
         .build(instanceCreateFlags);
 #endif
 
-    PLOGI << "Using Vulkan API version: 1.4";
+    PLOGI << "Using Vulkan API version: 1.3";
 }
 
 #ifndef NDEBUG

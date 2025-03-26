@@ -99,22 +99,36 @@ void tpd::GaussianEngine::onInitialized() {
     PLOGD << " - " << std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR);
     PLOGD << " - " << std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR) / "shaders";
 
-    // Create a target image for each in-flight frame
+    createRenderTargets();
+    createPipelineResources();
+}
+
+void tpd::GaussianEngine::createRenderTargets() {
     const auto targetBuilder = Target::Builder()
         .extent(_renderer->getFramebufferSize())
         .aspect(vk::ImageAspectFlagBits::eColor)
         .format(vk::Format::eR8G8B8A8Unorm)
         .usage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc);
-    
-    for (auto i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
-        _targets.push_back(targetBuilder.build(*_deviceAllocator));
-    }
-    PLOGD << "Number of target images created: " << _targets.size();
 
+    // Create a render target image for each in-flight frame
+    const auto frameCount = _renderer->getInFlightFramesCount();
+    _targets.reserve(frameCount);     // reserve only, so that we can move-construct later with push_back
+    _targetViews.resize(frameCount);  // vk::ImageView can be copied
+
+    for (auto i = 0; i < frameCount; ++i) {
+        _targets.push_back(targetBuilder.build(*_deviceAllocator));
+        _targetViews[i] = _targets[i].createImageView(vk::ImageViewType::e2D, _device);
+    }
+
+    PLOGD << "Number of target images created by " << getName() << ": " << _targets.size();
+}
+
+void tpd::GaussianEngine::createPipelineResources() {
     _shaderLayout = ShaderLayout::Builder(&_engineResourcePool)
         .descriptorSetCount(1)
         .descriptor(0, 0, vk::DescriptorType::eStorageImage, 1, vk::ShaderStageFlagBits::eCompute)
         .buildUnique(_device);
+
     _shaderInstance = _shaderLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
 }
 
@@ -126,6 +140,7 @@ void tpd::GaussianEngine::destroy() noexcept {
         _shaderLayout->destroy(_device);
         _shaderLayout.reset();
 
+        std::ranges::for_each(_targetViews, [this](const auto it) { _device.destroyImageView(it); });
         _targets.clear();
     }
     Engine::destroy();

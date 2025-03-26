@@ -14,7 +14,7 @@ namespace tpd {
 
         void recordImageTransition(vk::CommandBuffer cmd, vk::ImageLayout newLayout);
 
-        [[nodiscard]] vk::Image getVulkanImage() const noexcept;
+        [[nodiscard]] vk::ImageView createImageView(vk::ImageViewType type, vk::Device device, vk::ImageViewCreateFlags flags = {}) const;
 
         void destroy() noexcept override;
         ~Image() noexcept override;
@@ -39,10 +39,6 @@ inline tpd::Image::Image(
     if (!image || !allocation) [[unlikely]] {
         throw std::invalid_argument("Image - vk::Image is in invalid state: consider using a builder");
     }
-}
-
-inline vk::Image tpd::Image::getVulkanImage() const noexcept {
-    return _image;
 }
 
 inline uint32_t tpd::Image::getMipLevelCount() const noexcept {

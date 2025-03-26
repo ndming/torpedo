@@ -26,8 +26,11 @@ namespace tpd {
 
         void onInitialized() override;
 
-        std::pmr::vector<Target> _targets{};
+        void createRenderTargets();
+        std::pmr::vector<Target> _targets{ &_engineResourcePool };
+        std::pmr::vector<vk::ImageView> _targetViews{ &_engineResourcePool };
 
+        void createPipelineResources();
         std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _shaderLayout{};
         std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _shaderInstance{};
 

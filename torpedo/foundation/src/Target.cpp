@@ -67,7 +67,7 @@ void tpd::Target::recordOwnershipRelease(
     barrier.subresourceRange = { _aspects, 0, vk::RemainingMipLevels, 0, vk::RemainingArrayLayers };
     barrier.srcQueueFamilyIndex = srcFamilyIndex;
     barrier.dstQueueFamilyIndex = dstFamilyIndex;
-    // The implementation assumming we're writing to the image in a compute shader
+    // The implementation assuming we're writing to the image in a compute shader
     // and then copying it to the swap chain image for presentation
     barrier.oldLayout = vk::ImageLayout::eGeneral;
     barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;

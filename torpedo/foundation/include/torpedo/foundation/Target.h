@@ -50,7 +50,6 @@ namespace tpd {
         [[nodiscard]] vk::ImageAspectFlags getAspectMask() const noexcept override;
 
         [[nodiscard]] vk::Extent3D getPixelSize() const noexcept;
-        [[nodiscard]] uint32_t getMipLevelCount() const noexcept override;
         [[nodiscard]] vk::ImageTiling getTiling() const noexcept;
 
         void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept override;
@@ -60,7 +59,6 @@ namespace tpd {
         vk::Extent3D _dims;
         vk::ImageAspectFlags _aspects;
         vk::ImageTiling _tiling;
-        uint32_t _mipLevels;
     };
 }  // namespace tpd
 
@@ -134,10 +132,6 @@ inline vk::ImageAspectFlags tpd::Target::getAspectMask() const noexcept {
 
 inline vk::Extent3D tpd::Target::getPixelSize() const noexcept {
     return _dims;
-}
-
-inline uint32_t tpd::Target::getMipLevelCount() const noexcept {
-    return _mipLevels;
 }
 
 inline vk::ImageTiling tpd::Target::getTiling() const noexcept {
