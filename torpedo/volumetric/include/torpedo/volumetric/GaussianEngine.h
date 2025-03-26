@@ -2,6 +2,7 @@
 
 #include <torpedo/rendering/Engine.h>
 #include <torpedo/foundation/Target.h>
+#include <torpedo/foundation/ShaderLayout.h>
 
 namespace tpd {
     class GaussianEngine final : public Engine {
@@ -9,6 +10,8 @@ namespace tpd {
         [[nodiscard]] DrawPackage draw(vk::Image image) const override;
 
         [[nodiscard]] const char* getName() const noexcept override;
+
+        ~GaussianEngine() noexcept override;
 
     private:
         [[nodiscard]] PhysicalDeviceSelection pickPhysicalDevice(
@@ -25,10 +28,17 @@ namespace tpd {
 
         std::pmr::vector<Target> _targets{};
 
+        std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _shaderLayout{};
+        std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _shaderInstance{};
+
         void destroy() noexcept override;
     };
 }  // namespace tpd
 
 inline const char* tpd::GaussianEngine::getName() const noexcept {
     return "tpd::GaussianEngine";
+}
+
+inline tpd::GaussianEngine::~GaussianEngine() noexcept {
+    destroy();
 }

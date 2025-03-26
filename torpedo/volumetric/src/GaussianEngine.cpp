@@ -110,10 +110,22 @@ void tpd::GaussianEngine::onInitialized() {
         _targets.push_back(targetBuilder.build(*_deviceAllocator));
     }
     PLOGD << "Number of target images created: " << _targets.size();
+
+    _shaderLayout = ShaderLayout::Builder(&_engineResourcePool)
+        .descriptorSetCount(1)
+        .descriptor(0, 0, vk::DescriptorType::eStorageImage, 1, vk::ShaderStageFlagBits::eCompute)
+        .buildUnique(_device);
+    _shaderInstance = _shaderLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
 }
 
 void tpd::GaussianEngine::destroy() noexcept {
     if (_initialized) {
+        _shaderInstance->destroy(_device);
+        _shaderInstance.reset();
+
+        _shaderLayout->destroy(_device);
+        _shaderLayout.reset();
+
         _targets.clear();
     }
     Engine::destroy();

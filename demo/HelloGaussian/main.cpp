@@ -13,7 +13,7 @@ int main() {
         const auto renderer = context->initRenderer(1280, 720);
         renderer->getWindow()->setTitle("Hello, Gaussian!");
     
-        auto engine = context->bindEngine<tpd::GaussianEngine>();
+        const auto engine = context->bindEngine<tpd::GaussianEngine>();
     
         renderer->getWindow()->loop([&] {
             if (const auto [valid, image, imageIndex] = renderer->launchFrame(); valid) {
