@@ -36,8 +36,12 @@ namespace tpd {
             uint32_t imageIndex{};
         };
 
-        [[nodiscard]] Presentable onFrame();
-        void submitFrame(vk::CommandBuffer primaryBuffer, vk::PipelineStageFlags2 doneStage, uint32_t imageIndex);
+        [[nodiscard]] Presentable launchFrame();
+        void submitFrame(
+            vk::CommandBuffer buffer, 
+            vk::PipelineStageFlags2 waitStage, 
+            vk::PipelineStageFlags2 doneStage, 
+            uint32_t imageIndex);
 
         [[nodiscard]] const std::unique_ptr<Window, Deleter<Window>>& getWindow() const;
 

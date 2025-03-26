@@ -20,10 +20,10 @@ namespace tpd {
     private:
         vk::ApplicationInfo _applicationInfo{
             "torpedo",
-            vk::makeApiVersion(0, 1, 0, 0),
+            vk::makeApiVersion(0, 0, 0, 0),  // appplication version
             "torpedo",
-            vk::makeApiVersion(0, 1, 0, 0),
-            vk::makeApiVersion(0, 1, 3, 0),
+            vk::makeApiVersion(0, 0, 0, 0),  // engine version
+            vk::makeApiVersion(0, 1, 4, 0),  // api version
         };
 
         using MessageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT;
@@ -44,6 +44,7 @@ namespace tpd {
 
 inline tpd::InstanceBuilder& tpd::InstanceBuilder::applicationVersion(const uint32_t major, const uint32_t minor, const uint32_t patch) noexcept {
     _applicationInfo.applicationVersion = vk::makeApiVersion(0u, major, minor, patch);
+    _applicationInfo.engineVersion      = vk::makeApiVersion(0u, major, minor, patch);
     return *this;
 }
 

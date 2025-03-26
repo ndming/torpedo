@@ -1,5 +1,6 @@
 #include "torpedo/foundation/Texture.h"
 #include "torpedo/foundation/ImageUtils.h"
+#include "vulkan/vulkan.hpp"
 
 tpd::Texture tpd::Texture::Builder::build(const DeviceAllocator& allocator) const {
     auto allocation  = VmaAllocation{};
@@ -204,7 +205,7 @@ void tpd::Texture::recordOwnershipRelease(
 {
     auto barrier = vk::ImageMemoryBarrier2{};
     barrier.image = _image;
-    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelsCount, 0, 1 };
+    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelsCount, 0, vk::RemainingArrayLayers };
     barrier.srcQueueFamilyIndex = srcFamilyIndex;
     barrier.dstQueueFamilyIndex = dstFamilyIndex;
     barrier.srcStageMask  = vk::PipelineStageFlagBits2::eTransfer;  // releasing after image uploading
@@ -222,7 +223,7 @@ void tpd::Texture::recordOwnershipAcquire(
 {
     auto barrier = vk::ImageMemoryBarrier2{};
     barrier.image = _image;
-    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelsCount, 0, 1 };
+    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelsCount, 0, vk::RemainingArrayLayers };
     barrier.srcQueueFamilyIndex = srcFamilyIndex;
     barrier.dstQueueFamilyIndex = dstFamilyIndex;
     // Without specifying the final layout, this overload assumes
@@ -243,7 +244,7 @@ void tpd::Texture::recordOwnershipRelease(
 {
     auto barrier = vk::ImageMemoryBarrier2{};
     barrier.image = _image;
-    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelsCount, 0, 1 };
+    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelsCount, 0, vk::RemainingArrayLayers };
     barrier.srcQueueFamilyIndex = srcFamilyIndex;
     barrier.dstQueueFamilyIndex = dstFamilyIndex;
     barrier.oldLayout = _layout;
@@ -265,7 +266,7 @@ void tpd::Texture::recordOwnershipAcquire(
     const auto [dstStageMask, dstAccessMask] = getTransitionDstPoint(finalLayout);
     auto barrier = vk::ImageMemoryBarrier2{};
     barrier.image = _image;
-    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelsCount, 0, 1 };
+    barrier.subresourceRange = { getAspectMask(), 0, _mipLevelsCount, 0, vk::RemainingArrayLayers };
     barrier.srcQueueFamilyIndex = srcFamilyIndex;
     barrier.dstQueueFamilyIndex = dstFamilyIndex;
     barrier.oldLayout = _layout;

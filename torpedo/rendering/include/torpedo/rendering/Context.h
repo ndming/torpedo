@@ -239,6 +239,10 @@ std::unique_ptr<E, tpd::Deleter<E>> tpd::Context<R>::bindEngine() {
     // This means the Engine is ready to draw frames
     _engine->_initialized = true;
 
+    // Tell Engine's implementations to init their resources. This step should be called after Renderer::engineInit()
+    // since downstream may query infos relating to the Renderer's resources (i.e. swap chain resolutions)
+    _engine->onInitialized();
+
     return std::unique_ptr<E, Deleter<E>>(engine, Deleter<E>{ &_contextPool });
 }
 

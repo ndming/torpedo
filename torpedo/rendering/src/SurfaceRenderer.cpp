@@ -9,7 +9,6 @@
 #include <plog/Log.h>
 
 #include <chrono>
-#include <iostream>
 #include <ranges>
 
 tpd::SurfaceRenderer::Window::Window(const vk::Extent2D initialFramebufferSize) {
@@ -103,7 +102,7 @@ static constexpr auto surfaceExtensions = std::array {
     "VK_KHR_android_surface",
 };
 #else
-PLOGI << "Detected no surface capability support, prefer working with tpd::HeadlessRenderer";
+PLOGI << "Detected no surface capability support, how about working with tpd::HeadlessRenderer?";
 static constexpr auto surfaceExtensions = std::array<const char*, 0>{};
 #endif
 
@@ -175,7 +174,7 @@ void tpd::SurfaceRenderer::framebufferResizeCallback(GLFWwindow* window, [[maybe
 
 vk::Extent2D tpd::SurfaceRenderer::getFramebufferSize() const noexcept {
     if (!_engineInitialized) [[unlikely]] {
-        PLOGW << "tpd::SurfaceRenderer - Requesting framebuffer size from a Renderer associated with an unbounded Context: "
+        PLOGW << "tpd::SurfaceRenderer - Requesting framebuffer size from a Renderer associated with an unbound Context: "
                  "the framebuffer size is undefined and should only be queried after the Context::bindEngine() call";
     }
     return _swapChainImageExtent;
@@ -278,7 +277,7 @@ void tpd::SurfaceRenderer::createSyncPrimitives() {
     }
 }
 
-tpd::SurfaceRenderer::Presentable tpd::SurfaceRenderer::onFrame() {
+tpd::SurfaceRenderer::Presentable tpd::SurfaceRenderer::launchFrame() {
     auto frameData = Presentable{};
 
     using limits = std::numeric_limits<uint64_t>;
@@ -323,25 +322,26 @@ bool tpd::SurfaceRenderer::acquireSwapChainImage(const vk::Semaphore semaphore, 
 }
 
 void tpd::SurfaceRenderer::submitFrame(
-    const vk::CommandBuffer primaryBuffer,
+    const vk::CommandBuffer buffer,
+    const vk::PipelineStageFlags2 waitStage,
     const vk::PipelineStageFlags2 doneStage,
     const uint32_t imageIndex)
 {
     auto bufferInfo = vk::CommandBufferSubmitInfo{};
-    bufferInfo.commandBuffer = primaryBuffer;
+    bufferInfo.commandBuffer = buffer;
     bufferInfo.deviceMask    = 0b1;
 
     auto waitInfo = vk::SemaphoreSubmitInfo{};
     waitInfo.semaphore = _syncs[_currentFrame].imageReady;
-    waitInfo.stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
+    waitInfo.stageMask = waitStage;
     waitInfo.deviceIndex = 0;  // synchronize across GPUs
     waitInfo.value = 1;        // for timeline semaphores
 
-    auto signalInfo = vk::SemaphoreSubmitInfo{};
-    signalInfo.semaphore = _syncs[_currentFrame].renderDone;
-    signalInfo.stageMask = doneStage;
-    signalInfo.deviceIndex = 0;  // synchronize across GPUs
-    signalInfo.value = 1;        // for timeline semaphores
+    auto doneInfo = vk::SemaphoreSubmitInfo{};
+    doneInfo.semaphore = _syncs[_currentFrame].renderDone;
+    doneInfo.stageMask = doneStage;
+    doneInfo.deviceIndex = 0;  // synchronize across GPUs
+    doneInfo.value = 1;        // for timeline semaphores
 
     auto submitInfo = vk::SubmitInfo2{};
     submitInfo.commandBufferInfoCount = 1;
@@ -349,7 +349,7 @@ void tpd::SurfaceRenderer::submitFrame(
     submitInfo.waitSemaphoreInfoCount = 1;
     submitInfo.pWaitSemaphoreInfos = &waitInfo;
     submitInfo.signalSemaphoreInfoCount = 1;
-    submitInfo.pSignalSemaphoreInfos = &signalInfo;
+    submitInfo.pSignalSemaphoreInfos = &doneInfo;
 
     _graphicsQueue.submit2(submitInfo, _syncs[_currentFrame].frameDrawFence);
     presentSwapChainImage(imageIndex, _syncs[_currentFrame].renderDone);

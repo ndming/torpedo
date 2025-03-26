@@ -60,6 +60,20 @@ namespace tpd {
         Destroyable(const Destroyable&) = delete;
         Destroyable& operator=(const Destroyable&) = delete;
 
+        Destroyable(Destroyable&& other) noexcept
+            : _allocation{ other._allocation }, _allocator{ other._allocator } {
+            other._allocation = nullptr;
+        }
+
+        Destroyable& operator=(Destroyable&& other) noexcept {
+            if (this != &other) {
+                Destroyable::destroy();
+                _allocation = other._allocation;
+                other._allocation = nullptr;
+            }
+            return *this;
+        }
+
         virtual void destroy() noexcept {
             _allocation = nullptr;
         }

@@ -3,6 +3,7 @@
 #include "torpedo/rendering/Renderer.h"
 #include "torpedo/rendering/DeletionWorker.h"
 #include "torpedo/rendering/SyncGroup.h"
+#include "vulkan/vulkan_handles.hpp"
 
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
 #include <torpedo/foundation/StagingBuffer.h>
@@ -21,13 +22,12 @@ namespace tpd {
         Engine& operator=(const Engine&) = delete;
 
         struct DrawPackage {
-            vk::CommandBuffer primaryBuffer;
+            vk::CommandBuffer buffer;
+            vk::PipelineStageFlags2 waitStage;
             vk::PipelineStageFlags2 doneStage;
         };
 
         [[nodiscard]] virtual DrawPackage draw(vk::Image image) const = 0;
-
-        [[nodiscard]] const DeviceAllocator& getDeviceAllocator() const noexcept;
 
         void waitIdle() const noexcept;
 
@@ -71,7 +71,7 @@ namespace tpd {
         vk::CommandPool _graphicsCommandPool{};
         vk::CommandPool _transferCommandPool{};
 
-        std::pmr::unsynchronized_pool_resource _syncResourcePool{};
+        std::pmr::synchronized_pool_resource _syncResourcePool{};
         DeletionWorker<StagingBuffer> _stagingDeletionQueue{ &_syncResourcePool, _syncWorkCommandPoolMutex, "TransferCleanup" };
 
     protected:
@@ -82,7 +82,8 @@ namespace tpd {
         DeviceAllocatorType _deviceAllocator{};  // must be declared after _syncResourcePool
 
         [[nodiscard]] virtual const char* getName() const noexcept;
-        virtual void onInitialized() {}
+        virtual void onInitialized() {}  // called by Context, not Engine base
+        std::pmr::unsynchronized_pool_resource _engineResourcePool{};
 
         virtual void destroy() noexcept;
 
@@ -107,10 +108,6 @@ namespace tpd {
         friend class Context;
     };
 }  // namespace tpd
-
-inline const tpd::DeviceAllocator& tpd::Engine::getDeviceAllocator() const noexcept {
-    return *_deviceAllocator;
-}
 
 inline void tpd::Engine::waitIdle() const noexcept {
     _device.waitIdle();

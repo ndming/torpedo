@@ -1,11 +1,36 @@
 #include "torpedo/volumetric/GaussianEngine.h"
 
 #include <torpedo/bootstrap/DeviceBuilder.h>
+#include <torpedo/foundation/ImageUtils.h>
 
 #include <filesystem>
 
 tpd::Engine::DrawPackage tpd::GaussianEngine::draw(const vk::Image image) const {
-    return {};
+    const auto currentFrame = _renderer->getCurrentDrawingFrame();
+    const auto buffer = _drawingCommandBuffers[currentFrame];
+
+    buffer.reset();
+    buffer.begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+
+    // TODO: transition to a more optimal layout...
+    foundation::recordLayoutTransition(
+        buffer, image, vk::ImageAspectFlagBits::eColor, 1,
+        vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral);
+
+    constexpr auto clearValue = vk::ClearColorValue{ std::array{ 0.0f, 0.0f, 1.0f, 1.0f } };
+    constexpr auto clearRange = vk::ImageSubresourceRange{
+        vk::ImageAspectFlagBits::eColor, 0, vk::RemainingMipLevels, 0, vk::RemainingArrayLayers };
+
+    // TODO: ... then update this line
+    buffer.clearColorImage(image, vk::ImageLayout::eGeneral, clearValue, clearRange);
+
+    // TODO: ... and this line too
+    foundation::recordLayoutTransition(
+        buffer, image, vk::ImageAspectFlagBits::eColor, 1,
+        vk::ImageLayout::eGeneral, vk::ImageLayout::ePresentSrcKHR);
+
+    buffer.end();
+    return { buffer, vk::PipelineStageFlagBits2::eAllGraphics };
 }
 
 tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
@@ -14,19 +39,30 @@ tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
     const vk::SurfaceKHR surface) const
 {
     auto selector = PhysicalDeviceSelector()
-        .requestComputeQueueFamily();
+        .requestComputeQueueFamily()
+        .featuresVulkan13(getVulkan13Features());
 
-    const auto requestingPresentFamily = static_cast<VkSurfaceKHR>(surface) != VK_NULL_HANDLE;
-    if (requestingPresentFamily) {
+    if (_renderer->hasSurfaceRenderingSupport()) {
+        selector.requestGraphicsQueueFamily();
         selector.requestPresentQueueFamily(surface);
     }
 
-    const auto selection = selector.select(instance, deviceExtensions);
+    auto selection = selector.select(instance, deviceExtensions);
+
+    // Modify the queue family indices to minimize queue ownership transfer operations
+    if (_renderer->hasSurfaceRenderingSupport()) {
+        // We found a distinct transfer queue, but since we're not going to use graphics much,
+        // we can set transfer to graphics and avoid an additional ownership transfer to present 
+        if (selection.graphicsQueueFamilyIndex == selection.presentQueueFamilyIndex &&
+            selection.transferQueueFamilyIndex != selection.graphicsQueueFamilyIndex) {
+            selection.transferQueueFamilyIndex = selection.graphicsQueueFamilyIndex;
+        }
+    }
 
     PLOGD << "Queue family indices selected:";
     PLOGD << " - Transfer: " << selection.transferQueueFamilyIndex;
     PLOGD << " - Compute:  " << selection.computeQueueFamilyIndex;
-    if (requestingPresentFamily) {
+    if (_renderer->hasSurfaceRenderingSupport()) {
         PLOGD << " - Present:  " << selection.presentQueueFamilyIndex;
     }
 
@@ -37,13 +73,48 @@ vk::Device tpd::GaussianEngine::createDevice(
     const std::vector<const char*>& deviceExtensions,
     const std::initializer_list<uint32_t> queueFamilyIndices) const
 {
+    auto deviceFeatures = vk::PhysicalDeviceFeatures2{};
+    auto featuresVulkan13 = getVulkan13Features();
+
+    deviceFeatures.pNext = &featuresVulkan13;
+
+    // Remember to update the count number at the end of the first message should more features are added
+    PLOGD << "Device features requested by " << getName() << " (1):";
+    PLOGD << " - Vulkan13Features: synchronization2";
+
     return DeviceBuilder()
+        .deviceFeatures(&deviceFeatures)
         .queueFamilyIndices(queueFamilyIndices)
         .build(_physicalDevice, deviceExtensions);
 }
 
+vk::PhysicalDeviceVulkan13Features tpd::GaussianEngine::getVulkan13Features() {
+    auto features = vk::PhysicalDeviceVulkan13Features();
+    features.synchronization2 = true;
+    return features;
+}
+
 void tpd::GaussianEngine::onInitialized() {
-    PLOGD << "Assets directories used by tpd::GaussianEngine:";
+    PLOGD << "Assets directories used by " << getName() << ':';
     PLOGD << " - " << std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR);
     PLOGD << " - " << std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR) / "shaders";
+
+    // Create a target image for each in-flight frame
+    const auto targetBuilder = Target::Builder()
+        .extent(_renderer->getFramebufferSize())
+        .aspect(vk::ImageAspectFlagBits::eColor)
+        .format(vk::Format::eR8G8B8A8Unorm)
+        .usage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc);
+    
+    for (auto i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
+        _targets.push_back(targetBuilder.build(*_deviceAllocator));
+    }
+    PLOGD << "Number of target images created: " << _targets.size();
+}
+
+void tpd::GaussianEngine::destroy() noexcept {
+    if (_initialized) {
+        _targets.clear();
+    }
+    Engine::destroy();
 }

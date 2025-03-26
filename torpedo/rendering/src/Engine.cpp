@@ -35,18 +35,6 @@ void tpd::Engine::init(
     _computeQueue  = _device.getQueue(_computeFamilyIndex, 0);
 
 #ifndef NDEBUG
-    auto asyncOperations = 0;
-    if (_graphicsFamilyIndex != _transferFamilyIndex) asyncOperations++;
-    if (_graphicsFamilyIndex != _computeFamilyIndex)  asyncOperations++;
-    const auto countStr = asyncOperations == 0 ? "none)" : std::to_string(asyncOperations) + "):";
-    PLOGD << "Async operations supported by the device (" << countStr;
-    if (_graphicsFamilyIndex != _transferFamilyIndex) {
-        PLOGD << "- Transfer";
-    }
-    if (_graphicsFamilyIndex != _computeFamilyIndex) {
-        PLOGD << "- Compute";
-    }
-
     bootstrap::setVulkanObjectName(
         static_cast<VkPhysicalDevice>(_physicalDevice), vk::ObjectType::ePhysicalDevice,
         getName() + std::string{ " - PhysicalDevice" }, instance, _device);
@@ -73,21 +61,18 @@ void tpd::Engine::init(
 
     // Drawing command buffers used by downstream
     createDrawingCommandBuffers();
-    PLOGD << "Number of drawing command buffers created: " << _drawingCommandBuffers.size();
+    PLOGD << "Number of drawing command buffers created by " << Engine::getName() << ": " << _drawingCommandBuffers.size();
 
     // Create a device allocator
     _deviceAllocator = DeviceAllocator::Builder()
         .flags(VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT | VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT)
-        .vulkanApiVersion(VK_API_VERSION_1_4)
+        .vulkanApiVersion(VK_API_VERSION_1_3)
         .build(instance, _physicalDevice, _device, &_syncResourcePool);
 
-    PLOGI << "Using VMA API version: 1.4";
+    PLOGI << "Using VMA API version: 1.3";
     PLOGD << "VMA created with the following flags (2):";
     PLOGD << " - VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT";
     PLOGD << " - VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT";
-
-    // Tell downstream to init their resources
-    onInitialized();
 }
 
 std::vector<const char*> tpd::Engine::getDeviceExtensions() const {
@@ -107,8 +92,7 @@ tpd::PhysicalDeviceSelection tpd::Engine::pickPhysicalDevice(
     auto selector = PhysicalDeviceSelector()
         .requestComputeQueueFamily();
 
-    const auto requestingPresentFamily = static_cast<VkSurfaceKHR>(surface) != VK_NULL_HANDLE;
-    if (requestingPresentFamily) {
+    if (_renderer->hasSurfaceRenderingSupport()) {
         selector.requestPresentQueueFamily(surface);
     }
 
@@ -116,7 +100,7 @@ tpd::PhysicalDeviceSelection tpd::Engine::pickPhysicalDevice(
     PLOGD << "Queue family indices selected:";
     PLOGD << " - Graphics: " << selection.graphicsQueueFamilyIndex;
     PLOGD << " - Transfer: " << selection.transferQueueFamilyIndex;
-    if (requestingPresentFamily) {
+    if (_renderer->hasSurfaceRenderingSupport()) {
         PLOGD << " - Present:  " << selection.presentQueueFamilyIndex;
     }
 

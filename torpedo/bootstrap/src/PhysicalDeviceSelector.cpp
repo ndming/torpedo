@@ -84,6 +84,13 @@ tpd::PhysicalDeviceSelector::QueueFamilyIndices tpd::PhysicalDeviceSelector::fin
     auto foundAsyncTransfer = false;
     auto foundAsyncCompute  = false;
 
+    // > From the spec: if an implementation exposes any queue family that supports graphics operations, at least one queue 
+    // family of at least one physical device exposed by the implementation must support both graphics and compute operations.
+    // > Also from the spec: All commands that are allowed on a queue that supports transfer operations are also allowed 
+    // on a queue that supports either graphics or compute operations thus if the capabilities of a queue family 
+    // include VK_QUEUE_GRAPHICS_BIT or VK_QUEUE_COMPUTE_BIT then reporting the VK_QUEUE_TRANSFER_BIT capability 
+    // separately for that queue family is optional.
+
     for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
         // This may or may not be a distinct transfer family, we overwrite any previously set value
         // to favor async transfer, even if the call site didn't explicitly request for one

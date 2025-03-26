@@ -12,7 +12,7 @@ void tpd::Image::recordImageTransition(const vk::CommandBuffer cmd, const vk::Im
 
     auto barrier = vk::ImageMemoryBarrier2{};
     barrier.image = _image;
-    barrier.subresourceRange = { getAspectMask(), 0, getMipLevelsCount(), 0, 1 };
+    barrier.subresourceRange = { getAspectMask(), 0, getMipLevelCount(), 0, 1 };
     barrier.oldLayout = oldLayout;
     barrier.newLayout = newLayout;
     barrier.srcStageMask = srcStage;

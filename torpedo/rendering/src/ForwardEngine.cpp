@@ -1,5 +1,6 @@
 #include "torpedo/rendering/ForwardEngine.h"
 #include "torpedo/rendering/Utils.h"
+#include "vulkan/vulkan_enums.hpp"
 
 #include <torpedo/bootstrap/DeviceBuilder.h>
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
@@ -100,5 +101,5 @@ tpd::Engine::DrawPackage tpd::ForwardEngine::draw(const vk::Image image) const {
         vk::ImageLayout::eGeneral, vk::ImageLayout::ePresentSrcKHR);
 
     buffer.end();
-    return { buffer, vk::PipelineStageFlagBits2::eAllGraphics };
+    return { buffer, vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::PipelineStageFlagBits2::eAllGraphics };
 }

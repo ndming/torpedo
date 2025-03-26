@@ -8,6 +8,22 @@ namespace tpd {
         SyncResource(const SyncResource&) = delete;
         SyncResource& operator=(const SyncResource&) = delete;
 
+        SyncResource(SyncResource&& other) noexcept
+            : _data{ other._data }, _size{ other._size } {
+            other._data = nullptr;
+            other._size = 0;
+        }
+
+        SyncResource& operator=(SyncResource&& other) noexcept {
+            if (this != &other) {
+                _data = other._data;
+                _size = other._size;
+                other._data = nullptr;
+                other._size = 0;
+            }
+            return *this;
+        }
+
         void setSyncData(const void* data, uint32_t byteSize) noexcept;
         [[nodiscard]] bool hasSyncData() const noexcept;
 
