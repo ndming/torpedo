@@ -1,9 +1,9 @@
 ## Build instructions
 The default [Release build](#release-build) is recommended for consuming the library, while the [Debug build](#debug-build)
-is suitable for library contributors.
+is suitable for experiments.
 
 ### Prerequisites
-There are no perequisite dependencies for building the library on Linux since all dependencies, including Vulkan, 
+There are no prerequisite dependencies for building the library on Linux since all dependencies, including Vulkan, 
 are going to be managed via an isolated `conda` environment.
 
 On Windows, MSVC version `>=19.39` must be installed via Visual Studio (version `>=17.9.7`). The library only needs the VS 
