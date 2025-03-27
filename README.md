@@ -1,6 +1,6 @@
 ## Build instructions
-The default [Release build](#release-build) is recommended for consuming the library, while the [Debug build](#debug-build)
-is suitable for experiments.
+The default [Release build](#release-build) is generally recommended for consuming the library, while the [Debug build](#debug-build)
+is suitable for experiments and extensions.
 
 ### Prerequisites
 There are no prerequisite dependencies for building the library on Linux since all dependencies, including Vulkan, 
