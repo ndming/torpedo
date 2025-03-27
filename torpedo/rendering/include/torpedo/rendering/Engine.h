@@ -22,12 +22,17 @@ namespace tpd {
         Engine& operator=(const Engine&) = delete;
 
         struct DrawPackage {
+            /// Primary draw commands for graphics queue submit
             vk::CommandBuffer buffer;
+            /// At which stage to wait for image from the renderer
             vk::PipelineStageFlags2 waitStage;
+            /// At which stage to signal the renderer that the draw is done
             vk::PipelineStageFlags2 doneStage;
+            // Additional semaphores to wait on (e.g. for async compute)
+            std::vector<std::pair<vk::Semaphore, vk::PipelineStageFlags2>> waits{};
         };
 
-        [[nodiscard]] virtual DrawPackage draw(vk::Image image) const = 0;
+        [[nodiscard]] virtual DrawPackage draw(vk::Image image) = 0;
 
         void waitIdle() const noexcept;
 
@@ -75,15 +80,17 @@ namespace tpd {
         DeletionWorker<StagingBuffer> _stagingDeletionQueue{ &_syncResourcePool, _syncWorkCommandPoolMutex, "TransferCleanup" };
 
     protected:
+        // Keep drawing resources close together
+        std::pmr::unsynchronized_pool_resource _engineResourcePool{};
+        
         void createDrawingCommandBuffers();
-        std::vector<vk::CommandBuffer> _drawingCommandBuffers{};
+        std::pmr::vector<vk::CommandBuffer> _drawingCommandBuffers{ &_engineResourcePool };
 
         using DeviceAllocatorType = std::unique_ptr<DeviceAllocator, Deleter<DeviceAllocator>>;
         DeviceAllocatorType _deviceAllocator{};  // must be declared after _syncResourcePool
 
         [[nodiscard]] virtual const char* getName() const noexcept;
         virtual void onInitialized() {}  // called by Context, not Engine base
-        std::pmr::unsynchronized_pool_resource _engineResourcePool{};
 
         virtual void destroy() noexcept;
 

@@ -47,8 +47,8 @@ namespace tpd {
         void recordBufferTransfer(vk::CommandBuffer cmd, vk::Buffer stagingBuffer, uint32_t mipLevel = 0) const noexcept;
         void recordMipsGeneration(vk::CommandBuffer cmd, vk::PhysicalDevice physicalDevice);
 
-        void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept override;
-        void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept override;
+        void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept;
+        void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept;
 
         void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex, vk::ImageLayout finalLayout) const noexcept;
         void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex, vk::ImageLayout finalLayout) noexcept;

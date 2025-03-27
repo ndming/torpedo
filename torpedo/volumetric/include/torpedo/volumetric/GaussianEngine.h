@@ -7,7 +7,9 @@
 namespace tpd {
     class GaussianEngine final : public Engine {
     public:
-        [[nodiscard]] DrawPackage draw(vk::Image image) const override;
+        void preFramePass();
+
+        [[nodiscard]] DrawPackage draw(vk::Image image) override;
 
         [[nodiscard]] const char* getName() const noexcept override;
 
@@ -34,6 +36,19 @@ namespace tpd {
         std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _shaderLayout{};
         std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _shaderInstance{};
         vk::Pipeline _pipeline{};
+
+        void createComputeCommandPool();
+        vk::CommandPool _computeCommandPool{};
+
+        void createComputeCommandBuffers();
+        std::pmr::vector<vk::CommandBuffer> _computeCommandBuffers{ &_engineResourcePool };
+
+        struct ComputeSync {
+            vk::Semaphore ownershipSemaphore{};
+            vk::Fence computeDrawFence{};
+        };
+        void createComputeSyncs();
+        std::pmr::vector<ComputeSync> _computeSyncs{ &_engineResourcePool };
 
         void destroy() noexcept override;
     };

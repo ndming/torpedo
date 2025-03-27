@@ -206,6 +206,11 @@ void tpd::SurfaceRenderer::createSwapChain() {
     int width, height;
     glfwGetFramebufferSize(_window->_glfwWindow, &width, &height);
 
+    if (_graphicsFamilyIndex != _presentFamilyIndex) {
+        PLOGW << "tpd::SurfaceRenderer - Graphics and Present queues are distinct: "
+                 "this will likely lead to suboptimal performance in some cases";
+    }
+
     const auto swapChain = SwapChainBuilder()
         .desiredSurfaceFormat(vk::Format::eR8G8B8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear)
         .desiredPresentMode(vk::PresentModeKHR::eMailbox)
@@ -322,20 +327,22 @@ bool tpd::SurfaceRenderer::acquireSwapChainImage(const vk::Semaphore semaphore, 
 }
 
 void tpd::SurfaceRenderer::submitFrame(
+    const uint32_t imageIndex,
     const vk::CommandBuffer buffer,
     const vk::PipelineStageFlags2 waitStage,
     const vk::PipelineStageFlags2 doneStage,
-    const uint32_t imageIndex)
+    const std::vector<std::pair<vk::Semaphore, vk::PipelineStageFlags2>>& waitSemaphores)
 {
     auto bufferInfo = vk::CommandBufferSubmitInfo{};
     bufferInfo.commandBuffer = buffer;
     bufferInfo.deviceMask    = 0b1;
 
-    auto waitInfo = vk::SemaphoreSubmitInfo{};
-    waitInfo.semaphore = _syncs[_currentFrame].imageReady;
-    waitInfo.stageMask = waitStage;
-    waitInfo.deviceIndex = 0;  // synchronize across GPUs
-    waitInfo.value = 1;        // for timeline semaphores
+    auto waitInfos = std::vector<vk::SemaphoreSubmitInfo>{};
+    waitInfos.reserve(waitSemaphores.size() + 1);
+    waitInfos.emplace_back(_syncs[_currentFrame].imageReady, 1, waitStage, 0);
+    for (const auto [semaphore, stage] : waitSemaphores) {
+        waitInfos.emplace_back(semaphore, 1, stage, 0);
+    }
 
     auto doneInfo = vk::SemaphoreSubmitInfo{};
     doneInfo.semaphore = _syncs[_currentFrame].renderDone;
@@ -346,8 +353,8 @@ void tpd::SurfaceRenderer::submitFrame(
     auto submitInfo = vk::SubmitInfo2{};
     submitInfo.commandBufferInfoCount = 1;
     submitInfo.pCommandBufferInfos = &bufferInfo;
-    submitInfo.waitSemaphoreInfoCount = 1;
-    submitInfo.pWaitSemaphoreInfos = &waitInfo;
+    submitInfo.waitSemaphoreInfoCount = static_cast<uint32_t>(waitInfos.size());
+    submitInfo.pWaitSemaphoreInfos = waitInfos.data();
     submitInfo.signalSemaphoreInfoCount = 1;
     submitInfo.pSignalSemaphoreInfos = &doneInfo;
 

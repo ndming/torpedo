@@ -37,11 +37,11 @@ namespace tpd {
         };
 
         [[nodiscard]] Presentable launchFrame();
+
         void submitFrame(
-            vk::CommandBuffer buffer, 
-            vk::PipelineStageFlags2 waitStage, 
-            vk::PipelineStageFlags2 doneStage, 
-            uint32_t imageIndex);
+            uint32_t imageIndex, vk::CommandBuffer buffer,
+            vk::PipelineStageFlags2 waitStage, vk::PipelineStageFlags2 doneStage,
+            const std::vector<std::pair<vk::Semaphore, vk::PipelineStageFlags2>>& waitSemaphores = {});
 
         [[nodiscard]] const std::unique_ptr<Window, Deleter<Window>>& getWindow() const;
 

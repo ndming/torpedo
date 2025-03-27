@@ -1,8 +1,4 @@
 #include "torpedo/foundation/Target.h"
-#include "vulkan/vulkan.hpp"
-#include "vulkan/vulkan_enums.hpp"
-#include "vulkan/vulkan_handles.hpp"
-#include <cstdint>
 
 tpd::Target tpd::Target::Builder::build(const DeviceAllocator& allocator) const {
     auto allocation = VmaAllocation{};
@@ -82,7 +78,7 @@ void tpd::Target::recordOwnershipRelease(
 void tpd::Target::recordOwnershipAcquire(
     const vk::CommandBuffer cmd,
     const uint32_t srcFamilyIndex,
-    const uint32_t dstFamilyIndex) const noexcept
+    const uint32_t dstFamilyIndex) noexcept
 {
     auto barrier = vk::ImageMemoryBarrier2{};
     barrier.image = _image;
@@ -99,4 +95,66 @@ void tpd::Target::recordOwnershipAcquire(
     // TODO: consider VK_DEPENDENCY_QUEUE_FAMILY_OWNERSHIP_TRANSFER_USE_ALL_STAGES_BIT_KHR to avoid full pipeline stalls
     const auto dependency = vk::DependencyInfo{}.setImageMemoryBarriers(barrier);
     cmd.pipelineBarrier2(dependency);
+
+    _layout = vk::ImageLayout::eTransferSrcOptimal;
+}
+
+std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Target::getTransitionSrcPoint(const vk::ImageLayout oldLayout) const {
+    using PipelineStage = vk::PipelineStageFlagBits2;
+    using AccessMask    = vk::AccessFlagBits2;
+
+    // Override to provide a more relax transition point, given that Target is designed mainly for compute write
+    using enum vk::ImageLayout;
+    switch (oldLayout) {
+        case eGeneral: return { PipelineStage::eComputeShader, AccessMask::eShaderStorageWrite };
+        default:       return Image::getTransitionSrcPoint(oldLayout);
+    }
+}
+
+std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Target::getTransitionDstPoint(const vk::ImageLayout newLayout) const {
+    using PipelineStage = vk::PipelineStageFlagBits2;
+    using AccessMask    = vk::AccessFlagBits2;
+
+    // Override to provide a more relax transition point, given that Target is designed mainly for compute write
+    using enum vk::ImageLayout;
+    switch (newLayout) {
+        case eGeneral: return { PipelineStage::eComputeShader, AccessMask::eShaderStorageWrite };
+        default:       return Image::getTransitionDstPoint(newLayout);
+    }
+}
+
+void tpd::Target::recordImageCopyFrom(const vk::Image srcImage, const vk::CommandBuffer cmd) const {
+    const auto copyRegion = vk::ImageCopy2{}
+        .setSrcOffset({ 0, 0, 0 })
+        .setDstOffset({ 0, 0, 0 })
+        .setExtent(_dims)
+        // VK_REMAINING_ARRAY_LAYERS is only valid if the maintenance5 feature is enabled
+        .setSrcSubresource({ getAspectMask(), /* mip level */ 0, 0, 1 })
+        .setDstSubresource({ getAspectMask(), /* mip level */ 0, 0, 1 });
+
+    const auto copyInfo = vk::CopyImageInfo2{}
+        .setSrcImage(srcImage)
+        .setSrcImageLayout(vk::ImageLayout::eTransferSrcOptimal)
+        .setDstImage(_image)
+        .setDstImageLayout(_layout)
+        .setRegions(copyRegion);
+    cmd.copyImage2(copyInfo);
+}
+
+void tpd::Target::recordImageCopyTo(const vk::Image dstImage, const vk::CommandBuffer cmd) const {
+    const auto copyRegion = vk::ImageCopy2{}
+        .setSrcOffset({ 0, 0, 0 })
+        .setDstOffset({ 0, 0, 0 })
+        .setExtent(_dims)
+        // VK_REMAINING_ARRAY_LAYERS is only valid if the maintenance5 feature is enabled
+        .setSrcSubresource({ getAspectMask(), /* mip level */ 0, 0, 1 })
+        .setDstSubresource({ getAspectMask(), /* mip level */ 0, 0, 1 });
+
+    const auto copyInfo = vk::CopyImageInfo2{}
+        .setSrcImage(_image)
+        .setSrcImageLayout(_layout)
+        .setDstImage(dstImage)
+        .setDstImageLayout(vk::ImageLayout::eTransferDstOptimal)
+        .setRegions(copyRegion);
+    cmd.copyImage2(copyInfo);
 }

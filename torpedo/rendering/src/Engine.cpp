@@ -135,7 +135,12 @@ void tpd::Engine::createDrawingCommandBuffers() {
     allocInfo.commandPool = _drawingCommandPool;
     allocInfo.level = vk::CommandBufferLevel::ePrimary;
     allocInfo.commandBufferCount = _renderer->getInFlightFramesCount();
-    _drawingCommandBuffers = _device.allocateCommandBuffers(allocInfo);
+
+    auto allocatedBuffers = _device.allocateCommandBuffers(allocInfo);
+    _drawingCommandBuffers.resize(allocatedBuffers.size());
+    for (size_t i = 0; i < allocatedBuffers.size(); ++i) {
+        _drawingCommandBuffers[i] = allocatedBuffers[i];
+    }
 }
 
 vk::CommandBuffer tpd::Engine::beginOneTimeTransfer(const vk::CommandPool commandPool) {

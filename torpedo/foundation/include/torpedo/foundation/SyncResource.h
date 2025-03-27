@@ -30,9 +30,6 @@ namespace tpd {
         [[nodiscard]] const std::byte* getSyncData() const noexcept;
         [[nodiscard]] uint32_t getSyncDataSize() const noexcept;
 
-        virtual void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept = 0;
-        virtual void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept = 0;
-
         virtual ~SyncResource() = default;
 
     protected:

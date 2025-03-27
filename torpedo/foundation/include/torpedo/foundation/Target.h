@@ -52,8 +52,14 @@ namespace tpd {
         [[nodiscard]] vk::Extent3D getPixelSize() const noexcept;
         [[nodiscard]] vk::ImageTiling getTiling() const noexcept;
 
-        void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept override;
-        void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept override;
+        void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept;
+        void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) noexcept;
+
+        [[nodiscard]] std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getTransitionSrcPoint(vk::ImageLayout oldLayout) const override;
+        [[nodiscard]] std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getTransitionDstPoint(vk::ImageLayout newLayout) const override;
+
+        void recordImageCopyFrom(vk::Image srcImage, vk::CommandBuffer cmd) const;
+        void recordImageCopyTo  (vk::Image dstImage, vk::CommandBuffer cmd) const;
 
     private:
         vk::Extent3D _dims;

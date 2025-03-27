@@ -1,6 +1,5 @@
 #include "torpedo/foundation/Texture.h"
 #include "torpedo/foundation/ImageUtils.h"
-#include "vulkan/vulkan.hpp"
 
 tpd::Texture tpd::Texture::Builder::build(const DeviceAllocator& allocator) const {
     auto allocation  = VmaAllocation{};
