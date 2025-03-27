@@ -16,8 +16,14 @@ target_link_libraries(${TARGET} PUBLIC torpedo::rendering)
 
 # SHADER ASSETS
 # -------------
-# Where to look for assets dir, access via TORPEDO_VOLUMETRIC_ASSETS_DIR
-torpedo_define_assets_dir(${TARGET} VOLUMETRIC ${CMAKE_CURRENT_BINARY_DIR})
+# Where to look for assets dir, access (and also return here) via TORPEDO_VOLUMETRIC_ASSETS_DIR
+torpedo_define_assets_dir(${TARGET} VOLUMETRIC ${CMAKE_CURRENT_BINARY_DIR} TORPEDO_VOLUMETRIC_ASSETS_DIR)
+# Shader assets
+set(TORPEDO_VOLUMETRIC_SHADERS
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/3dgs.comp
+)
+torpedo_compile_glsl(${TARGET} "${TORPEDO_VOLUMETRIC_ASSETS_DIR}/shaders" "${TORPEDO_VOLUMETRIC_SHADERS}")
+target_link_libraries(${TARGET} PRIVATE "${TARGET}_spirv_binaries")
 
 
 # CLANG SPECIFICS

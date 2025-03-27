@@ -33,6 +33,7 @@ namespace tpd {
         void createPipelineResources();
         std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _shaderLayout{};
         std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _shaderInstance{};
+        vk::Pipeline _pipeline{};
 
         void destroy() noexcept override;
     };

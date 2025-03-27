@@ -29,8 +29,8 @@ namespace tpd {
             [[nodiscard]] std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> buildUnique(vk::Device device);
 
         private:
-            [[nodiscard]] std::pmr::vector<vk::DescriptorSetLayout> createLayouts(vk::Device device);
-            [[nodiscard]] vk::PipelineLayout createPipelineLayout(vk::Device device, const std::pmr::vector<vk::DescriptorSetLayout>& layouts);
+            [[nodiscard]] std::pmr::vector<vk::DescriptorSetLayout> createLayouts(vk::Device device) const;
+            [[nodiscard]] vk::PipelineLayout createPipelineLayout(vk::Device device, const std::pmr::vector<vk::DescriptorSetLayout>& layouts) const;
             
             std::pmr::memory_resource* _pool;
             std::pmr::vector<std::pmr::vector<vk::DescriptorSetLayoutBinding>> _descriptorSetLayoutBindingLists{ _pool };
@@ -73,7 +73,7 @@ namespace tpd {
             uint32_t firstSetIndex,
             vk::DescriptorPoolCreateFlags flags) const;
 
-        [[nodiscard]] std::pmr::vector<VkDescriptorSet> createDescriptorSets(
+        [[nodiscard]] std::pmr::vector<vk::DescriptorSet> createDescriptorSets(
             vk::Device device,
             vk::DescriptorPool descriptorPool,
             uint32_t firstSetIndex,

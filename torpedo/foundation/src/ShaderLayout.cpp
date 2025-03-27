@@ -15,7 +15,7 @@ std::unique_ptr<tpd::ShaderLayout, tpd::Deleter<tpd::ShaderLayout>> tpd::ShaderL
     return foundation::make_unique<ShaderLayout>(_pool, pipelineLayout, std::move(layouts), std::move(_descriptorSetLayoutBindingLists));
 }
 
-std::pmr::vector<vk::DescriptorSetLayout> tpd::ShaderLayout::Builder::createLayouts(const vk::Device device) {
+std::pmr::vector<vk::DescriptorSetLayout> tpd::ShaderLayout::Builder::createLayouts(const vk::Device device) const {
     // Create one descriptor set layout for each descriptor set
     auto descriptorSetLayouts = std::pmr::vector<vk::DescriptorSetLayout>{ _pool };
     descriptorSetLayouts.resize(_descriptorSetLayoutBindingLists.size());
@@ -37,7 +37,7 @@ std::pmr::vector<vk::DescriptorSetLayout> tpd::ShaderLayout::Builder::createLayo
 
 vk::PipelineLayout tpd::ShaderLayout::Builder::createPipelineLayout(
     const vk::Device device,
-    const std::pmr::vector<vk::DescriptorSetLayout>& layouts) 
+    const std::pmr::vector<vk::DescriptorSetLayout>& layouts) const
 {
     auto pipelineLayoutInfo = vk::PipelineLayoutCreateInfo{};
     pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
@@ -108,7 +108,7 @@ vk::DescriptorPool tpd::ShaderLayout::createDescriptorPool(
     return device.createDescriptorPool({ flags, maxSets, poolSizes });
 }
 
-std::pmr::vector<VkDescriptorSet> tpd::ShaderLayout::createDescriptorSets(
+std::pmr::vector<vk::DescriptorSet> tpd::ShaderLayout::createDescriptorSets(
     const vk::Device device,
     const vk::DescriptorPool descriptorPool,
     const uint32_t firstSetIndex,
@@ -118,20 +118,19 @@ std::pmr::vector<VkDescriptorSet> tpd::ShaderLayout::createDescriptorSets(
     // Allocate one descriptor set for each instance
     const auto layouts =  std::views::repeat(_descriptorSetLayouts | std::views::drop(firstSetIndex), instanceCount)
         | std::views::join
-        | std::views::transform([](const auto& it) { return static_cast<VkDescriptorSetLayout>(it); })
         | std::ranges::to<std::vector>();
-    const auto allocInfo = VkDescriptorSetAllocateInfo{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .descriptorPool = descriptorPool,
-        .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
-        .pSetLayouts = layouts.data()
-    };
+    const auto allocInfo = vk::DescriptorSetAllocateInfo{}
+        .setDescriptorPool(descriptorPool)
+        .setSetLayouts(layouts);
 
-    // Use the C-API to allocate descriptor sets into a vector with a custom memory resource
-    auto descriptorSets = std::pmr::vector<VkDescriptorSet>{ pool };
+    const auto allocatedSets = device.allocateDescriptorSets(allocInfo);
+
+    // Copy the allocated sets to the vector allocated with a custom memory resource
+    auto descriptorSets = std::pmr::vector<vk::DescriptorSet>{ pool };
     descriptorSets.resize(layouts.size());
-    vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data());
-
+    for (uint32_t i = 0; i < layouts.size(); i++) {
+        descriptorSets[i] = allocatedSets[i];
+    }
     return descriptorSets;
 }
 

@@ -16,12 +16,12 @@ namespace tpd {
         ShaderInstance(
             vk::DescriptorPool descriptorPool,
             uint32_t setCountPerInstance,
-            std::pmr::vector<VkDescriptorSet>&& descriptorSets) noexcept;
+            std::pmr::vector<vk::DescriptorSet>&& descriptorSets) noexcept;
 
         ShaderInstance(const ShaderInstance&) = delete;
         ShaderInstance& operator=(const ShaderInstance&) = delete;
 
-        [[nodiscard]] std::span<const VkDescriptorSet> getDescriptorSets(uint32_t instance) const noexcept;
+        [[nodiscard]] std::span<const vk::DescriptorSet> getDescriptorSets(uint32_t instance) const noexcept;
 
         void setDescriptors(
             uint32_t instance, uint32_t setIndex, uint32_t binding, vk::DescriptorType type, vk::Device device,
@@ -41,20 +41,20 @@ namespace tpd {
         // The number of descriptor sets per instance
         uint32_t _setCountPerInstance{ 0 };
         // Descriptor sets for all instances are flattened into a single vector
-        std::pmr::vector<VkDescriptorSet> _descriptorSets{};
+        std::pmr::vector<vk::DescriptorSet> _descriptorSets{};
     };
 }  // namespace tpd
 
 inline tpd::ShaderInstance::ShaderInstance(
     const vk::DescriptorPool descriptorPool, 
     const uint32_t setCountPerInstance,
-    std::pmr::vector<VkDescriptorSet>&& descriptorSets) noexcept
+    std::pmr::vector<vk::DescriptorSet>&& descriptorSets) noexcept
     : _descriptorPool{ descriptorPool }
     , _setCountPerInstance{ setCountPerInstance }
     , _descriptorSets{ std::move(descriptorSets) } {
 }
 
-inline std::span<const VkDescriptorSet> tpd::ShaderInstance::getDescriptorSets(const uint32_t instance) const noexcept {
+inline std::span<const vk::DescriptorSet> tpd::ShaderInstance::getDescriptorSets(const uint32_t instance) const noexcept {
     return empty()
         ? std::span<const VkDescriptorSet>{}
         : std::span{ _descriptorSets.begin() + instance * _setCountPerInstance, _setCountPerInstance };

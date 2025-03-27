@@ -38,7 +38,7 @@ endfunction()
 
 # UTILITY FUNCTION FOR DEFINING A MACRO PATH TO INTERNAL ASSETS DIR
 # -----------------------------------------------------------------
-function(torpedo_define_assets_dir TARGET_NAME MODULE_NAME MODULE_BINARY_DIR)
+function(torpedo_define_assets_dir TARGET_NAME MODULE_NAME MODULE_BINARY_DIR OUT_DIR_PATH)
     if(CMAKE_CONFIGURATION_TYPES)
         # Multi-configuration generators (Visual Studio, Xcode)
         set(ASSETS_DIR_VALUE "${MODULE_BINARY_DIR}/${CMAKE_CFG_INTDIR}/assets")
@@ -47,6 +47,7 @@ function(torpedo_define_assets_dir TARGET_NAME MODULE_NAME MODULE_BINARY_DIR)
         set(ASSETS_DIR_VALUE "${MODULE_BINARY_DIR}/assets")
     endif()
     target_compile_definitions(${TARGET_NAME} PRIVATE TORPEDO_${MODULE_NAME}_ASSETS_DIR=\"${ASSETS_DIR_VALUE}\")
+    set(${OUT_DIR_PATH} "${ASSETS_DIR_VALUE}" PARENT_SCOPE)
 endfunction()
 
 

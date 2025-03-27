@@ -1,7 +1,7 @@
 #include "torpedo/volumetric/GaussianEngine.h"
 
 #include <torpedo/bootstrap/DeviceBuilder.h>
-#include <torpedo/foundation/ImageUtils.h>
+#include <torpedo/bootstrap/ShaderModuleBuilder.h>
 
 #include <filesystem>
 
@@ -10,27 +10,15 @@ tpd::Engine::DrawPackage tpd::GaussianEngine::draw(const vk::Image image) const 
     const auto buffer = _drawingCommandBuffers[currentFrame];
 
     buffer.reset();
-    buffer.begin(vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+    buffer.begin(vk::CommandBufferBeginInfo{});
 
-    // TODO: transition to a more optimal layout...
-    foundation::recordLayoutTransition(
-        buffer, image, vk::ImageAspectFlagBits::eColor, 1,
-        vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral);
-
-    constexpr auto clearValue = vk::ClearColorValue{ std::array{ 0.0f, 0.0f, 1.0f, 1.0f } };
-    constexpr auto clearRange = vk::ImageSubresourceRange{
-        vk::ImageAspectFlagBits::eColor, 0, vk::RemainingMipLevels, 0, vk::RemainingArrayLayers };
-
-    // TODO: ... then update this line
-    buffer.clearColorImage(image, vk::ImageLayout::eGeneral, clearValue, clearRange);
-
-    // TODO: ... and this line too
-    foundation::recordLayoutTransition(
-        buffer, image, vk::ImageAspectFlagBits::eColor, 1,
-        vk::ImageLayout::eGeneral, vk::ImageLayout::ePresentSrcKHR);
+    buffer.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+    buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute, _shaderLayout->getPipelineLayout(),
+        /* first set */ 0, _shaderInstance->getDescriptorSets(currentFrame), {});
 
     buffer.end();
-    return { buffer, vk::PipelineStageFlagBits2::eAllGraphics };
+    return { buffer, vk::PipelineStageFlagBits2::eTransfer, vk::PipelineStageFlagBits2::eCopy  };
 }
 
 tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
@@ -130,10 +118,28 @@ void tpd::GaussianEngine::createPipelineResources() {
         .buildUnique(_device);
 
     _shaderInstance = _shaderLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
+
+    const auto shaderModule = ShaderModuleBuilder()
+        .shader(TORPEDO_VOLUMETRIC_ASSETS_DIR, "3dgs.comp")
+        .build(_device);
+
+    const auto shaderStage = vk::PipelineShaderStageCreateInfo{}
+        .setModule(shaderModule)
+        .setStage(vk::ShaderStageFlagBits::eCompute)
+        .setPName("main");
+
+    const auto pipelineInfo = vk::ComputePipelineCreateInfo{}
+        .setStage(shaderStage)
+        .setLayout(_shaderLayout->getPipelineLayout());
+    _pipeline = _device.createComputePipeline(nullptr, pipelineInfo).value;
+
+    _device.destroyShaderModule(shaderModule);
 }
 
 void tpd::GaussianEngine::destroy() noexcept {
     if (_initialized) {
+        _device.destroyPipeline(_pipeline);
+
         _shaderInstance->destroy(_device);
         _shaderInstance.reset();
 
