@@ -1,6 +1,6 @@
 #include "torpedo/foundation/ShaderInstance.h"
 
-void tpd::ShaderInstance::setDescriptors(
+void tpd::ShaderInstance::setDescriptor(
     const uint32_t instance,
     const uint32_t setIndex,
     const uint32_t binding,
@@ -19,7 +19,7 @@ void tpd::ShaderInstance::setDescriptors(
     device.updateDescriptorSets({ writeDescriptor }, {});
 }
 
-void tpd::ShaderInstance::setDescriptors(
+void tpd::ShaderInstance::setDescriptor(
     const uint32_t instance,
     const uint32_t setIndex,
     const uint32_t binding,
@@ -36,4 +36,15 @@ void tpd::ShaderInstance::setDescriptors(
     writeDescriptor.pImageInfo = imageInfos.data();
 
     device.updateDescriptorSets({ writeDescriptor }, {});
+}
+
+void tpd::ShaderInstance::setDescriptor(
+    const uint32_t instance,
+    const uint32_t setIndex,
+    const uint32_t binding,
+    const vk::DescriptorType type,
+    const vk::Device device,
+    const vk::DescriptorImageInfo& imageInfo) const
+{
+    setDescriptor(instance, setIndex, binding, type, device, std::vector{ imageInfo });
 }

@@ -23,13 +23,17 @@ namespace tpd {
 
         [[nodiscard]] std::span<const vk::DescriptorSet> getDescriptorSets(uint32_t instance) const noexcept;
 
-        void setDescriptors(
+        void setDescriptor(
             uint32_t instance, uint32_t setIndex, uint32_t binding, vk::DescriptorType type, vk::Device device,
             const std::vector<vk::DescriptorBufferInfo>& bufferInfos) const;
 
-        void setDescriptors(
+        void setDescriptor(
             uint32_t instance, uint32_t setIndex, uint32_t binding, vk::DescriptorType type, vk::Device device,
             const std::vector<vk::DescriptorImageInfo>& imageInfos) const;
+        
+        void setDescriptor(
+            uint32_t instance, uint32_t setIndex, uint32_t binding, vk::DescriptorType type, vk::Device device,
+            const vk::DescriptorImageInfo& imageInfo) const;
 
         [[nodiscard]] bool empty() const noexcept;
 
@@ -56,7 +60,7 @@ inline tpd::ShaderInstance::ShaderInstance(
 
 inline std::span<const vk::DescriptorSet> tpd::ShaderInstance::getDescriptorSets(const uint32_t instance) const noexcept {
     return empty()
-        ? std::span<const VkDescriptorSet>{}
+        ? std::span<const vk::DescriptorSet>{}
         : std::span{ _descriptorSets.begin() + instance * _setCountPerInstance, _setCountPerInstance };
 }
 
