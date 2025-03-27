@@ -3,7 +3,7 @@ The default [Release build](#release-build) is generally recommended for consumi
 is suitable for experiments and extensions.
 
 ### Prerequisites
-There are no prerequisite dependencies for building the library on Linux since all dependencies, including Vulkan, 
+There are no prerequisite dependencies for building the library on Linux since all dependencies, including Vulkan and compilers, 
 are going to be managed via an isolated `conda` environment.
 
 On Windows, MSVC version `>=19.39` must be installed via Visual Studio (version `>=17.9.7`). The library only needs the VS 
@@ -19,7 +19,7 @@ conda activate torpedo
 ```
 
 ### Release build
-Configure the build to use Clang and Ninja (clang-tools are installed in the `conda` environment):
+Configure the build to use Clang and Ninja (clang-tools are already included in the `conda` environment):
 ```shell
 cmake -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G Ninja
 ```
@@ -28,7 +28,7 @@ cmake -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G Ninja
 <summary><span style="font-weight: bold;">There are additional CMake options to further fine-tune the configuration</span></summary>
 
 - `-DCMAKE_BUILD_DEMO` (`BOOL`): build demo targets, enabled automatically for Debug build only if not explicitly set on 
-the CLI. For other builds, the option is default to `OFF`, unless explicitly set otherwise on the CLI.
+the CLI. For other builds, the default option is `OFF` unless explicitly set otherwise on the CLI.
 - `-DCMAKE_INSTALL_PREFIX` (`PATH`): automatically set to `CONDA_PREFIX` if such a variable is defined and the option is
 not explicitly set on the CLI. Note that `CONDA_PREFIX` is also defined if a `mamba` environment is activated.
 
@@ -55,7 +55,7 @@ During debug runs, the library requests and enables the `VK_LAYER_KHRONOS_valida
 conda install -c conda-forge lldb=19.1.7 vulkan-validation-layers=1.4.304
 ```
 
-Since we are not using the LunarG SDK, the `VK_LAYER_PATH` environment variable must be set to the directory containing 
+Since we are not using a Vulkan SDK (LunarG), the `VK_LAYER_PATH` environment variable must be set to the directory containing 
 the layers, allowing the Vulkan loader to locate them.
 
 > [!IMPORTANT]
