@@ -163,7 +163,7 @@ void tpd::Engine::endOneTimeTransfer(const vk::CommandBuffer buffer, const vk::F
     _transferQueue.submit(vk::SubmitInfo{ {}, {}, {}, 1, &buffer }, deletionFence);
 }
 
-vk::SemaphoreSubmitInfo tpd::Engine::createOwnershipSemaphoreInfo() const {
+vk::SemaphoreSubmitInfo tpd::Engine::createSyncOwnershipSemaphoreInfo() const {
     const auto ownershipTransferSemaphore = _device.createSemaphore({});
     auto semaphoreInfo = vk::SemaphoreSubmitInfo{};
     semaphoreInfo.semaphore = ownershipTransferSemaphore;
@@ -174,7 +174,7 @@ vk::SemaphoreSubmitInfo tpd::Engine::createOwnershipSemaphoreInfo() const {
     return semaphoreInfo;
 }
 
-void tpd::Engine::endReleaseCommands(const vk::CommandBuffer buffer, const vk::SemaphoreSubmitInfo& semaphoreInfo) const {
+void tpd::Engine::endSyncReleaseCommands(const vk::CommandBuffer buffer, const vk::SemaphoreSubmitInfo& semaphoreInfo) const {
     buffer.end();
 
     auto releaseInfo = vk::CommandBufferSubmitInfo{};
@@ -187,7 +187,7 @@ void tpd::Engine::endReleaseCommands(const vk::CommandBuffer buffer, const vk::S
     _transferQueue.submit2(releaseSubmitInfo);
 }
 
-void tpd::Engine::endAcquireCommands(
+void tpd::Engine::endSyncAcquireCommands(
     const vk::CommandBuffer buffer,
     const vk::SemaphoreSubmitInfo& semaphoreInfo,
     const vk::Fence deletionFence) const
@@ -223,12 +223,12 @@ void tpd::Engine::sync(const StorageBuffer& storageBuffer) {
 
     if (_transferFamilyIndex != _graphicsFamilyIndex) {
         storageBuffer.recordOwnershipRelease(releaseCommand, _transferFamilyIndex, _graphicsFamilyIndex);
-        const auto ownershipSemaphoreInfo = createOwnershipSemaphoreInfo();
-        endReleaseCommands(releaseCommand, ownershipSemaphoreInfo);
+        const auto ownershipSemaphoreInfo = createSyncOwnershipSemaphoreInfo();
+        endSyncReleaseCommands(releaseCommand, ownershipSemaphoreInfo);
 
         const auto acquireCommand = beginOneTimeTransfer(_graphicsCommandPool);
         storageBuffer.recordOwnershipAcquire(acquireCommand, _transferFamilyIndex, _graphicsFamilyIndex);
-        endAcquireCommands(acquireCommand, ownershipSemaphoreInfo, deletionFence);
+        endSyncAcquireCommands(acquireCommand, ownershipSemaphoreInfo, deletionFence);
 
         _stagingDeletionQueue.submit(
             _device, ownershipSemaphoreInfo.semaphore, deletionFence, std::move(stagingBuffer),
@@ -260,12 +260,12 @@ void tpd::Engine::sync(Texture& texture) {
 
     if (_transferFamilyIndex != _graphicsFamilyIndex) {
         texture.recordOwnershipRelease(releaseCommand, _transferFamilyIndex, _graphicsFamilyIndex, TEXTURE_FINAL_LAYOUT);
-        const auto ownershipSemaphoreInfo = createOwnershipSemaphoreInfo();
-        endReleaseCommands(releaseCommand, ownershipSemaphoreInfo);
+        const auto ownershipSemaphoreInfo = createSyncOwnershipSemaphoreInfo();
+        endSyncReleaseCommands(releaseCommand, ownershipSemaphoreInfo);
 
         const auto acquireCommand = beginOneTimeTransfer(_graphicsCommandPool);
         texture.recordOwnershipAcquire(acquireCommand, _transferFamilyIndex, _graphicsFamilyIndex, TEXTURE_FINAL_LAYOUT);
-        endAcquireCommands(acquireCommand, ownershipSemaphoreInfo, deletionFence);
+        endSyncAcquireCommands(acquireCommand, ownershipSemaphoreInfo, deletionFence);
 
         _stagingDeletionQueue.submit(
             _device, ownershipSemaphoreInfo.semaphore, deletionFence, std::move(stagingBuffer),
@@ -297,13 +297,13 @@ void tpd::Engine::syncAndGenMips(Texture& texture) {
 
     if (_transferFamilyIndex != _graphicsFamilyIndex) {
         texture.recordOwnershipRelease(releaseCommand, _transferFamilyIndex, _graphicsFamilyIndex);
-        const auto ownershipSemaphoreInfo = createOwnershipSemaphoreInfo();
-        endReleaseCommands(releaseCommand, ownershipSemaphoreInfo);
+        const auto ownershipSemaphoreInfo = createSyncOwnershipSemaphoreInfo();
+        endSyncReleaseCommands(releaseCommand, ownershipSemaphoreInfo);
 
         const auto acquireCommand = beginOneTimeTransfer(_graphicsCommandPool);
         texture.recordOwnershipAcquire(acquireCommand, _transferFamilyIndex, _graphicsFamilyIndex);
         texture.recordMipsGeneration(releaseCommand, _physicalDevice);  // image is now in shader read optimal layout
-        endAcquireCommands(acquireCommand, ownershipSemaphoreInfo, deletionFence);
+        endSyncAcquireCommands(acquireCommand, ownershipSemaphoreInfo, deletionFence);
 
         _stagingDeletionQueue.submit(
             _device, ownershipSemaphoreInfo.semaphore, deletionFence, std::move(stagingBuffer),

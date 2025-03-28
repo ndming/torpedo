@@ -54,6 +54,9 @@ namespace tpd {
         void createComputeSyncs();
         std::pmr::vector<ComputeSync> _computeSyncs{ &_engineResourcePool };
 
+        void recordComputeDispatchCommands(vk::CommandBuffer cmd, uint32_t currentFrame);
+        void recordCopyToSwapImageCommands(vk::CommandBuffer cmd, vk::Image swapImage, uint32_t currentFrame) const;
+
         void cleanupRenderTargets() noexcept;
         void destroy() noexcept override;
     };

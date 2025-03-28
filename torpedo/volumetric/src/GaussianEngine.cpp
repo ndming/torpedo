@@ -21,20 +21,13 @@ void tpd::GaussianEngine::preFramePass() {
     _device.resetFences(_computeSyncs[currentFrame].computeDrawFence);
     const auto computeDraw = _computeCommandBuffers[currentFrame];
 
+    // Our computeDrawFence ensures that we're not reseting the command buffer while it's still in use
     computeDraw.reset();
     computeDraw.begin(vk::CommandBufferBeginInfo{});
 
-    // Don't perform ownership transfer from graphics -> compute here since we don't care about the old content
-    // Undefined contents will be cleared by the compute shader
-    _targets[currentFrame].recordImageTransition(computeDraw, vk::ImageLayout::eGeneral);
-
-    computeDraw.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
-    computeDraw.bindDescriptorSets(
-        vk::PipelineBindPoint::eCompute, _shaderLayout->getPipelineLayout(),
-        /* first set */ 0, _shaderInstance->getDescriptorSets(currentFrame), {});
-    
-    const auto [w, h, d] = _targets[currentFrame].getPixelSize();
-    computeDraw.dispatch(std::ceil(static_cast<float>(w) / 16.0f), std::ceil(static_cast<float>(h) / 16.0f), 1);
+    // We can safely transition the image layout to General since a Target image ensures proper synchronization
+    // with transfer operations (image copy in graphics), and this synchronization is multi-queue safe
+    recordComputeDispatchCommands(computeDraw, currentFrame);
 
     // Transfer ownership to graphics before submitting to the compute queue
     _targets[currentFrame].recordOwnershipRelease(computeDraw, _computeFamilyIndex, _graphicsFamilyIndex);
@@ -63,49 +56,56 @@ tpd::Engine::DrawPackage tpd::GaussianEngine::draw(const vk::Image image) {
     graphicsDraw.begin(vk::CommandBufferBeginInfo{});
 
     if (_graphicsFamilyIndex == _computeFamilyIndex) {
-        // Old contents from the previous frame will be cleared by the compute shader
-        _targets[currentFrame].recordImageTransition(graphicsDraw, vk::ImageLayout::eGeneral);
-
-        graphicsDraw.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
-        graphicsDraw.bindDescriptorSets(
-            vk::PipelineBindPoint::eCompute, _shaderLayout->getPipelineLayout(),
-            /* first set */ 0, _shaderInstance->getDescriptorSets(currentFrame), {});
-
-        const auto [w, h, d] = _targets[currentFrame].getPixelSize();
-        graphicsDraw.dispatch(std::ceil(static_cast<float>(w) / 16.0f), std::ceil(static_cast<float>(h) / 16.0f), 1);
+        recordComputeDispatchCommands(graphicsDraw, currentFrame);
 
         _targets[currentFrame].recordImageTransition(graphicsDraw, vk::ImageLayout::eTransferSrcOptimal);
-        foundation::recordLayoutTransition(
-            graphicsDraw, image, vk::ImageAspectFlagBits::eColor, 1, 
-            vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
-        _targets[currentFrame].recordImageCopyTo(image, graphicsDraw);
+        recordCopyToSwapImageCommands(graphicsDraw, image, currentFrame);
 
-        foundation::recordLayoutTransition(
-            graphicsDraw, image, vk::ImageAspectFlagBits::eColor, 1, 
-            vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::ePresentSrcKHR);
-        
-        graphicsDraw.end();
         return { graphicsDraw, vk::PipelineStageFlagBits2::eTransfer, vk::PipelineStageFlagBits2::eTransfer, {} };
     }
 
     // Async compute has drawn and released the image in preFramePass, acquire the released image from it
     // A Target image ensures its layout is TransferSrcOptimal after the ownership transfer
     _targets[currentFrame].recordOwnershipAcquire(graphicsDraw, _computeFamilyIndex, _graphicsFamilyIndex);
-
-    foundation::recordLayoutTransition(
-        graphicsDraw, image, vk::ImageAspectFlagBits::eColor, 1, 
-        vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
-    _targets[currentFrame].recordImageCopyTo(image, graphicsDraw);
-
-    foundation::recordLayoutTransition(
-        graphicsDraw, image, vk::ImageAspectFlagBits::eColor, 1, 
-        vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::ePresentSrcKHR);
-    graphicsDraw.end();
+    recordCopyToSwapImageCommands(graphicsDraw, image, currentFrame);
 
     constexpr vk::PipelineStageFlags2 ownershipWaitStage = vk::PipelineStageFlagBits2::eAllCommands;
     return { 
         graphicsDraw, vk::PipelineStageFlagBits2::eTransfer, vk::PipelineStageFlagBits2::eTransfer, 
         std::vector{ std::make_pair(_computeSyncs[currentFrame].ownershipSemaphore, ownershipWaitStage) } };
+}
+
+void tpd::GaussianEngine::recordComputeDispatchCommands(const vk::CommandBuffer cmd, const uint32_t currentFrame) {
+    // Old contents from the previous frame will be cleared by the compute shader
+    // Also, we don't need ownership transfer from graphics to compute here since
+    // we don't care about the old content
+    _targets[currentFrame].recordImageTransition(cmd, vk::ImageLayout::eGeneral);
+
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+    cmd.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute, _shaderLayout->getPipelineLayout(),
+        /* first set */ 0, _shaderInstance->getDescriptorSets(currentFrame), {});
+
+    const auto [w, h, d] = _targets[currentFrame].getPixelSize();
+    cmd.dispatch(std::ceil(static_cast<float>(w) / 16.0f), std::ceil(static_cast<float>(h) / 16.0f), 1);
+}
+
+void tpd::GaussianEngine::recordCopyToSwapImageCommands(
+    const vk::CommandBuffer cmd,
+    const vk::Image swapImage,
+    const uint32_t currentFrame) const
+{
+    foundation::recordLayoutTransition(
+        cmd, swapImage, vk::ImageAspectFlagBits::eColor, 1, 
+        vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+
+    _targets[currentFrame].recordImageCopyTo(swapImage, cmd);
+
+    foundation::recordLayoutTransition(
+        cmd, swapImage, vk::ImageAspectFlagBits::eColor, 1, 
+        vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::ePresentSrcKHR);
+
+    cmd.end();
 }
 
 tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
@@ -124,21 +124,14 @@ tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
 
     auto selection = selector.select(instance, deviceExtensions);
 
-    // Modify the queue family indices to minimize queue ownership transfer operations
-    if (_renderer->hasSurfaceRenderingSupport()) {
-        // We found a distinct transfer queue, but since we're not going to use graphics much,
-        // we can set transfer to graphics and avoid an additional ownership transfer to present 
-        if (selection.graphicsQueueFamilyIndex == selection.presentQueueFamilyIndex &&
-            selection.transferQueueFamilyIndex != selection.graphicsQueueFamilyIndex) {
-            selection.transferQueueFamilyIndex = selection.graphicsQueueFamilyIndex;
-        }
-    }
-
     PLOGD << "Queue family indices selected:";
-    PLOGD << " - Transfer: " << selection.transferQueueFamilyIndex;
-    PLOGD << " - Compute:  " << selection.computeQueueFamilyIndex;
     if (_renderer->hasSurfaceRenderingSupport()) {
+        PLOGD << " - Graphics: " << selection.graphicsQueueFamilyIndex;
         PLOGD << " - Present:  " << selection.presentQueueFamilyIndex;
+        PLOGD << " - Compute:  " << selection.computeQueueFamilyIndex;
+    } else {  // headless rendering, don't care about graphics and present queue families
+        PLOGD << " - Transfer: " << selection.transferQueueFamilyIndex;
+        PLOGD << " - Compute:  " << selection.computeQueueFamilyIndex;
     }
 
     return selection;
@@ -186,6 +179,7 @@ void tpd::GaussianEngine::onInitialized() {
     createPipelineResources();
 
     if (_graphicsFamilyIndex != _computeFamilyIndex) {
+        // Additional resources for async compute
         createComputeCommandPool();
         createComputeCommandBuffers();
         createComputeSyncs();
@@ -218,7 +212,7 @@ void tpd::GaussianEngine::createRenderTargets(const uint32_t width, const uint32
         _targetViews[i] = _targets[i].createImageView(vk::ImageViewType::e2D, _device);
     }
 
-    PLOGD << "Number of target images (re)created by " << getName() << ": " << _targets.size();
+    PLOGD << "Number of target images created by " << getName() << ": " << _targets.size();
 }
 
 void tpd::GaussianEngine::createPipelineResources() {
@@ -287,7 +281,7 @@ void tpd::GaussianEngine::createComputeSyncs() {
 void tpd::GaussianEngine::cleanupRenderTargets() noexcept {
     std::ranges::for_each(_targetViews, [this](const auto it) { _device.destroyImageView(it); });
     std::ranges::for_each(_targets, [](Target& it) { it.destroy(); });
-    _targets.clear();  // the capacity remains the same, clear so that new Target can be correctly pushed back
+    _targets.clear(); // the capacity remains the same, clear so that new Target can be correctly pushed back
 }
 
 void tpd::GaussianEngine::destroy() noexcept {

@@ -3,7 +3,6 @@
 #include "torpedo/rendering/Renderer.h"
 #include "torpedo/rendering/DeletionWorker.h"
 #include "torpedo/rendering/SyncGroup.h"
-#include "vulkan/vulkan_handles.hpp"
 
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
 #include <torpedo/foundation/StagingBuffer.h>
@@ -97,9 +96,9 @@ namespace tpd {
         [[nodiscard]] vk::CommandBuffer beginOneTimeTransfer(vk::CommandPool commandPool);
         void endOneTimeTransfer(vk::CommandBuffer buffer, vk::Fence deletionFence) const;
 
-        [[nodiscard]] vk::SemaphoreSubmitInfo createOwnershipSemaphoreInfo() const;
-        void endReleaseCommands(vk::CommandBuffer buffer, const vk::SemaphoreSubmitInfo& semaphoreInfo) const;
-        void endAcquireCommands(vk::CommandBuffer buffer, const vk::SemaphoreSubmitInfo& semaphoreInfo, vk::Fence deletionFence) const;
+        [[nodiscard]] vk::SemaphoreSubmitInfo createSyncOwnershipSemaphoreInfo() const;
+        void endSyncReleaseCommands(vk::CommandBuffer buffer, const vk::SemaphoreSubmitInfo& semaphoreInfo) const;
+        void endSyncAcquireCommands(vk::CommandBuffer buffer, const vk::SemaphoreSubmitInfo& semaphoreInfo, vk::Fence deletionFence) const;
 
         void sync(const StorageBuffer& storageBuffer);
         void sync(const SyncGroup<StorageBuffer>& group);
