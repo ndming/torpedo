@@ -27,8 +27,8 @@ if(DEFINED ENV{CONDA_PREFIX} AND NOT CMAKE_INSTALL_PREFIX)
 endif()
 message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
 
-# Turn off GLFW's X11 support on Linux
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+# Turn off GLFW's X11 support on Linux/WSL
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR DEFINED ENV{WSL_DISTRO_NAME})
     set(GLFW_BUILD_X11 OFF CACHE BOOL "Disable X11 support for GLFW")
     message(STATUS "Disabled GLFW's X11 support")
 endif ()

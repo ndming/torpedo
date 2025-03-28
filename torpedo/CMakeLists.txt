@@ -1,10 +1,3 @@
-# GENERAL COMPILER FLAGS
-# ----------------------
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-
 # TORPEDO BACKEND AND TOOLS
 # -------------------------
 find_package(Vulkan 1.4 REQUIRED)
@@ -30,9 +23,14 @@ function(torpedo_define_module TARGET_NAME MODULE_SOURCES)
     list(GET PARTS 1 MODULE_NAME)
     add_library("${NAMESPACE}::${MODULE_NAME}" ALIAS ${TARGET_NAME})
 
-    # Set compiler options and module sources
-    set_target_properties(${TARGET_NAME} PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS OFF COMPILE_WARNING_AS_ERROR ON)
+    # Set compiler properties and module source files
     target_sources(${TARGET_NAME} PRIVATE ${MODULE_SOURCES})
+    set_target_properties(${TARGET_NAME} PROPERTIES
+            CXX_STANDARD 23
+            CMAKE_CXX_STANDARD_REQUIRED ON
+            CXX_EXTENSIONS OFF
+            COMPILE_WARNING_AS_ERROR ON
+    )
 endfunction()
 
 
