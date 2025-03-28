@@ -27,11 +27,7 @@ in the *Desktop development C++* workload:
 ### Release build
 Configure the build to use Clang and Ninja (clang-tools are already included in the `conda` environment):
 ```shell
-# On Windows
 cmake -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G Ninja
-
-# On Linux, turn off support for X11
-cmake -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G Ninja -DGLFW_BUILD_X11=OFF
 ```
 
 <details>

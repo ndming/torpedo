@@ -21,13 +21,17 @@ endif()
 message(STATUS "Build demo: ${TORPEDO_BUILD_DEMO}")
 message(STATUS "Build pedo: ${TORPEDO_BUILD_PEDO}")
 
-# Modify the install prefix to favor the local conda environemt
+# Modify the install prefix to favor the local conda environment
 if(DEFINED ENV{CONDA_PREFIX} AND NOT CMAKE_INSTALL_PREFIX)
     set(CMAKE_INSTALL_PREFIX $ENV{CONDA_PREFIX} CACHE PATH "Default install prefix set to CONDA_PREFIX")
 endif()
 message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
 
-# Turn
+# Turn off GLFW's X11 support on Linux
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(GLFW_BUILD_X11 OFF CACHE BOOL "Disable X11 support for GLFW")
+    message(STATUS "Disabled GLFW's X11 support")
+endif ()
 
 
 # PROJECT DECLARATION
