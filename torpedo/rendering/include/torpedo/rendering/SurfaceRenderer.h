@@ -5,7 +5,6 @@
 #include <torpedo/foundation/AllocationUtils.h>
 
 #include <GLFW/glfw3.h>
-#include <functional>
 
 namespace tpd {
     class SurfaceRenderer final : public Renderer {

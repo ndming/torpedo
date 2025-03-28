@@ -33,8 +33,8 @@ void tpd::GaussianEngine::preFramePass() {
         vk::PipelineBindPoint::eCompute, _shaderLayout->getPipelineLayout(),
         /* first set */ 0, _shaderInstance->getDescriptorSets(currentFrame), {});
     
-    const auto [w, h, _] = _targets[currentFrame].getPixelSize();
-    computeDraw.dispatch(std::ceil(w / 16.0f), std::ceil(h / 16.0f), 1);
+    const auto [w, h, d] = _targets[currentFrame].getPixelSize();
+    computeDraw.dispatch(std::ceil(static_cast<float>(w) / 16.0f), std::ceil(static_cast<float>(h) / 16.0f), 1);
 
     // Transfer ownership to graphics before submitting to the compute queue
     _targets[currentFrame].recordOwnershipRelease(computeDraw, _computeFamilyIndex, _graphicsFamilyIndex);
@@ -71,8 +71,8 @@ tpd::Engine::DrawPackage tpd::GaussianEngine::draw(const vk::Image image) {
             vk::PipelineBindPoint::eCompute, _shaderLayout->getPipelineLayout(),
             /* first set */ 0, _shaderInstance->getDescriptorSets(currentFrame), {});
 
-        const auto [w, h, _] = _targets[currentFrame].getPixelSize();
-        graphicsDraw.dispatch(std::ceil(w / 16.0f), std::ceil(h / 16.0f), 1);
+        const auto [w, h, d] = _targets[currentFrame].getPixelSize();
+        graphicsDraw.dispatch(std::ceil(static_cast<float>(w) / 16.0f), std::ceil(static_cast<float>(h) / 16.0f), 1);
 
         _targets[currentFrame].recordImageTransition(graphicsDraw, vk::ImageLayout::eTransferSrcOptimal);
         foundation::recordLayoutTransition(
@@ -174,7 +174,15 @@ void tpd::GaussianEngine::onInitialized() {
     PLOGD << " - " << std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR);
     PLOGD << " - " << std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR) / "shaders";
 
-    createRenderTargets();
+    // The logic for resizing target and target view vectors should be made once here
+    // since they can be recreated later and should not be resized again
+    const auto frameCount = _renderer->getInFlightFramesCount();
+    _targets.reserve(frameCount);     // only reserve here since the only way to append new Target is via push_back
+    _targetViews.resize(frameCount);  // vk::ImageView can be copied
+
+    _renderer->addFramebufferResizeCallback(this, framebufferResizeCallback);
+    const auto [w, h] = _renderer->getFramebufferSize();
+    createRenderTargets(w, h);
     createPipelineResources();
 
     if (_graphicsFamilyIndex != _computeFamilyIndex) {
@@ -184,24 +192,33 @@ void tpd::GaussianEngine::onInitialized() {
     }
 }
 
-void tpd::GaussianEngine::createRenderTargets() {
+void tpd::GaussianEngine::framebufferResizeCallback(void* ptr, const uint32_t width, const uint32_t height) {
+    const auto engine = static_cast<GaussianEngine*>(ptr);
+    engine->onFramebufferResize(width, height);
+}
+
+void tpd::GaussianEngine::onFramebufferResize(const uint32_t width, const uint32_t height) {
+    PLOGD << "Recreating render targets in tpd::GaussianEngine: " << width << ", " << height;
+
+    cleanupRenderTargets();
+    createRenderTargets(width, height);
+    setTargetDescriptors();
+}
+
+void tpd::GaussianEngine::createRenderTargets(const uint32_t width, const uint32_t height) {
     const auto targetBuilder = Target::Builder()
-        .extent(_renderer->getFramebufferSize())
+        .extent(width, height)
         .aspect(vk::ImageAspectFlagBits::eColor)
         .format(vk::Format::eR8G8B8A8Unorm)
         .usage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc);
 
-    // Create a render target image for each in-flight frame
-    const auto frameCount = _renderer->getInFlightFramesCount();
-    _targets.reserve(frameCount);     // reserve only, so that we can move-construct later with push_back
-    _targetViews.resize(frameCount);  // vk::ImageView can be copied
-
-    for (auto i = 0; i < frameCount; ++i) {
+    // Create a render target image and image view for each in-flight frame
+    for (auto i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
         _targets.push_back(targetBuilder.build(*_deviceAllocator));
         _targetViews[i] = _targets[i].createImageView(vk::ImageViewType::e2D, _device);
     }
 
-    PLOGD << "Number of target images created by " << getName() << ": " << _targets.size();
+    PLOGD << "Number of target images (re)created by " << getName() << ": " << _targets.size();
 }
 
 void tpd::GaussianEngine::createPipelineResources() {
@@ -211,12 +228,7 @@ void tpd::GaussianEngine::createPipelineResources() {
         .buildUnique(_device);
 
     _shaderInstance = _shaderLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
-    for (uint32_t i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
-        const auto descriptorInfo = vk::DescriptorImageInfo{}
-            .setImageView(_targetViews[i])
-            .setImageLayout(vk::ImageLayout::eGeneral);
-        _shaderInstance->setDescriptor(i, 0, 0, vk::DescriptorType::eStorageImage, _device, descriptorInfo);
-    }
+    setTargetDescriptors();
 
     const auto shaderModule = ShaderModuleBuilder()
         .shader(TORPEDO_VOLUMETRIC_ASSETS_DIR, "3dgs.comp")
@@ -233,6 +245,15 @@ void tpd::GaussianEngine::createPipelineResources() {
     _pipeline = _device.createComputePipeline(nullptr, pipelineInfo).value;
 
     _device.destroyShaderModule(shaderModule);
+}
+
+void tpd::GaussianEngine::setTargetDescriptors() const {
+    for (uint32_t i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
+        const auto descriptorInfo = vk::DescriptorImageInfo{}
+        .setImageView(_targetViews[i])
+        .setImageLayout(vk::ImageLayout::eGeneral);
+        _shaderInstance->setDescriptor(i, 0, 0, vk::DescriptorType::eStorageImage, _device, descriptorInfo);
+    }
 }
 
 void tpd::GaussianEngine::createComputeCommandPool() {
@@ -263,6 +284,12 @@ void tpd::GaussianEngine::createComputeSyncs() {
     }
 }
 
+void tpd::GaussianEngine::cleanupRenderTargets() noexcept {
+    std::ranges::for_each(_targetViews, [this](const auto it) { _device.destroyImageView(it); });
+    std::ranges::for_each(_targets, [](Target& it) { it.destroy(); });
+    _targets.clear();  // the capacity remains the same, clear so that new Target can be correctly pushed back
+}
+
 void tpd::GaussianEngine::destroy() noexcept {
     if (_initialized) {
         if (_graphicsFamilyIndex != _computeFamilyIndex) {
@@ -283,8 +310,12 @@ void tpd::GaussianEngine::destroy() noexcept {
         _shaderLayout->destroy(_device);
         _shaderLayout.reset();
 
-        std::ranges::for_each(_targetViews, [this](const auto it) { _device.destroyImageView(it); });
-        _targets.clear();
+        cleanupRenderTargets();
+        _targetViews.clear();
+
+        if (_renderer) {
+            _renderer->removeFramebufferResizeCallback(this);
+        }
     }
     Engine::destroy();
 }

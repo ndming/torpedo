@@ -2,6 +2,8 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <functional>
+
 namespace tpd {
     class Renderer;
 
@@ -18,6 +20,10 @@ namespace tpd {
         [[nodiscard]] virtual uint32_t getCurrentDrawingFrame() const noexcept;
         [[nodiscard]] virtual bool hasSurfaceRenderingSupport() const noexcept;
 
+        void addFramebufferResizeCallback(void* ptr, const std::function<void(void*, uint32_t, uint32_t)>& callback);
+        void addFramebufferResizeCallback(void* ptr, std::function<void(void*, uint32_t, uint32_t)>&& callback);
+        void removeFramebufferResizeCallback(void* ptr) noexcept;
+
         virtual void resetEngine() noexcept;
         virtual ~Renderer() noexcept;
 
@@ -31,6 +37,10 @@ namespace tpd {
         virtual void init(uint32_t frameWidth, uint32_t frameHeight, std::pmr::memory_resource* contextPool) = 0;
         bool _initialized{ false };
 
+        // Init base class's resources
+        void init(std::pmr::memory_resource* contextPool);
+        std::pmr::unordered_map<void*, std::function<void(void*, uint32_t, uint32_t)>> _framebufferResizeListeners{};
+
         [[nodiscard]] virtual vk::SurfaceKHR getVulkanSurface() const;
 
         virtual void engineInit(uint32_t graphicsFamilyIndex, uint32_t presentFamilyIndex) = 0;
@@ -41,7 +51,6 @@ namespace tpd {
 
         virtual void destroy() noexcept;
 
-    private:
         template<RendererImpl R>
         friend class Context;
     };

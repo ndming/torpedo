@@ -28,11 +28,15 @@ namespace tpd {
 
         void onInitialized() override;
 
-        void createRenderTargets();
+        static void framebufferResizeCallback(void* ptr, uint32_t width, uint32_t height);
+        void onFramebufferResize(uint32_t width, uint32_t height);
+
+        void createRenderTargets(uint32_t width, uint32_t height);
         std::pmr::vector<Target> _targets{ &_engineResourcePool };
         std::pmr::vector<vk::ImageView> _targetViews{ &_engineResourcePool };
 
         void createPipelineResources();
+        void setTargetDescriptors() const;
         std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _shaderLayout{};
         std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _shaderInstance{};
         vk::Pipeline _pipeline{};
@@ -50,6 +54,7 @@ namespace tpd {
         void createComputeSyncs();
         std::pmr::vector<ComputeSync> _computeSyncs{ &_engineResourcePool };
 
+        void cleanupRenderTargets() noexcept;
         void destroy() noexcept override;
     };
 }  // namespace tpd

@@ -157,6 +157,9 @@ void tpd::SurfaceRenderer::init(const bool fullscreen, std::pmr::memory_resource
         PLOGI << "Skipping already initialized renderer: tpd::SurfaceRenderer";
         return;
     }
+    // Tell base class to init its resources first
+    Renderer::init(contextPool);
+
     PLOGI << "Initializing renderer: tpd::SurfaceRenderer";
     _window = foundation::make_unique<Window>(contextPool, fullscreen);
     glfwSetWindowUserPointer(_window->_glfwWindow, this);
@@ -403,6 +406,11 @@ void tpd::SurfaceRenderer::refreshSwapChain() {
     // Recreate new swap chain and resources
     createSwapChain();
     createSwapChainImageViews();
+
+    // Notify all listeners about the change
+    for (const auto& [ptr, callback] : _framebufferResizeListeners) {
+        callback(ptr, width, height);
+    }
 }
 
 void tpd::SurfaceRenderer::cleanupSwapChain() const noexcept {
