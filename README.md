@@ -3,14 +3,7 @@ The default [Release build](#release-build) is generally recommended for consumi
 is suitable for experiments and extensions.
 
 ### Prerequisites
-There are no prerequisite dependencies for building the library on Linux since all dependencies, including Vulkan and compilers, 
-are going to be managed via an isolated `conda` environment.
-
-On Windows, MSVC version `>=19.39` must be installed via Visual Studio (version `>=17.9.7`). The library only needs the VS 
-[BuildTools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with the following components 
-in the *Desktop development C++* workload:
-- MSVC v143 - VS2022 C++ x86/64 build tools
-- Windows SDK (either 10 or 11)
+All dependencies are going to be managed via an isolated `conda` environment, including Vulkan and C++ build tools (CMake, Ninja. etc.).
 
 Set up the environment with `conda`/`mamba`:
 ```shell
@@ -18,10 +11,27 @@ conda env create --file environment.yml
 conda activate torpedo
 ```
 
+#### Linux
+Standard C++ library (`libc++`) and additional packages for GLFW are required:
+```shell
+conda install -c conda-forge libcxx-devel=19.1.7 pkgconfig wayland libxkbcommon mesa-libgl-devel-conda-x86_64
+```
+
+#### Windows
+On Windows, MSVC version `>=19.39` is required (via Visual Studio version `>=17.9.7`). The library only needs the VS 
+[BuildTools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with the following components 
+in the *Desktop development C++* workload:
+- MSVC v143 - VS2022 C++ x86/64 build tools
+- Windows SDK (either 10 or 11)
+
 ### Release build
 Configure the build to use Clang and Ninja (clang-tools are already included in the `conda` environment):
 ```shell
+# On Windows
 cmake -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G Ninja
+
+# On Linux, turn off support for X11
+cmake -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G Ninja -DGLFW_BUILD_X11=OFF
 ```
 
 <details>
