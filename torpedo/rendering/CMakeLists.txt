@@ -49,10 +49,9 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 
 
-# COMPILER DEFINITIONS FOR GLFW ON LINUX/WSL
-# ------------------------------------------
+# MACRO DEFINITIONS FOR GLFW BUILD ON LINUX/WSL
+# ---------------------------------------------
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR DEFINED ENV{WSL_DISTRO_NAME})
     target_compile_definitions(glfw PRIVATE _XOPEN_SOURCE=700)
     target_compile_definitions(glfw PRIVATE _POSIX_C_SOURCE=199309L)
-    target_compile_definitions(glfw PRIVATE _GNU_SOURCE)
 endif()

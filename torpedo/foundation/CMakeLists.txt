@@ -32,8 +32,6 @@ target_link_libraries(${TARGET} PUBLIC ${Vulkan_LIBRARIES})
 # ---------------
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     torpedo_setup_clang(${TARGET} PRIVATE)
-
-    # The VMA library does not use nullability completeness annotations, which may cause warnings.
-    # To prevent these warnings, we disable them for the foundation library only.
+    # The VMA library does not use nullability completeness annotations
     target_compile_options(${TARGET} PRIVATE -Wno-nullability-completeness)
 endif()

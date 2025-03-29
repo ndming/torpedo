@@ -6,8 +6,6 @@ cmake_minimum_required(VERSION 3.22...3.29)
 option(TORPEDO_BUILD_DEMO "Build torpedo demo targets" OFF)
 option(TORPEDO_BUILD_PEDO "Build pedo Gaussian engine" ON)
 
-option(TORPEDO_SURFACE_SUPPORT "Build torpedo with surface support" ON)
-
 # Default to Release build
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Default to Release build" FORCE)

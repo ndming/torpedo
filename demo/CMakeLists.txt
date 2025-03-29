@@ -27,8 +27,8 @@ function(tordemo_copy_resource TARGET_NAME RESOURCE_OUTPUT_DIR RESOURCE_FILES)
     add_dependencies(${TARGET_NAME} ${TARGET_NAME}_resource_copy_${suffix})
 endfunction()
 
-# tordemo samples
-add_subdirectory(HelloTriangle)
+# Demo targets
+# add_subdirectory(HelloTriangle)
 # add_subdirectory(PhongCube)
 # add_subdirectory(TexturedCube)
 # add_subdirectory(ModelLoading)
