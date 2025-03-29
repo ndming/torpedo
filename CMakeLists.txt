@@ -31,6 +31,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR DEFINED ENV{WSL_DISTRO_NAME})
     message(STATUS "Disabled GLFW's X11 support")
 endif ()
 
+# Common GLFW options
+set(GLFW_VULKAN_STATIC ON  CACHE BOOL "Don't dynamically link to the Vulkan loader")
+set(GLFW_BUILD_DOCS    OFF CACHE BOOL "Don't build the docs")
+set(GLFW_INSTALL       OFF CACHE BOOL "Don't generate install targets")
 
 # PROJECT DECLARATION
 # -------------------

@@ -1,0 +1,17 @@
+name: torpedo
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - cmake=3.29
+  - clangdev=19.1.7
+  - libxkbcommon
+  - libcxx-devel=19.1.7
+  - libvulkan-headers=1.4.304
+  - libvulkan-loader=1.4.304
+  - lld=19.1.7
+  - ninja
+  - pkg-config
+  - shaderc=2023.7
+  - vulkan-memory-allocator=3.1
+  - wayland
