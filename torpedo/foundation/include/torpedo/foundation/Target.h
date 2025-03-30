@@ -1,7 +1,6 @@
 #pragma once
 
 #include "torpedo/foundation/Image.h"
-#include "torpedo/foundation/SyncResource.h"
 
 namespace tpd {
     class Target final : public Image, public SyncResource {
@@ -55,8 +54,8 @@ namespace tpd {
         void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept;
         void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) noexcept;
 
-        [[nodiscard]] std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getTransitionSrcPoint(vk::ImageLayout oldLayout) const override;
-        [[nodiscard]] std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getTransitionDstPoint(vk::ImageLayout newLayout) const override;
+        [[nodiscard]] SyncPoint getTransitionSrcPoint(vk::ImageLayout oldLayout) const override;
+        [[nodiscard]] SyncPoint getTransitionDstPoint(vk::ImageLayout newLayout) const override;
 
         void recordImageCopyFrom(vk::Image srcImage, vk::CommandBuffer cmd) const;
         void recordImageCopyTo  (vk::Image dstImage, vk::CommandBuffer cmd) const;
@@ -129,8 +128,8 @@ inline tpd::Target::Target(
     , SyncResource{ data, dataByteSize }
     , _dims{ dims }
     , _aspects{ aspects }
-    , _tiling{ tiling } {
-}
+    , _tiling{ tiling }
+{}
 
 inline vk::ImageAspectFlags tpd::Target::getAspectMask() const noexcept {
     return _aspects;

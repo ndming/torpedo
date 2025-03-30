@@ -49,7 +49,7 @@ void tpd::Image::recordImageTransition(const vk::CommandBuffer cmd, const vk::Im
     _layout = newLayout;
 }
 
-std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Image::getTransitionSrcPoint(const vk::ImageLayout oldLayout) const {
+tpd::SyncPoint tpd::Image::getTransitionSrcPoint(const vk::ImageLayout oldLayout) const {
     using PipelineStage = vk::PipelineStageFlagBits2;
     using AccessMask    = vk::AccessFlagBits2;
 
@@ -106,10 +106,10 @@ std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Image::getTransitionSr
         throw std::invalid_argument("Image - Unsupported src point for layout: " + foundation::toString(oldLayout));
     }
 
-    return std::make_pair(srcStage, srcAccessMask);
+    return { srcStage, srcAccessMask };
 }
 
-std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Image::getTransitionDstPoint(const vk::ImageLayout newLayout) const {
+tpd::SyncPoint tpd::Image::getTransitionDstPoint(const vk::ImageLayout newLayout) const {
     using PipelineStage = vk::PipelineStageFlagBits2;
     using AccessMask    = vk::AccessFlagBits2;
 
@@ -165,5 +165,5 @@ std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Image::getTransitionDs
         throw std::invalid_argument("Image - Unsupported dst point for layout: " + foundation::toString(newLayout));
     }
 
-    return std::make_pair(dstStage, dstAccessMask);
+    return { dstStage, dstAccessMask };
 }

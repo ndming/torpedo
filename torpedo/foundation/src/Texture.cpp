@@ -282,7 +282,7 @@ void tpd::Texture::recordOwnershipAcquire(
     _layout = finalLayout;
 }
 
-std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Texture::getTransitionDstPoint(const vk::ImageLayout newLayout) const {
+tpd::SyncPoint tpd::Texture::getTransitionDstPoint(const vk::ImageLayout newLayout) const {
     using PipelineStage = vk::PipelineStageFlagBits2;
     using AccessMask    = vk::AccessFlagBits2;
 
@@ -293,8 +293,8 @@ std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Texture::getTransition
     // which is not applicable to textures
     using enum vk::ImageLayout;
     switch (newLayout) {
-        case eShaderReadOnlyOptimal:       return std::make_pair(sampledStage, AccessMask::eShaderSampledRead);
-        case eDepthStencilReadOnlyOptimal: return std::make_pair(sampledStage | depthStage, AccessMask::eShaderSampledRead);
+        case eShaderReadOnlyOptimal:       return { sampledStage, AccessMask::eShaderSampledRead };
+        case eDepthStencilReadOnlyOptimal: return { sampledStage | depthStage, AccessMask::eShaderSampledRead };
         default:                           return Image::getTransitionDstPoint(newLayout);
     }
 }

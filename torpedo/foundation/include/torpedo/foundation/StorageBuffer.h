@@ -10,7 +10,9 @@ namespace tpd {
         public:
             Builder& usage(vk::BufferUsageFlags usage) noexcept;
             Builder& alloc(std::size_t byteSize, Alignment alignment = Alignment::None) noexcept;
+
             Builder& syncData(const void* data, uint32_t byteSize = 0) noexcept;
+            Builder& dstPoint(vk::PipelineStageFlags2 stage, vk::AccessFlags2 access) noexcept;
 
             [[nodiscard]] StorageBuffer build(const DeviceAllocator& allocator) const;
 
@@ -25,16 +27,26 @@ namespace tpd {
 
             const void* _data{ nullptr };
             uint32_t _dataSize{ 0 };
+
+            using StageMask = vk::PipelineStageFlagBits2;
+            SyncPoint _dstPoint{
+                StageMask::eVertexShader | StageMask::eFragmentShader | StageMask::eComputeShader,
+                vk::AccessFlagBits2::eShaderStorageRead | vk::AccessFlagBits2::eShaderStorageWrite,
+            };
         };
 
         StorageBuffer(
-            vk::Buffer buffer, VmaAllocation allocation, const DeviceAllocator& allocator,
+            SyncPoint dstSyncPoint, vk::Buffer buffer, VmaAllocation allocation, const DeviceAllocator& allocator,
             const void* data = nullptr, uint32_t dataByteSize = 0);
 
         void recordBufferTransfer(vk::CommandBuffer cmd, vk::Buffer stagingBuffer) const noexcept;
+        void recordDstSync(vk::CommandBuffer cmd) const noexcept;
 
         void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept;
         void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept;
+
+    private:
+        SyncPoint _dstSyncPoint;
     };
 }  // namespace tpd
 
@@ -54,12 +66,23 @@ inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::syncData(const 
     return *this;
 }
 
+inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::dstPoint(
+    const vk::PipelineStageFlags2 stage,
+    const vk::AccessFlags2 access) noexcept
+{
+    _dstPoint.stage = stage;
+    _dstPoint.access = access;
+    return *this;
+}
+
 inline tpd::StorageBuffer::StorageBuffer(
+    const SyncPoint dstSyncPoint,
     const vk::Buffer buffer,
     VmaAllocation allocation,
     const DeviceAllocator& allocator,
     const void* data,
     const uint32_t dataByteSize)
     : Buffer{ buffer, allocation, allocator }
-    , SyncResource{ data, dataByteSize } {
-}
+    , SyncResource{ data, dataByteSize }
+    , _dstSyncPoint{ dstSyncPoint }
+{}

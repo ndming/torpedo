@@ -3,6 +3,11 @@
 #include <vulkan/vulkan.hpp>
 
 namespace tpd {
+    struct SyncPoint {
+        vk::PipelineStageFlags2 stage{};
+        vk::AccessFlags2 access{};
+    };
+
     class SyncResource {
     public:
         SyncResource(const SyncResource&) = delete;

@@ -99,7 +99,7 @@ void tpd::Target::recordOwnershipAcquire(
     _layout = vk::ImageLayout::eTransferSrcOptimal;
 }
 
-std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Target::getTransitionSrcPoint(const vk::ImageLayout oldLayout) const {
+tpd::SyncPoint tpd::Target::getTransitionSrcPoint(const vk::ImageLayout oldLayout) const {
     using PipelineStage = vk::PipelineStageFlagBits2;
     using AccessMask    = vk::AccessFlagBits2;
 
@@ -111,7 +111,7 @@ std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Target::getTransitionS
     }
 }
 
-std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> tpd::Target::getTransitionDstPoint(const vk::ImageLayout newLayout) const {
+tpd::SyncPoint tpd::Target::getTransitionDstPoint(const vk::ImageLayout newLayout) const {
     using PipelineStage = vk::PipelineStageFlagBits2;
     using AccessMask    = vk::AccessFlagBits2;
 

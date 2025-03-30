@@ -1,7 +1,6 @@
 #pragma once
 
 #include "torpedo/foundation/Image.h"
-#include "torpedo/foundation/SyncResource.h"
 
 namespace tpd {
     class Texture final : public Image, public SyncResource {
@@ -53,7 +52,7 @@ namespace tpd {
         void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex, vk::ImageLayout finalLayout) const noexcept;
         void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex, vk::ImageLayout finalLayout) noexcept;
 
-        [[nodiscard]] std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getTransitionDstPoint(vk::ImageLayout newLayout) const override;
+        [[nodiscard]] SyncPoint getTransitionDstPoint(vk::ImageLayout newLayout) const override;
 
         [[nodiscard]] vk::Extent2D getPixelSize() const noexcept;
         [[nodiscard]] uint32_t getMipLevelCount() const noexcept override;
@@ -99,8 +98,8 @@ inline tpd::Texture::Texture(
     : Image{ image, layout, format, allocation, allocator }
     , SyncResource{ data, dataByteSize }
     , _dims{ dims }
-    , _mipLevelsCount{ mipLevelsCount } {
-}
+    , _mipLevelsCount{ mipLevelsCount }
+{}
 
 inline vk::Extent2D tpd::Texture::getPixelSize() const noexcept { 
     return _dims; 

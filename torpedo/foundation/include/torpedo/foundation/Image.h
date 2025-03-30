@@ -1,6 +1,7 @@
 #pragma once
 
 #include "torpedo/foundation/DeviceAllocator.h"
+#include "torpedo/foundation/SyncResource.h"
 
 namespace tpd {
     class Image : public Destroyable {
@@ -23,8 +24,8 @@ namespace tpd {
         [[nodiscard]] virtual vk::ImageAspectFlags getAspectMask() const noexcept = 0;
         [[nodiscard]] virtual uint32_t getMipLevelCount() const noexcept;
 
-        [[nodiscard]] virtual std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getTransitionSrcPoint(vk::ImageLayout oldLayout) const;
-        [[nodiscard]] virtual std::pair<vk::PipelineStageFlags2, vk::AccessFlags2> getTransitionDstPoint(vk::ImageLayout newLayout) const;
+        [[nodiscard]] virtual SyncPoint getTransitionSrcPoint(vk::ImageLayout oldLayout) const;
+        [[nodiscard]] virtual SyncPoint getTransitionDstPoint(vk::ImageLayout newLayout) const;
 
         vk::Image _image;
         vk::ImageLayout _layout;
