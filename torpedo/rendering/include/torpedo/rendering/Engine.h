@@ -27,7 +27,7 @@ namespace tpd {
             vk::PipelineStageFlags2 waitStage;
             /// At which stage to signal the renderer that the draw is done
             vk::PipelineStageFlags2 doneStage;
-            // Additional semaphores to wait on (e.g. for async compute)
+            /// Additional semaphores to wait on (e.g. for async compute)
             std::vector<std::pair<vk::Semaphore, vk::PipelineStageFlags2>> waits{};
         };
 
@@ -71,12 +71,13 @@ namespace tpd {
         vk::CommandPool _drawingCommandPool{};
 
         void createSyncWorkCommandPools();
-        std::mutex _syncWorkCommandPoolMutex{};
-        vk::CommandPool _graphicsCommandPool{};
-        vk::CommandPool _transferCommandPool{};
+        std::mutex _syncWorkPoolMutex{};
+        vk::CommandPool _transferPool{};
+        vk::CommandPool _graphicsPool{};
+        vk::CommandPool _computePool{};
 
         std::pmr::synchronized_pool_resource _syncResourcePool{};
-        DeletionWorker<StagingBuffer> _stagingDeletionQueue{ &_syncResourcePool, _syncWorkCommandPoolMutex, "TransferCleanup" };
+        DeletionWorker<StagingBuffer> _stagingDeletionQueue{ &_syncResourcePool, _syncWorkPoolMutex, "TransferCleanup" };
 
     protected:
         // Keep drawing resources close together
@@ -93,21 +94,26 @@ namespace tpd {
 
         virtual void destroy() noexcept;
 
-        [[nodiscard]] vk::CommandBuffer beginOneTimeTransfer(vk::CommandPool commandPool);
-        void endOneTimeTransfer(vk::CommandBuffer buffer, vk::Fence deletionFence) const;
+    private:
+        [[nodiscard]] vk::CommandPool getSyncPool(uint32_t queueFamily);
+        [[nodiscard]] vk::CommandBuffer beginSyncTransfer(uint32_t queueFamily);
+        void endSyncCommands(vk::CommandBuffer buffer, vk::Fence deletionFence) const;
 
         [[nodiscard]] vk::SemaphoreSubmitInfo createSyncOwnershipSemaphoreInfo() const;
         void endSyncReleaseCommands(vk::CommandBuffer buffer, const vk::SemaphoreSubmitInfo& semaphoreInfo) const;
-        void endSyncAcquireCommands(vk::CommandBuffer buffer, const vk::SemaphoreSubmitInfo& semaphoreInfo, vk::Fence deletionFence) const;
+        void endSyncAcquireCommands(
+            vk::CommandBuffer buffer, const vk::SemaphoreSubmitInfo& semaphoreInfo,
+            uint32_t acquireFamily, vk::Fence deletionFence) const;
 
-        void sync(const StorageBuffer& storageBuffer);
+    protected:
+        void sync(const StorageBuffer& storageBuffer, uint32_t acquireFamily);
         void sync(const SyncGroup<StorageBuffer>& group);
 
         static constexpr auto TEXTURE_FINAL_LAYOUT = vk::ImageLayout::eShaderReadOnlyOptimal;
-        void sync(Texture& texture);
+        void sync(Texture& texture, uint32_t acquireFamily);
         void sync(const SyncGroup<Texture>& group);
 
-        void syncAndGenMips(Texture& texture);
+        void syncAndGenMips(Texture& texture, uint32_t acquireFamily);
         void syncAndGenMips(const SyncGroup<Texture>& group);
 
         template<RendererImpl R>

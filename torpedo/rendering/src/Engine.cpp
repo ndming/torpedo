@@ -88,7 +88,7 @@ tpd::PhysicalDeviceSelection tpd::Engine::pickPhysicalDevice(
     const vk::SurfaceKHR surface) const
 {
     auto selector = PhysicalDeviceSelector()
-        .requestComputeQueueFamily();
+        .requestGraphicsQueueFamily();
 
     if (_renderer->hasSurfaceRenderingSupport()) {
         selector.requestPresentQueueFamily(surface);
@@ -123,9 +123,13 @@ void tpd::Engine::createDrawingCommandPool() {
 }
 
 void tpd::Engine::createSyncWorkCommandPools() {
-    // These pools allocate command buffers for one-shot transfers at the start of the program
-    _graphicsCommandPool = _device.createCommandPool({ vk::CommandPoolCreateFlagBits::eTransient, _graphicsFamilyIndex });
-    _transferCommandPool = _device.createCommandPool({ vk::CommandPoolCreateFlagBits::eTransient, _transferFamilyIndex });
+    // These pools allocate command buffers for sync transfers at the start of the program
+    _transferPool = _device.createCommandPool({ vk::CommandPoolCreateFlagBits::eTransient, _transferFamilyIndex });
+    _computePool  = _device.createCommandPool({ vk::CommandPoolCreateFlagBits::eTransient, _computeFamilyIndex  });
+    // Unlike transfer and compute, an Engine implementation may not request a graphics family, which renders
+    // the _graphicsFamilyIndex invalid. However, it's very unlikely to cause any issue in this case since the
+    // pool should be ignored by the implementation.
+    _graphicsPool = _device.createCommandPool({ vk::CommandPoolCreateFlagBits::eTransient, _graphicsFamilyIndex });
 }
 
 void tpd::Engine::createDrawingCommandBuffers() {
@@ -134,21 +138,30 @@ void tpd::Engine::createDrawingCommandBuffers() {
     allocInfo.level = vk::CommandBufferLevel::ePrimary;
     allocInfo.commandBufferCount = _renderer->getInFlightFramesCount();
 
-    auto allocatedBuffers = _device.allocateCommandBuffers(allocInfo);
+    const auto allocatedBuffers = _device.allocateCommandBuffers(allocInfo);
     _drawingCommandBuffers.resize(allocatedBuffers.size());
     for (size_t i = 0; i < allocatedBuffers.size(); ++i) {
         _drawingCommandBuffers[i] = allocatedBuffers[i];
     }
 }
 
-vk::CommandBuffer tpd::Engine::beginOneTimeTransfer(const vk::CommandPool commandPool) {
+vk::CommandPool tpd::Engine::getSyncPool(const uint32_t queueFamily) {
+    switch (queueFamily) {
+        case _transferFamilyIndex: return _transferPool;
+        case _computeFamilyIndex:  return _computePool;
+        case _graphicsFamilyIndex: return _graphicsPool;
+        default: throw std::invalid_argument("Engine - Unrecognized queue family for sync command pool");
+    }
+}
+
+vk::CommandBuffer tpd::Engine::beginSyncTransfer(const uint32_t queueFamily) {
     const auto allocInfo = vk::CommandBufferAllocateInfo{}
-        .setCommandPool(commandPool)
+        .setCommandPool(getSyncPool(queueFamily))
         .setLevel(vk::CommandBufferLevel::ePrimary)
         .setCommandBufferCount(1);
 
     // The command pool might be accessed from the deletion worker thread
-    std::lock_guard lock(_syncWorkCommandPoolMutex);
+    std::lock_guard lock(_syncWorkPoolMutex);
     const auto buffer = _device.allocateCommandBuffers(allocInfo)[0];
 
     constexpr auto beginInfo = vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit };
@@ -156,7 +169,7 @@ vk::CommandBuffer tpd::Engine::beginOneTimeTransfer(const vk::CommandPool comman
     return buffer;
 }
 
-void tpd::Engine::endOneTimeTransfer(const vk::CommandBuffer buffer, const vk::Fence deletionFence) const {
+void tpd::Engine::endSyncCommands(const vk::CommandBuffer buffer, const vk::Fence deletionFence) const {
     buffer.end();
     _transferQueue.submit(vk::SubmitInfo{ {}, {}, {}, 1, &buffer }, deletionFence);
 }
@@ -188,6 +201,7 @@ void tpd::Engine::endSyncReleaseCommands(const vk::CommandBuffer buffer, const v
 void tpd::Engine::endSyncAcquireCommands(
     const vk::CommandBuffer buffer,
     const vk::SemaphoreSubmitInfo& semaphoreInfo,
+    const uint32_t acquireFamily,
     const vk::Fence deletionFence) const
 {
     buffer.end();
@@ -199,10 +213,15 @@ void tpd::Engine::endSyncAcquireCommands(
     const auto acquireSubmitInfo = vk::SubmitInfo2{}
         .setCommandBufferInfos(acquireInfo)
         .setWaitSemaphoreInfos(semaphoreInfo);
-    _graphicsQueue.submit2(acquireSubmitInfo, deletionFence);
+
+    switch (acquireFamily) {
+        case _graphicsFamilyIndex: _graphicsQueue.submit2(acquireSubmitInfo, deletionFence);
+        case _computeFamilyIndex:   _computeQueue.submit2(acquireSubmitInfo, deletionFence);
+        default: throw std::runtime_error("Engine - Acquire queue family must be either compute or graphics family");
+    }
 }
 
-void tpd::Engine::sync(const StorageBuffer& storageBuffer) {
+void tpd::Engine::sync(const StorageBuffer& storageBuffer, const uint32_t acquireFamily) {
     if (!storageBuffer.hasSyncData()) {
         PLOGW << "Engine - Syncing an empty StorageBuffer: did you forget to call StorageBuffer::setSyncData()?";
         return;
@@ -213,32 +232,32 @@ void tpd::Engine::sync(const StorageBuffer& storageBuffer) {
         .build(*_deviceAllocator, &_syncResourcePool);
     stagingBuffer->setData(storageBuffer.getSyncData());
 
-    const auto releaseCommand = beginOneTimeTransfer(_transferCommandPool);
+    const auto releaseCommand = beginSyncTransfer(_transferFamilyIndex);
     storageBuffer.recordBufferTransfer(releaseCommand, stagingBuffer->getVulkanBuffer());
 
     // Signals the fence after all queue jobs finish, allowing resource cleanup in the deletion worker's thread
     const auto deletionFence = _device.createFence(vk::FenceCreateInfo{});
 
-    if (_transferFamilyIndex != _graphicsFamilyIndex) {
-        storageBuffer.recordOwnershipRelease(releaseCommand, _transferFamilyIndex, _graphicsFamilyIndex);
+    if (_transferFamilyIndex != acquireFamily) {
+        storageBuffer.recordOwnershipRelease(releaseCommand, _transferFamilyIndex, acquireFamily);
         const auto ownershipSemaphoreInfo = createSyncOwnershipSemaphoreInfo();
         endSyncReleaseCommands(releaseCommand, ownershipSemaphoreInfo);
 
-        const auto acquireCommand = beginOneTimeTransfer(_graphicsCommandPool);
-        storageBuffer.recordOwnershipAcquire(acquireCommand, _transferFamilyIndex, _graphicsFamilyIndex);
-        endSyncAcquireCommands(acquireCommand, ownershipSemaphoreInfo, deletionFence);
+        const auto acquireCommand = beginSyncTransfer(acquireFamily);
+        storageBuffer.recordOwnershipAcquire(acquireCommand, _transferFamilyIndex, acquireFamily);
+        endSyncAcquireCommands(acquireCommand, ownershipSemaphoreInfo, acquireFamily, deletionFence);
 
         _stagingDeletionQueue.submit(
             _device, ownershipSemaphoreInfo.semaphore, deletionFence, std::move(stagingBuffer),
-            { std::pair{ _graphicsCommandPool, acquireCommand }, std::pair{ _transferCommandPool, releaseCommand } });
+            { { getSyncPool(acquireFamily), acquireCommand }, { _transferPool, releaseCommand } });
 
     } else {
-        endOneTimeTransfer(releaseCommand, deletionFence);
-        _stagingDeletionQueue.submit(_device, {}, deletionFence, std::move(stagingBuffer), {{ _transferCommandPool, releaseCommand }});
+        endSyncCommands(releaseCommand, deletionFence);
+        _stagingDeletionQueue.submit(_device, {}, deletionFence, std::move(stagingBuffer), {{ _transferPool, releaseCommand }});
     }
 }
 
-void tpd::Engine::sync(Texture& texture) {
+void tpd::Engine::sync(Texture& texture, const uint32_t acquireFamily) {
     if (!texture.hasSyncData()) {
         PLOGW << "Engine - Syncing an empty Texture: did you forget to call Texture::setSyncData()?";
         return;
@@ -249,34 +268,34 @@ void tpd::Engine::sync(Texture& texture) {
         .build(*_deviceAllocator, &_syncResourcePool);
     stagingBuffer->setData(texture.getSyncData());
 
-    const auto releaseCommand = beginOneTimeTransfer(_transferCommandPool);
+    const auto releaseCommand = beginSyncTransfer(_transferFamilyIndex);
     texture.recordImageTransition(releaseCommand, vk::ImageLayout::eTransferDstOptimal);
     texture.recordBufferTransfer(releaseCommand, stagingBuffer->getVulkanBuffer());
 
     // Signals the fence after all queue jobs finish, allowing resource cleanup in the deletion worker's thread
     const auto deletionFence = _device.createFence(vk::FenceCreateInfo{});
 
-    if (_transferFamilyIndex != _graphicsFamilyIndex) {
-        texture.recordOwnershipRelease(releaseCommand, _transferFamilyIndex, _graphicsFamilyIndex, TEXTURE_FINAL_LAYOUT);
+    if (_transferFamilyIndex != acquireFamily) {
+        texture.recordOwnershipRelease(releaseCommand, _transferFamilyIndex, acquireFamily, TEXTURE_FINAL_LAYOUT);
         const auto ownershipSemaphoreInfo = createSyncOwnershipSemaphoreInfo();
         endSyncReleaseCommands(releaseCommand, ownershipSemaphoreInfo);
 
-        const auto acquireCommand = beginOneTimeTransfer(_graphicsCommandPool);
-        texture.recordOwnershipAcquire(acquireCommand, _transferFamilyIndex, _graphicsFamilyIndex, TEXTURE_FINAL_LAYOUT);
-        endSyncAcquireCommands(acquireCommand, ownershipSemaphoreInfo, deletionFence);
+        const auto acquireCommand = beginSyncTransfer(acquireFamily);
+        texture.recordOwnershipAcquire(acquireCommand, _transferFamilyIndex, acquireFamily, TEXTURE_FINAL_LAYOUT);
+        endSyncAcquireCommands(acquireCommand, ownershipSemaphoreInfo, acquireFamily, deletionFence);
 
         _stagingDeletionQueue.submit(
             _device, ownershipSemaphoreInfo.semaphore, deletionFence, std::move(stagingBuffer),
-            { { _graphicsCommandPool, acquireCommand }, { _transferCommandPool, releaseCommand } });
+            { { getSyncPool(acquireFamily), acquireCommand }, { _transferPool, releaseCommand } });
 
     } else {
         texture.recordImageTransition(releaseCommand, TEXTURE_FINAL_LAYOUT);
-        endOneTimeTransfer(releaseCommand, deletionFence);
-        _stagingDeletionQueue.submit(_device, {}, deletionFence, std::move(stagingBuffer), {{ _transferCommandPool, releaseCommand }});
+        endSyncCommands(releaseCommand, deletionFence);
+        _stagingDeletionQueue.submit(_device, {}, deletionFence, std::move(stagingBuffer), {{ _transferPool, releaseCommand }});
     }
 }
 
-void tpd::Engine::syncAndGenMips(Texture& texture) {
+void tpd::Engine::syncAndGenMips(Texture& texture, const uint32_t acquireFamily) {
     if (!texture.hasSyncData()) {
         PLOGW << "Engine - Syncing an empty Texture: did you forget to call Texture::setSyncData()?";
         return;
@@ -287,30 +306,30 @@ void tpd::Engine::syncAndGenMips(Texture& texture) {
         .build(*_deviceAllocator, &_syncResourcePool);
     stagingBuffer->setData(texture.getSyncData());
 
-    const auto releaseCommand = beginOneTimeTransfer(_transferCommandPool);
+    const auto releaseCommand = beginSyncTransfer(_transferFamilyIndex);
     texture.recordBufferTransfer(releaseCommand, stagingBuffer->getVulkanBuffer());
 
     // Signals the fence after all queue jobs finish, allowing resource cleanup in the deletion worker's thread
     const auto deletionFence = _device.createFence(vk::FenceCreateInfo{});
 
-    if (_transferFamilyIndex != _graphicsFamilyIndex) {
-        texture.recordOwnershipRelease(releaseCommand, _transferFamilyIndex, _graphicsFamilyIndex);
+    if (_transferFamilyIndex != acquireFamily) {
+        texture.recordOwnershipRelease(releaseCommand, _transferFamilyIndex, acquireFamily);
         const auto ownershipSemaphoreInfo = createSyncOwnershipSemaphoreInfo();
         endSyncReleaseCommands(releaseCommand, ownershipSemaphoreInfo);
 
-        const auto acquireCommand = beginOneTimeTransfer(_graphicsCommandPool);
-        texture.recordOwnershipAcquire(acquireCommand, _transferFamilyIndex, _graphicsFamilyIndex);
+        const auto acquireCommand = beginSyncTransfer(acquireFamily);
+        texture.recordOwnershipAcquire(acquireCommand, _transferFamilyIndex, acquireFamily);
         texture.recordMipsGeneration(releaseCommand, _physicalDevice);  // image is now in shader read optimal layout
-        endSyncAcquireCommands(acquireCommand, ownershipSemaphoreInfo, deletionFence);
+        endSyncAcquireCommands(acquireCommand, ownershipSemaphoreInfo, acquireFamily, deletionFence);
 
         _stagingDeletionQueue.submit(
             _device, ownershipSemaphoreInfo.semaphore, deletionFence, std::move(stagingBuffer),
-            { { _graphicsCommandPool, acquireCommand }, { _transferCommandPool, releaseCommand } });
+            { { getSyncPool(acquireFamily), acquireCommand }, { _transferPool, releaseCommand } });
 
     } else {
         texture.recordMipsGeneration(releaseCommand, _physicalDevice);  // image is now in shader read optimal layout
-        endOneTimeTransfer(releaseCommand, deletionFence);
-        _stagingDeletionQueue.submit(_device, {}, deletionFence, std::move(stagingBuffer), {{ _transferCommandPool, releaseCommand }});
+        endSyncCommands(releaseCommand, deletionFence);
+        _stagingDeletionQueue.submit(_device, {}, deletionFence, std::move(stagingBuffer), {{ _transferPool, releaseCommand }});
     }
 }
 
@@ -324,8 +343,9 @@ void tpd::Engine::destroy() noexcept {
         _drawingCommandBuffers.clear();
         _device.destroyCommandPool(_drawingCommandPool);
 
-        _device.destroyCommandPool(_transferCommandPool);
-        _device.destroyCommandPool(_graphicsCommandPool);
+        _device.destroyCommandPool(_graphicsPool);
+        _device.destroyCommandPool(_computePool);
+        _device.destroyCommandPool(_transferPool);
 
         // It's possible that the Context has bound to another Engine, in which case resetting the renderer
         // would destroy the incorrect resources. We check the pointer state to tell if this has happened.
