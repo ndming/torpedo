@@ -25,6 +25,17 @@ void tpd::ShaderInstance::setDescriptor(
     const uint32_t binding,
     const vk::DescriptorType type,
     const vk::Device device,
+    const vk::DescriptorBufferInfo& bufferInfo) const
+{
+    setDescriptor(instance, setIndex, binding, type, device, std::vector{ bufferInfo });
+}
+
+void tpd::ShaderInstance::setDescriptor(
+    const uint32_t instance,
+    const uint32_t setIndex,
+    const uint32_t binding,
+    const vk::DescriptorType type,
+    const vk::Device device,
     const std::vector<vk::DescriptorImageInfo>& imageInfos) const
 {
     auto writeDescriptor = vk::WriteDescriptorSet{};

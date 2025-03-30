@@ -29,6 +29,10 @@ namespace tpd {
 
         void setDescriptor(
             uint32_t instance, uint32_t setIndex, uint32_t binding, vk::DescriptorType type, vk::Device device,
+            const vk::DescriptorBufferInfo& bufferInfo) const;
+
+        void setDescriptor(
+            uint32_t instance, uint32_t setIndex, uint32_t binding, vk::DescriptorType type, vk::Device device,
             const std::vector<vk::DescriptorImageInfo>& imageInfos) const;
         
         void setDescriptor(
