@@ -42,7 +42,7 @@ tpd::PhysicalDeviceSelection tpd::PhysicalDeviceSelector::select(
         if (_requestGraphicsQueueFamily) selection.graphicsQueueFamilyIndex = graphicsFamily.value();
         /* always request transfer */    selection.transferQueueFamilyIndex = transferFamily.value();
         if (_requestPresentQueueFamily)  selection.presentQueueFamilyIndex  = presentFamily.value();
-        if (_requestComputeQueueFamily)  selection.computeQueueFamilyIndex  = computeFamily.value();
+        /* always request compute */     selection.computeQueueFamilyIndex  = computeFamily.value();
         return selection;
     }
 
@@ -57,7 +57,7 @@ tpd::PhysicalDeviceSelection tpd::PhysicalDeviceSelector::select(
     if (_requestGraphicsQueueFamily) selection.graphicsQueueFamilyIndex = graphicsFamily.value();
     /* always request transfer */    selection.transferQueueFamilyIndex = transferFamily.value();
     if (_requestPresentQueueFamily)  selection.presentQueueFamilyIndex  = presentFamily.value();
-    if (_requestComputeQueueFamily)  selection.computeQueueFamilyIndex  = computeFamily.value();
+    /* always request compute */     selection.computeQueueFamilyIndex  = computeFamily.value();
     return selection;
 }
 
@@ -112,11 +112,9 @@ tpd::PhysicalDeviceSelector::QueueFamilyIndices tpd::PhysicalDeviceSelector::fin
         }
 
         if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) {
-            if (_requestComputeQueueFamily) {
-                indices.computeFamily = i;   // set compute if being requested for
-                if (!(queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)) {
-                    foundAsyncCompute = true;
-                }
+            indices.computeFamily = i;
+            if (!(queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)) {
+                foundAsyncCompute = true;
             }
             if (!indices.transferFamily.has_value()) {
                 indices.transferFamily = i;  // this GPU may support no graphics operation
@@ -135,7 +133,7 @@ tpd::PhysicalDeviceSelector::QueueFamilyIndices tpd::PhysicalDeviceSelector::fin
         }
 
         // Discard the wrong index for compute family if async compute is being requested
-        if (_requestGraphicsQueueFamily && _requestComputeQueueFamily && _asyncCompute &&
+        if (_requestGraphicsQueueFamily && _asyncCompute &&
             indices.graphicsFamily.has_value() && indices.computeFamily.has_value() &&
             indices.graphicsFamily.value() == indices.computeFamily.value()) {
             indices.computeFamily.reset();
@@ -148,7 +146,7 @@ tpd::PhysicalDeviceSelector::QueueFamilyIndices tpd::PhysicalDeviceSelector::fin
             indices.transferFamily.reset();
         }
 
-        if (queueFamiliesComplete(indices) && foundAsyncTransfer && (foundAsyncCompute || !_requestComputeQueueFamily)) {
+        if (queueFamiliesComplete(indices) && foundAsyncTransfer && foundAsyncCompute) {
             break;
         }
     }
@@ -165,7 +163,7 @@ bool tpd::PhysicalDeviceSelector::queueFamiliesComplete(const QueueFamilyIndices
     if (_requestGraphicsQueueFamily && !indices.graphicsFamily.has_value()) return false;
     if (/* always request transfer */  !indices.transferFamily.has_value()) return false;
     if (_requestPresentQueueFamily  && !indices.presentFamily.has_value())  return false;
-    if (_requestComputeQueueFamily  && !indices.computeFamily.has_value())  return false;
+    if (/* always request compute */   !indices.computeFamily.has_value())  return false;
     if (_asyncCompute && indices.graphicsFamily == indices.computeFamily)   return false;
     if (_requestTransferQueueFamily && indices.graphicsFamily == indices.transferFamily)  return false;
     return true;

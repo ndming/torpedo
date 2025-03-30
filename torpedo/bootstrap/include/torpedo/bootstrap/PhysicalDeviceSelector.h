@@ -18,7 +18,7 @@ namespace tpd {
         PhysicalDeviceSelector& requestGraphicsQueueFamily() noexcept;
         PhysicalDeviceSelector& requestTransferQueueFamily() noexcept;
         PhysicalDeviceSelector& requestPresentQueueFamily(vk::SurfaceKHR surface) noexcept;
-        PhysicalDeviceSelector& requestComputeQueueFamily(bool async = false) noexcept;
+        PhysicalDeviceSelector& requestAsyncComputeFamily() noexcept;
 
         PhysicalDeviceSelector& features(const vk::PhysicalDeviceFeatures& features);
 
@@ -56,7 +56,6 @@ namespace tpd {
         bool _requestPresentQueueFamily{ false };
         vk::SurfaceKHR _surface{};
 
-        bool _requestComputeQueueFamily{ false };
         bool _asyncCompute{ false };
 
         [[nodiscard]] QueueFamilyIndices findQueueFamilies(vk::PhysicalDevice device) const;
@@ -119,9 +118,8 @@ inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::requestPresentQ
     return *this;
 }
 
-inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::requestComputeQueueFamily(const bool async) noexcept {
-    _requestComputeQueueFamily = true;
-    _asyncCompute = async;
+inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::requestAsyncComputeFamily() noexcept {
+    _asyncCompute = true;
     return *this;
 }
 
