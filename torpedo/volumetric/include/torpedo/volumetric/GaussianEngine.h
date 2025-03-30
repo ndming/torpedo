@@ -35,8 +35,16 @@ namespace tpd {
         std::pmr::vector<Target> _targets{ &_engineResourcePool };
         std::pmr::vector<vk::ImageView> _targetViews{ &_engineResourcePool };
 
+        struct GaussianPoint {
+            std::array<float, 3> position;
+            alignas(16) std::array<float, 3> color;
+        };
+        void createPointCloudBuffer();
+        std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _pointCloudBuffer{};
+
         void createPipelineResources();
         void setTargetDescriptors() const;
+        void setBufferDescriptors() const;
         std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _shaderLayout{};
         std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _shaderInstance{};
         vk::Pipeline _pipeline{};

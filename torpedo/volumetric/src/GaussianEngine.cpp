@@ -21,7 +21,7 @@ void tpd::GaussianEngine::preFramePass() {
     _device.resetFences(_computeSyncs[currentFrame].computeDrawFence);
     const auto computeDraw = _computeCommandBuffers[currentFrame];
 
-    // Our computeDrawFence ensures that we're not reseting the command buffer while it's still in use
+    // Our computeDrawFence ensures that we're not resting the command buffer while it's still in use
     computeDraw.reset();
     computeDraw.begin(vk::CommandBufferBeginInfo{});
 
@@ -114,7 +114,6 @@ tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
     const vk::SurfaceKHR surface) const
 {
     auto selector = PhysicalDeviceSelector()
-        .requestComputeQueueFamily()
         .featuresVulkan13(getVulkan13Features());
 
     if (_renderer->hasSurfaceRenderingSupport()) {
@@ -125,13 +124,11 @@ tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
     auto selection = selector.select(instance, deviceExtensions);
 
     PLOGD << "Queue family indices selected:";
+    PLOGD << " - Compute:  " << selection.computeQueueFamilyIndex;
+    PLOGD << " - Transfer: " << selection.transferQueueFamilyIndex;
     if (_renderer->hasSurfaceRenderingSupport()) {
         PLOGD << " - Graphics: " << selection.graphicsQueueFamilyIndex;
         PLOGD << " - Present:  " << selection.presentQueueFamilyIndex;
-        PLOGD << " - Compute:  " << selection.computeQueueFamilyIndex;
-    } else {  // headless rendering, don't care about graphics and present queue families
-        PLOGD << " - Transfer: " << selection.transferQueueFamilyIndex;
-        PLOGD << " - Compute:  " << selection.computeQueueFamilyIndex;
     }
 
     return selection;
@@ -176,6 +173,7 @@ void tpd::GaussianEngine::onInitialized() {
     _renderer->addFramebufferResizeCallback(this, framebufferResizeCallback);
     const auto [w, h] = _renderer->getFramebufferSize();
     createRenderTargets(w, h);
+    createPointCloudBuffer();
     createPipelineResources();
 
     if (_graphicsFamilyIndex != _computeFamilyIndex) {
@@ -215,14 +213,32 @@ void tpd::GaussianEngine::createRenderTargets(const uint32_t width, const uint32
     PLOGD << "Number of target images created by " << getName() << ": " << _targets.size();
 }
 
+void tpd::GaussianEngine::createPointCloudBuffer() {
+    auto points = std::array<GaussianPoint, 2>{};
+    points[0].position = { 1.0f, 0.0f, 0.0f };
+    points[0].color    = { 0.0f, 1.0f, 0.0f };
+    points[1].position = { 0.0f, 0.0f, 1.0f };
+    points[1].color    = { 0.5f, 0.5f, 0.5f };
+
+    _pointCloudBuffer = StorageBuffer::Builder()
+        .alloc(sizeof(GaussianPoint) * 2)
+        .syncData(points.data())
+        .dstPoint(vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead)
+        .build(*_deviceAllocator, &_engineResourcePool);
+
+    sync(*_pointCloudBuffer, _computeFamilyIndex);
+}
+
 void tpd::GaussianEngine::createPipelineResources() {
     _shaderLayout = ShaderLayout::Builder(&_engineResourcePool)
         .descriptorSetCount(1)
-        .descriptor(0, 0, vk::DescriptorType::eStorageImage, 1, vk::ShaderStageFlagBits::eCompute)
+        .descriptor(0, 0, vk::DescriptorType::eStorageImage,  1, vk::ShaderStageFlagBits::eCompute)
+        .descriptor(0, 1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute)
         .buildUnique(_device);
 
     _shaderInstance = _shaderLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
     setTargetDescriptors();
+    setBufferDescriptors();
 
     const auto shaderModule = ShaderModuleBuilder()
         .shader(TORPEDO_VOLUMETRIC_ASSETS_DIR, "3dgs.comp")
@@ -244,9 +260,19 @@ void tpd::GaussianEngine::createPipelineResources() {
 void tpd::GaussianEngine::setTargetDescriptors() const {
     for (uint32_t i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
         const auto descriptorInfo = vk::DescriptorImageInfo{}
-        .setImageView(_targetViews[i])
-        .setImageLayout(vk::ImageLayout::eGeneral);
+            .setImageView(_targetViews[i])
+            .setImageLayout(vk::ImageLayout::eGeneral);
         _shaderInstance->setDescriptor(i, 0, 0, vk::DescriptorType::eStorageImage, _device, descriptorInfo);
+    }
+}
+
+void tpd::GaussianEngine::setBufferDescriptors() const {
+    for (uint32_t i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
+        const auto descriptorInfo = vk::DescriptorBufferInfo{}
+            .setBuffer(_pointCloudBuffer->getVulkanBuffer())
+            .setOffset(0)
+            .setRange(_pointCloudBuffer->getSyncDataSize());
+        _shaderInstance->setDescriptor(i, 0, 1, vk::DescriptorType::eStorageBuffer, _device, descriptorInfo);
     }
 }
 
@@ -303,6 +329,8 @@ void tpd::GaussianEngine::destroy() noexcept {
 
         _shaderLayout->destroy(_device);
         _shaderLayout.reset();
+
+        _pointCloudBuffer.reset();
 
         cleanupRenderTargets();
         _targetViews.clear();

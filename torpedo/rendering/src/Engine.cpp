@@ -145,13 +145,17 @@ void tpd::Engine::createDrawingCommandBuffers() {
     }
 }
 
-vk::CommandPool tpd::Engine::getSyncPool(const uint32_t queueFamily) {
-    switch (queueFamily) {
-        case _transferFamilyIndex: return _transferPool;
-        case _computeFamilyIndex:  return _computePool;
-        case _graphicsFamilyIndex: return _graphicsPool;
-        default: throw std::invalid_argument("Engine - Unrecognized queue family for sync command pool");
+vk::CommandPool tpd::Engine::getSyncPool(const uint32_t queueFamily) const {
+    if (queueFamily == _transferFamilyIndex) {
+        return _transferPool;
     }
+    if (queueFamily == _computeFamilyIndex) {
+        return _computePool;
+    }
+    if (queueFamily == _graphicsFamilyIndex) {
+        return _graphicsPool;
+    }
+    throw std::invalid_argument("Engine - Unrecognized queue family for sync command pool");
 }
 
 vk::CommandBuffer tpd::Engine::beginSyncTransfer(const uint32_t queueFamily) {
@@ -214,10 +218,12 @@ void tpd::Engine::endSyncAcquireCommands(
         .setCommandBufferInfos(acquireInfo)
         .setWaitSemaphoreInfos(semaphoreInfo);
 
-    switch (acquireFamily) {
-        case _graphicsFamilyIndex: _graphicsQueue.submit2(acquireSubmitInfo, deletionFence);
-        case _computeFamilyIndex:   _computeQueue.submit2(acquireSubmitInfo, deletionFence);
-        default: throw std::runtime_error("Engine - Acquire queue family must be either compute or graphics family");
+    if (acquireFamily == _graphicsFamilyIndex) {
+        _graphicsQueue.submit2(acquireSubmitInfo, deletionFence);
+    } else if (acquireFamily == _computeFamilyIndex) {
+        _computeQueue.submit2(acquireSubmitInfo, deletionFence);
+    } else {
+        throw std::invalid_argument("Engine - Acquire queue family must be either compute or graphics family");
     }
 }
 
@@ -252,6 +258,8 @@ void tpd::Engine::sync(const StorageBuffer& storageBuffer, const uint32_t acquir
             { { getSyncPool(acquireFamily), acquireCommand }, { _transferPool, releaseCommand } });
 
     } else {
+        // Ensure subsequent commands don't access the buffer during copy
+        storageBuffer.recordDstSync(releaseCommand);
         endSyncCommands(releaseCommand, deletionFence);
         _stagingDeletionQueue.submit(_device, {}, deletionFence, std::move(stagingBuffer), {{ _transferPool, releaseCommand }});
     }

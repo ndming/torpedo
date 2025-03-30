@@ -95,7 +95,7 @@ namespace tpd {
         virtual void destroy() noexcept;
 
     private:
-        [[nodiscard]] vk::CommandPool getSyncPool(uint32_t queueFamily);
+        [[nodiscard]] vk::CommandPool getSyncPool(uint32_t queueFamily) const;
         [[nodiscard]] vk::CommandBuffer beginSyncTransfer(uint32_t queueFamily);
         void endSyncCommands(vk::CommandBuffer buffer, vk::Fence deletionFence) const;
 
