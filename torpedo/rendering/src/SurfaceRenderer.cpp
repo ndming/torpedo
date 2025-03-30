@@ -1,12 +1,10 @@
 #include "torpedo/rendering/SurfaceRenderer.h"
-#include "torpedo/rendering/Utils.h"
+#include "torpedo/rendering/LogUtils.h"
 
 #include <torpedo/bootstrap/SwapChainBuilder.h>
 #include <torpedo/bootstrap/DebugUtils.h>
 #include <torpedo/foundation/AllocationUtils.h>
 #include <torpedo/foundation/ImageUtils.h>
-
-#include <plog/Log.h>
 
 #include <chrono>
 #include <ranges>

@@ -2,7 +2,7 @@
 
 #include "torpedo/rendering/Renderer.h"
 #include "torpedo/rendering/Engine.h"
-#include "torpedo/rendering/Utils.h"
+#include "torpedo/rendering/LogUtils.h"
 
 #include <torpedo/bootstrap/InstanceBuilder.h>
 #include <torpedo/bootstrap/DebugUtils.h>

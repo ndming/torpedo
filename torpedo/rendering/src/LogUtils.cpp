@@ -1,8 +1,12 @@
-#include "torpedo/rendering/Utils.h"
+#include "torpedo/rendering/LogUtils.h"
 
-#include <plog/Log.h>
+#include <plog/Init.h>
+#include <plog/Util.h>
+#include <plog/Appenders/ColorConsoleAppender.h>
+#include <plog/Record.h>
 
 #include <format>
+#include <iomanip>
 
 void tpd::rendering::logDebugExtensions(
     const std::string_view extensionType,
@@ -61,4 +65,52 @@ std::string tpd::rendering::toString(const vk::PresentModeKHR presentMode) {
     case eSharedContinuousRefresh: return "SharedContinuousRefresh";
     default: return "Unrecognized present mode at enum: " + std::to_string(static_cast<int>(presentMode));
     }
+}
+
+namespace plog {
+    class Formatter {
+    public:
+        static util::nstring header() {
+            return {};
+        }
+
+        static util::nstring format(const Record& record) {
+            tm t{};
+            util::localtime_s(&t, &record.getTime().time);  // using local time
+
+            util::nostringstream ss;
+            ss << t.tm_year + 1900 << "-" << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_mon + 1 << PLOG_NSTR("-") << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_mday << PLOG_NSTR(" ");
+            ss << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_hour << PLOG_NSTR(":") << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_min << PLOG_NSTR(":") << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_sec << PLOG_NSTR(".") << std::setfill(PLOG_NSTR('0')) << std::setw(3) << static_cast<int> (record.getTime().millitm) << PLOG_NSTR(" ");
+            ss << std::setfill(PLOG_NSTR(' ')) << std::setw(5) << std::left << severityToString(record.getSeverity()) << PLOG_NSTR(" ");
+            ss << PLOG_NSTR("[") << std::setfill(PLOG_NSTR(' ')) << std::setw(5) << std::left << record.getTid() << PLOG_NSTR("] ");
+            ss << record.getMessage() << PLOG_NSTR("\n");
+
+            return ss.str();
+        }
+    };
+}
+
+void tpd::rendering::plantConsoleLogger() {
+    static auto appender = plog::ColorConsoleAppender<plog::Formatter>();
+#ifdef NDEBUG
+    init(plog::info, &appender);
+#else
+    init(plog::debug, &appender);
+#endif
+}
+
+void tpd::rendering::logVerbose(const std::string_view message) {
+    PLOGV << message.data();
+}
+
+void tpd::rendering::logInfo(const std::string_view message) {
+    PLOGI << message.data();
+}
+
+void tpd::rendering::logDebug(const std::string_view message) {
+    PLOGD << message.data();
+}
+
+void tpd::rendering::logError(const std::string_view message) {
+    PLOGE << message.data();
 }

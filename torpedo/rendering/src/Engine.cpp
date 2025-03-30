@@ -1,11 +1,9 @@
 #include "torpedo/rendering/Engine.h"
-#include "torpedo/rendering/Utils.h"
+#include "torpedo/rendering/LogUtils.h"
 
 #include <torpedo/bootstrap/DebugUtils.h>
 #include <torpedo/bootstrap/DeviceBuilder.h>
 #include <torpedo/foundation/StagingBuffer.h>
-
-#include <plog/Log.h>
 
 void tpd::Engine::init(
     const vk::Instance instance,

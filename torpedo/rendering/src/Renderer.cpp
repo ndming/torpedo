@@ -1,7 +1,5 @@
 #include "torpedo/rendering/Renderer.h"
-#include "torpedo/rendering/Utils.h"
-
-#include <plog/Log.h>
+#include "torpedo/rendering/LogUtils.h"
 
 std::vector<const char*> tpd::Renderer::getInstanceExtensions() const {
 #ifndef NDEBUB

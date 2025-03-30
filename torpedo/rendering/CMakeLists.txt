@@ -23,10 +23,10 @@ set(TORPEDO_RENDERING_SOURCES
         src/DeletionWorker.cpp
         src/Engine.cpp
         src/HeadlessRenderer.cpp
+        src/LogUtils.cpp
         src/Renderer.cpp
         src/SurfaceRenderer.cpp
-        src/SyncGroup.cpp
-        src/Utils.cpp)
+        src/SyncGroup.cpp)
 
 
 # TORPEDO RENDERING MODULE
