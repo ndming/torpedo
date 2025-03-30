@@ -13,7 +13,7 @@ endif()
 
 # UTILITY FUNCTION FOR DEFINING A SUB-PROJECT MODULE
 # --------------------------------------------------
-function(torpedo_define_module TARGET_NAME MODULE_SOURCES)
+function(torpedo_define_module TARGET_NAME MODULE_SOURCES CLANG_SET_VISIBILITY)
     # Working with static libraries
     add_library(${TARGET_NAME} STATIC)
 
@@ -29,8 +29,20 @@ function(torpedo_define_module TARGET_NAME MODULE_SOURCES)
             CXX_STANDARD 23
             CMAKE_CXX_STANDARD_REQUIRED ON
             CXX_EXTENSIONS OFF
-            COMPILE_WARNING_AS_ERROR ON
-    )
+            COMPILE_WARNING_AS_ERROR ON)
+
+    # Compiler and linker options when compiling with Clang
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        if (LIBCXX AND LIBABI)
+            # Link to libc++
+            target_compile_options(${TARGET_NAME} ${CLANG_SET_VISIBILITY} -stdlib=libc++)
+            target_link_libraries(${TARGET_NAME} ${CLANG_SET_VISIBILITY} ${LIBCXX} ${LIBCXXABI})
+        elseif (WIN32 AND TORPEDO_MSVCRT_PATH)
+            # The current Vulkan-Hpp implementation internally uses strncpy which is marked deprecated for Clang that
+            # targets MSVC. This would trigger a warning which is treated as compilation error, so we disable it here
+            target_compile_options(${TARGET_NAME} ${CLANG_SET_VISIBILITY} -Wno-deprecated-declarations)
+        endif()
+    endif()
 endfunction()
 
 
@@ -70,21 +82,6 @@ function(torpedo_compile_glsl TARGET_NAME SPIR_V_OUTPUT_DIR GLSL_SOURCE_FILES)
     # Create an INTERFACE library to represent the compiled shaders
     add_library(${TARGET_NAME}_spirv_binaries INTERFACE)
     target_sources(${TARGET_NAME}_spirv_binaries INTERFACE ${SPIR_V_BINARY_FILES})
-endfunction()
-
-
-# UTILITY FUNCTION FOR CLANG OPTION AND LINKING SETUP
-# ---------------------------------------------------
-function(torpedo_setup_clang TARGET_NAME VISIBILITY)
-    if (WIN32)
-        # The current Vulkan-Hpp implementation internally uses strncpy which is marked deprecated for Clang on Windows.
-        # This would trigger a warning which is treated as compilation error, so we disable it here
-        target_compile_options(${TARGET_NAME} ${VISIBILITY} -Wno-deprecated-declarations)
-    else ()
-        # Use libc++ for Clang on non-Windows platforms
-        target_compile_options(${TARGET_NAME} ${VISIBILITY} -stdlib=libc++)
-        target_link_libraries(${TARGET_NAME} ${VISIBILITY} :libc++.a :libc++abi.a)
-    endif ()
 endfunction()
 
 

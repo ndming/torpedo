@@ -2,79 +2,117 @@
 The default [Release build](#release-build) is generally recommended for consuming the library, while the [Debug build](#debug-build)
 is suitable for experiments and extensions.
 
-### Prerequisites
-All dependencies are going to be managed via an isolated `conda` environment, including Vulkan and C++ build tools (CMake, Ninja. etc.).
+### Build environment
+It is highly recommended to use Clang for optimal compatibility and performance. While other toolchains may work, 
+they have not been carefully tested and may cause issues during compilation.
 
-Set up the environment with `conda`/`mamba`:
-```shell
-conda env create --file environment.yml
-conda activate torpedo
-```
+There are two ways to prepare a build environment for `torpedo`:
+- Using a Conda environment to manage dependencies, including Vulkan and build tools like CMake, Ninja, etc.
+- Using tools and dependencies already available on your system, as long as they can be detected by CMake.
 
-#### Linux
-Standard C++ library (`libc++`) and additional packages for GLFW are required:
-```shell
-conda install -c conda-forge libcxx-devel=19.1.7 pkgconfig wayland libxkbcommon mesa-libgl-devel-conda-x86_64
-```
+The Conda build pattern is preferred as it ensures `torpedo` is well-contained and avoids the need for administrative 
+privileges when installing tools or dependencies. The repo provides `.yml` files to set up a Conda environment with
+all necessary packages for each OS, and they assume no prerequisites on the host system.
 
 #### Windows
-On Windows, MSVC version `>=19.39` is required (via Visual Studio version `>=17.9.7`). The library only needs the VS 
-[BuildTools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with the following components 
-in the *Desktop development C++* workload:
+Currently on Windows, MSVC version `>=19.39` is required (via Visual Studio version `>=17.9.7`) for both build patterns. 
+The library only needs the VS [BuildTools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with the following components in the *Desktop development C++* workload:
 - MSVC v143 - VS2022 C++ x86/64 build tools
 - Windows SDK (either 10 or 11)
 
-### Release build
-Configure the build to use Clang and Ninja (clang-tools are already included in the `conda` environment):
+###### Conda
+Set up the environment with `conda`/`mamba`:
 ```shell
-cmake -B build -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G Ninja
+conda env create --file env-win64.yml
+conda activate torpedo
+```
+
+###### System
+Requirements:
+- `CMake` version `3.25` or greater
+- `Ninja`
+- `Clang` version `19.1.7` or greater
+- `VulkanSDK` version `1.4.304` or greater with the following components: `glslc`, `glslangValidator`, and `VMA`
+
+#### Linux
+There is no need for GCC on Linux, as the build favors Clang by default.
+
+###### Conda
+Set up the environment with `conda`/`mamba`:
+```shell
+conda env create --file env-linux.yml
+conda activate torpedo
+```
+
+There is a small limitation when setting up a full Conda environment for `torpedo`: the `xorg-dev` library, which
+provides compatibility with X11, is not well maintained on `conda-forge`. This only causes issues when performing
+surface rendering on systems without Wayland. As long as `tpd::SurfaceRenderer` is not used on such systems, the 
+Conda environment works gracefully at runtimes.
+
+###### System
+Requirements:
+- `CMake` version `3.25` or greater
+- `Ninja`
+- `LLVM` tools version `19.1.7` or greater
+- `VulkanSDK` version `1.4.304` or greater with the following components: `glslc`, `glslangValidator`, and `VMA`
+
+### Release build
+Configure the project:
+
+###### Conda
+```shell
+cmake -B build -G Ninja
+cmake --build build
+```
+
+###### System
+```shell
+cmake -B build -G Ninja -DCMAKE_C_COMPILER=/path/to/clang -DCMAKE_CXX_COMPILER=/path/to/clang++
+cmake --build build
 ```
 
 <details>
 <summary><span style="font-weight: bold;">There are additional CMake options to further fine-tune the configuration</span></summary>
 
-- `-DCMAKE_BUILD_DEMO` (`BOOL`): build demo targets, enabled automatically for Debug build only if not explicitly set on 
+- `-DTORPEDO_BUILD_DEMO` (`BOOL`): build demo targets, enabled automatically for Debug build if not explicitly set on 
 the CLI. For other builds, the default option is `OFF` unless explicitly set otherwise on the CLI.
-- `-DCMAKE_INSTALL_PREFIX` (`PATH`): automatically set to `CONDA_PREFIX` if such a variable is defined and the option is
-not explicitly set on the CLI. Note that `CONDA_PREFIX` is also defined if a `mamba` environment is activated.
+- `-DCMAKE_INSTALL_PREFIX` (`PATH`): automatically set to `CONDA_PREFIX` if the variable is defined and the option is not 
+explicitly set on the CLI. Note that `CONDA_PREFIX` is automatically defined when a `conda`/`mamba` environment activated.
 
 </details>
 
-Build and install the library into the `conda` environment:
+If performing build inside a Conda environment, the installation is automatically set to the default `CONDA_PREFIX` path 
+unless `CMAKE_INSTALL_PREFIX` is overridden during CMake configuration.
 ```shell
-cmake --build build
 cmake --install build
 ```
 
-Downstream applications can now consume the library directly as long as they use CMake in the `conda` environment to 
-configure their projects.
-
 ### Debug build
-Configure and build the library in `Debug` mode:
+To configure for Debug build, define the `-DCMAKE_BUILD_TYPE` as `Debug`:
 ```shell
-cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G Ninja
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -G Ninja
 cmake --build build
 ```
 
-During debug runs, the library requests and enables the `VK_LAYER_KHRONOS_validation` layer, which can be installed via `conda-forge`:
+For debug runs, the library requests and enables the `VK_LAYER_KHRONOS_validation` layer. This was not included in the 
+provided `.yml` files for the Conda build pattern and must be installed from `conda-forge`:
 ```shell
 conda install -c conda-forge lldb=19.1.7 vulkan-validation-layers=1.4.304
 ```
 
-Since we are not using a Vulkan SDK (LunarG), the `VK_LAYER_PATH` environment variable must be set to the directory containing 
-the layers, allowing the Vulkan loader to locate them.
-
-> [!IMPORTANT]
-> The `VK_LAYER_PATH` environment variable is ignored if the downstream application is running WITH elevated privileges, 
-> see the [docs](https://github.com/KhronosGroup/Vulkan-Loader/blob/main/docs/LoaderLayerInterface.md) for more information.
-
+Additionally, debugging with dependencies managed via Conda requires the `VK_LAYER_PATH` environment variable to be set
+to the directory containing the installed layers, allowing the Vulkan loader to locate them.
 ```shell
 # Windows (PowerShell)
 $env:VK_LAYER_PATH="$env:CONDA_PREFIX/Library/bin"
 
 # Linux
-export VK_LAYER_PATH=$CONDA_PREFIX/Library/bin
+export VK_LAYER_PATH=$CONDA_PREFIX/share/vulkan/explicit_layer.d
 ```
+
+> [!IMPORTANT]
+> The `VK_LAYER_PATH` environment variable is ignored if the library is being consumed inside a shell WITH elevated privileges, 
+> see the [docs](https://github.com/KhronosGroup/Vulkan-Loader/blob/main/docs/LoaderLayerInterface.md) for more information.
 
 To set this variable each time the `torpedo` environment is activated and unset it when exiting the environment, 
 an activate/deactivate script can be set up to automate the process:
@@ -88,6 +126,6 @@ Add-Content -Path "$env:CONDA_PREFIX\etc\conda\deactivate.d\torpedo_deactivate.p
 
 - On Linux:
 ```shell
-echo 'export VK_LAYER_PATH="$CONDA_PREFIX/Library/bin"' > $CONDA_PREFIX/etc/conda/activate.d/torpedo_activate.sh
+echo 'export VK_LAYER_PATH=$CONDA_PREFIX/share/vulkan/explicit_layer.d' > $CONDA_PREFIX/etc/conda/activate.d/torpedo_activate.sh
 echo 'unset VK_LAYER_PATH' > $CONDA_PREFIX/etc/conda/deactivate.d/torpedo_deactivate.sh
 ```

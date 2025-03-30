@@ -7,7 +7,7 @@ set(TORPEDO_VOLUMETRIC_SOURCES
 # TORPEDO VOLUMETRIC MODULE
 # ------------------------
 set(TARGET torpedo_volumetric)
-torpedo_define_module(${TARGET} "${TORPEDO_VOLUMETRIC_SOURCES}")
+torpedo_define_module(${TARGET} "${TORPEDO_VOLUMETRIC_SOURCES}" PUBLIC)
 # Where to look for header files
 target_include_directories(${TARGET} PUBLIC include)
 # Dependencies
@@ -20,14 +20,6 @@ target_link_libraries(${TARGET} PUBLIC torpedo::rendering)
 torpedo_define_assets_dir(${TARGET} VOLUMETRIC ${CMAKE_CURRENT_BINARY_DIR} TORPEDO_VOLUMETRIC_ASSETS_DIR)
 # Shader assets
 set(TORPEDO_VOLUMETRIC_SHADERS
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/3dgs.comp
-)
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/3dgs.comp)
 torpedo_compile_glsl(${TARGET} "${TORPEDO_VOLUMETRIC_ASSETS_DIR}/shaders" "${TORPEDO_VOLUMETRIC_SHADERS}")
 target_link_libraries(${TARGET} PRIVATE "${TARGET}_spirv_binaries")
-
-
-# CLANG SPECIFICS
-# ---------------
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    torpedo_setup_clang(${TARGET} PUBLIC)
-endif()

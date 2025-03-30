@@ -15,7 +15,7 @@ set(TORPEDO_UTILS_SOURCES
 # TORPEDO UTILITY MODULE
 # ----------------------
 set(TARGET torpedo_utility)
-torpedo_define_module(${TARGET} "${TORPEDO_UTILS_SOURCES}")
+torpedo_define_module(${TARGET} "${TORPEDO_UTILS_SOURCES}" PUBLIC)
 # Where to look for header files
 target_include_directories(${TARGET} PUBLIC include)
 # Dependencies

@@ -32,7 +32,7 @@ set(TORPEDO_RENDERING_SOURCES
 # TORPEDO RENDERING MODULE
 # ------------------------
 set(TARGET torpedo_rendering)
-torpedo_define_module(${TARGET} "${TORPEDO_RENDERING_SOURCES}")
+torpedo_define_module(${TARGET} "${TORPEDO_RENDERING_SOURCES}" PRIVATE)
 # Where to look for header files
 target_include_directories(${TARGET} PUBLIC include)
 # Dependencies
@@ -42,16 +42,9 @@ target_link_libraries(${TARGET} PUBLIC glfw)
 target_link_libraries(${TARGET} PUBLIC plog::plog)
 
 
-# CLANG SPECIFICS
-# ---------------
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    torpedo_setup_clang(${TARGET} PRIVATE)
-endif()
-
-
 # MACRO DEFINITIONS FOR GLFW BUILD ON LINUX/WSL
 # ---------------------------------------------
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux" OR DEFINED ENV{WSL_DISTRO_NAME})
+if (LINUX)
     target_compile_definitions(glfw PRIVATE _XOPEN_SOURCE=700)
     target_compile_definitions(glfw PRIVATE _POSIX_C_SOURCE=199309L)
 endif()
