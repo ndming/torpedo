@@ -15,9 +15,9 @@ privileges when installing tools or dependencies. The repo provides `.yml` files
 all necessary packages for each OS, and they assume no prerequisites on the host system.
 
 #### Windows
-Currently on Windows, MSVC version `>=19.39` is required (via Visual Studio version `>=17.9.7`) for both build patterns. 
-The library only needs the VS [BuildTools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with the following components in the *Desktop development C++* workload:
-- MSVC v143 - VS2022 C++ x86/64 build tools
+Currently on Windows, Visual Studio version `>=17.9.7` is required for **both** build patterns. The library only needs 
+the VS [BuildTools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with the following components in *Desktop development with C++*:
+- MSVC v143 - VS2022 C++ x86/64 build tools (MSVC `>=19.39`)
 - Windows SDK (either 10 or 11)
 
 ###### Conda
@@ -57,7 +57,7 @@ Requirements:
 - `VulkanSDK` version `1.4.304` or greater with the following components: `glslc`, `glslangValidator`, and `VMA`
 
 ### Release build
-Configure the project:
+Configure and build the project:
 
 ###### Conda
 ```shell
@@ -81,11 +81,12 @@ explicitly set on the CLI. Note that `CONDA_PREFIX` is automatically defined whe
 
 </details>
 
-If performing build inside a Conda environment, the installation is automatically set to the default `CONDA_PREFIX` path 
-unless `CMAKE_INSTALL_PREFIX` is overridden during CMake configuration.
+Install the library:
 ```shell
 cmake --install build
 ```
+If performing build inside a Conda environment, the installation is automatically set to the default `CONDA_PREFIX` path
+unless `CMAKE_INSTALL_PREFIX` is overridden during CMake configuration.
 
 ### Debug build
 To configure for Debug build, define the `-DCMAKE_BUILD_TYPE` as `Debug`:
@@ -100,8 +101,8 @@ provided `.yml` files for the Conda build pattern and must be installed from `co
 conda install -c conda-forge lldb=19.1.7 vulkan-validation-layers=1.4.304
 ```
 
-Additionally, debugging with dependencies managed via Conda requires the `VK_LAYER_PATH` environment variable to be set
-to the directory containing the installed layers, allowing the Vulkan loader to locate them.
+To debug with Conda-managed dependencies, set the `VK_LAYER_PATH` environment variable to the directory containing the 
+installed layers, enabling the Vulkan loader to locate them.
 ```shell
 # Windows (PowerShell)
 $env:VK_LAYER_PATH="$env:CONDA_PREFIX/Library/bin"
