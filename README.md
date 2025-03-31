@@ -7,8 +7,8 @@ It is highly recommended to use Clang for optimal compatibility and performance.
 they have not been carefully tested and may cause issues during compilation.
 
 There are two ways to prepare a build environment for `torpedo`:
-- Using a Conda environment to manage dependencies, including Vulkan and build tools like CMake, Ninja, etc.
 - Using tools and dependencies already available on your system, as long as they can be detected by CMake.
+- Using a Conda environment to manage dependencies, including Vulkan and build tools like CMake, Ninja, etc.
 
 The Conda build pattern is preferred as it ensures `torpedo` is well-contained and avoids the need for administrative 
 privileges when installing tools or dependencies. The repo provides `.yml` files to set up a Conda environment with
@@ -20,24 +20,24 @@ the VS [BuildTools](https://visualstudio.microsoft.com/downloads/#build-tools-fo
 - MSVC v143 - VS2022 C++ x86/64 build tools (MSVC `>=19.39`)
 - Windows SDK (either 10 or 11)
 
-###### Conda
+###### Using a Conda environment
 Set up the environment with `conda`/`mamba`:
 ```shell
 conda env create --file env-win64.yml
 conda activate torpedo
 ```
 
-###### System
-Requirements:
+###### Using system packages
+The following components are required:
 - `CMake` version `3.25` or greater
 - `Ninja`
 - `Clang` version `19.1.7` or greater
-- `VulkanSDK` version `1.4.304` or greater with the following components: `glslc`, `glslangValidator`, and `VMA`
+- `VulkanSDK` version `1.4.304` or greater with the following components: `glslc`, `slangc`, and `VMA`
 
 #### Linux
 There is no need for GCC on Linux, as the build favors Clang by default.
 
-###### Conda
+###### Using a Conda environment
 Set up the environment with `conda`/`mamba`:
 ```shell
 conda env create --file env-linux.yml
@@ -49,25 +49,17 @@ provides compatibility with X11, is not well maintained on `conda-forge`. This o
 surface rendering on systems without Wayland. As long as `tpd::SurfaceRenderer` is not used on such systems, the 
 Conda environment works gracefully at runtimes.
 
-###### System
-Requirements:
+###### Using system packages
+The following components are required:
 - `CMake` version `3.25` or greater
 - `Ninja`
-- `LLVM` tools version `19.1.7` or greater
-- `VulkanSDK` version `1.4.304` or greater with the following components: `glslc`, `glslangValidator`, and `VMA`
+- `Clang` version `19.1.7` or greater
+- `VulkanSDK` version `1.4.304` or greater with the following components: `glslc`, `slangc`, and `VMA`
 
 ### Release build
 Configure and build the project:
-
-###### Conda
 ```shell
 cmake -B build -G Ninja
-cmake --build build
-```
-
-###### System
-```shell
-cmake -B build -G Ninja -DCMAKE_C_COMPILER=/path/to/clang -DCMAKE_CXX_COMPILER=/path/to/clang++
 cmake --build build
 ```
 
@@ -85,8 +77,8 @@ Install the library:
 ```shell
 cmake --install build
 ```
-If performing build inside a Conda environment, the installation is automatically set to the default `CONDA_PREFIX` path
-unless `CMAKE_INSTALL_PREFIX` is overridden during CMake configuration.
+If performing build inside a Conda environment, the installation path is automatically set to `CONDA_PREFIX` unless
+`CMAKE_INSTALL_PREFIX` is explicitly set during CMake configuration.
 
 ### Debug build
 To configure for Debug build, define the `-DCMAKE_BUILD_TYPE` as `Debug`:
