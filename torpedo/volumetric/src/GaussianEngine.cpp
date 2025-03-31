@@ -131,6 +131,17 @@ tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
         PLOGD << " - Present:  " << selection.presentQueueFamilyIndex;
     }
 
+    const auto limits = selection.physicalDevice.getProperties().limits;
+    PLOGD << "Compute space limits:";
+    PLOGD << " - Max work group x: " << limits.maxComputeWorkGroupCount[0];
+    PLOGD << " - Max work group y: " << limits.maxComputeWorkGroupCount[1];
+    PLOGD << " - Max work group z: " << limits.maxComputeWorkGroupCount[2];
+    PLOGD << " - Max local size x: " << limits.maxComputeWorkGroupSize[0];
+    PLOGD << " - Max local size y: " << limits.maxComputeWorkGroupSize[1];
+    PLOGD << " - Max local size z: " << limits.maxComputeWorkGroupSize[2];
+    PLOGD << " - Max invocations:  " << limits.maxComputeWorkGroupInvocations;
+    PLOGD << " - Max group memory: " << limits.maxComputeSharedMemorySize / 1024 << "KB";
+
     return selection;
 }
 
