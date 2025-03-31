@@ -16,7 +16,7 @@ namespace tpd {
     class PhysicalDeviceSelector {
     public:
         PhysicalDeviceSelector& requestGraphicsQueueFamily() noexcept;
-        PhysicalDeviceSelector& requestTransferQueueFamily() noexcept;
+        PhysicalDeviceSelector& requestAsyncTransferFamily() noexcept;
         PhysicalDeviceSelector& requestPresentQueueFamily(vk::SurfaceKHR surface) noexcept;
         PhysicalDeviceSelector& requestAsyncComputeFamily() noexcept;
 
@@ -51,7 +51,7 @@ namespace tpd {
         };
 
         bool _requestGraphicsQueueFamily{ false };
-        bool _requestTransferQueueFamily{ false };
+        bool _asyncTransfer{ false };
 
         bool _requestPresentQueueFamily{ false };
         vk::SurfaceKHR _surface{};
@@ -107,8 +107,8 @@ inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::requestGraphics
     return *this;
 }
 
-inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::requestTransferQueueFamily() noexcept {
-    _requestTransferQueueFamily = true;
+inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::requestAsyncTransferFamily() noexcept {
+    _asyncTransfer = true;
     return *this;
 }
 

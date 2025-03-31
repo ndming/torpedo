@@ -57,7 +57,7 @@ tpd::PhysicalDeviceSelection tpd::PhysicalDeviceSelector::select(
     if (_requestGraphicsQueueFamily) selection.graphicsQueueFamilyIndex = graphicsFamily.value();
     /* always request transfer */    selection.transferQueueFamilyIndex = transferFamily.value();
     if (_requestPresentQueueFamily)  selection.presentQueueFamilyIndex  = presentFamily.value();
-    /* always request compute */     selection.computeQueueFamilyIndex  = computeFamily.value();
+    /* always request compute  */    selection.computeQueueFamilyIndex  = computeFamily.value();
     return selection;
 }
 
@@ -139,8 +139,9 @@ tpd::PhysicalDeviceSelector::QueueFamilyIndices tpd::PhysicalDeviceSelector::fin
             indices.computeFamily.reset();
         }
 
-        // If a transfer family is being requested, it must be a separate queue family from graphics
-        if (_requestGraphicsQueueFamily && _requestTransferQueueFamily &&
+        // Discard the wrong index for transfer family if async transfer is being requested
+        // We favor async transfer to be distinct from compute
+        if (_requestGraphicsQueueFamily && _asyncTransfer &&
             indices.graphicsFamily.has_value() && indices.transferFamily.has_value() &&
             indices.graphicsFamily.value() == indices.transferFamily.value()) {
             indices.transferFamily.reset();
@@ -163,9 +164,9 @@ bool tpd::PhysicalDeviceSelector::queueFamiliesComplete(const QueueFamilyIndices
     if (_requestGraphicsQueueFamily && !indices.graphicsFamily.has_value()) return false;
     if (/* always request transfer */  !indices.transferFamily.has_value()) return false;
     if (_requestPresentQueueFamily  && !indices.presentFamily.has_value())  return false;
-    if (/* always request compute */   !indices.computeFamily.has_value())  return false;
-    if (_asyncCompute && indices.graphicsFamily == indices.computeFamily)   return false;
-    if (_requestTransferQueueFamily && indices.graphicsFamily == indices.transferFamily)  return false;
+    if (/* always request compute  */  !indices.computeFamily.has_value())  return false;
+    if (_asyncCompute  && indices.graphicsFamily == indices.computeFamily)  return false;
+    if (_asyncTransfer && indices.graphicsFamily == indices.transferFamily) return false;
     return true;
 }
 
