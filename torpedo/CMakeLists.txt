@@ -2,20 +2,22 @@
 # -------------------------
 find_package(Vulkan 1.4 REQUIRED)
 
-# Where to look for GLSL compiler
-find_program(GLSL_COMPILER glslc HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
+# Find GLSL and Slang compilers
+message(STATUS "Path to shader compilers:")
+
+find_program(GLSL_COMPILER glslc)
 if (GLSL_COMPILER)
-    message(STATUS "Using GLSL compiler at: ${GLSL_COMPILER}")
+    message(STATUS "+ GLSL:  ${GLSL_COMPILER}")
 else()
-    message(STATUS "Could NOT find a compiler for GLSL shaders")
+    message(STATUS "+ GLSL: NOT found")
 endif()
 
 # Where to look for Slang compiler
-find_program(SLANG_EXECUTABLE slangc HINTS /usr/bin /usr/local/bin $ENV{VULKAN_SDK}/Bin/ $ENV{VULKAN_SDK}/Bin32/)
-if (slang_FOUND)
-    message(STATUS "Using Slang compiler at: ${SLANG_EXECUTABLE}")
+find_program(SLANG_COMPILER slangc)
+if (SLANG_COMPILER)
+    message(STATUS "+ Slang: ${SLANG_COMPILER}")
 else()
-    message(STATUS "Could NOT find a compiler for Slang shaders")
+    message(STATUS "+ Slang: NOT found")
 endif()
 
 
