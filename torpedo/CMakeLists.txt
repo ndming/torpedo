@@ -13,7 +13,7 @@ else()
 endif()
 
 # Where to look for Slang compiler
-find_program(SLANG_COMPILER slangc)
+find_program(SLANG_COMPILER slangc HINTS ${SLANG_COMPILER_DIR})
 if (SLANG_COMPILER)
     message(STATUS "+ Slang: ${SLANG_COMPILER}")
 else()

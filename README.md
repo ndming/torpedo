@@ -27,6 +27,9 @@ conda env create --file env-win64.yml
 conda activate torpedo
 ```
 
+Additionally, the [Slang](https://github.com/shader-slang/slang/tree/v2024.17) compiler version `>=2024.17` needs to be 
+downloaded and extracted to a location whose path is specified during CMake configuration.
+
 ###### Using system packages
 The following components are required:
 - `CMake` version `3.25` or greater
@@ -43,6 +46,9 @@ Set up the environment with `conda`/`mamba`:
 conda env create --file env-linux.yml
 conda activate torpedo
 ```
+
+Additionally, the [Slang](https://github.com/shader-slang/slang/tree/v2024.17) compiler version `>=2024.17` needs to be
+downloaded and extracted to a location whose path is specified during CMake configuration.
 
 There is a small limitation when setting up a full Conda environment for `torpedo`: the `xorg-dev` library, which
 provides compatibility with X11, is not well maintained on `conda-forge`. This only causes issues when performing
@@ -63,11 +69,16 @@ cmake -B build -G Ninja
 cmake --build build
 ```
 
+The `-DSLANG_COMPILER_DIR` may need to be explicitly set to the directory containing `slangc` to help CMake find it 
+if the compiler is not installed in system's default search paths (i.e. when not using a VulkanSDK).
+
 <details>
 <summary><span style="font-weight: bold;">There are additional CMake options to further fine-tune the configuration</span></summary>
 
 - `-DTORPEDO_BUILD_DEMO` (`BOOL`): build demo targets, enabled automatically for Debug build if not explicitly set on 
 the CLI. For other builds, the default option is `OFF` unless explicitly set otherwise on the CLI.
+- `-DSLANG_COMPILER_DIR` (`PATH`): path to the directory containing the `slangc` compiler. This option is necessary when
+building `torpedo` within the Conda environment if the compiler is not installed in default search paths. 
 - `-DCMAKE_INSTALL_PREFIX` (`PATH`): automatically set to `CONDA_PREFIX` if the variable is defined and the option is not 
 explicitly set on the CLI. Note that `CONDA_PREFIX` is automatically defined when a `conda`/`mamba` environment activated.
 
