@@ -1,3 +1,5 @@
+import utils;
+
 // set 0, binding 0
 WTexture2D outputImage;
 // set 0, binding 1, std430
@@ -9,6 +11,7 @@ struct GaussianPoint {
     float4 quaternion;
     float3 scale;
     float shDegree;
+    SphericalHarmonics sh;
 }
 
 [shader("compute")]
