@@ -1,6 +1,6 @@
 // set 0, binding 0
 WTexture2D outputImage;
-// set 0, binding 1
+// set 0, binding 1, std430
 StructuredBuffer<GaussianPoint> pointCloud;
 
 struct GaussianPoint {

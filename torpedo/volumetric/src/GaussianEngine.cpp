@@ -21,11 +21,11 @@ void tpd::GaussianEngine::preFramePass() {
     _device.resetFences(_computeSyncs[currentFrame].computeDrawFence);
     const auto computeDraw = _computeCommandBuffers[currentFrame];
 
-    // Our computeDrawFence ensures that we're not resting the command buffer while it's still in use
+    // The computeDrawFence already ensures that we're not resting the command buffer while it's still in use
     computeDraw.reset();
     computeDraw.begin(vk::CommandBufferBeginInfo{});
 
-    // We can safely transition the image layout to General since a Target image ensures proper synchronization
+    // We can safely transition the image layout to General since a Target image ensures the proper synchronization
     // with transfer operations (image copy in graphics), and this synchronization is multi-queue safe
     recordComputeDispatchCommands(computeDraw, currentFrame);
 
@@ -173,7 +173,7 @@ vk::PhysicalDeviceVulkan13Features tpd::GaussianEngine::getVulkan13Features() {
 void tpd::GaussianEngine::onInitialized() {
     const auto assetsDir = std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR).make_preferred();
     PLOGD << "Assets directories used by " << getName() << ':';
-    PLOGD << " - " << assetsDir / "shaders";
+    PLOGD << " - " << assetsDir / "slang";
 
     // The logic for resizing target and target view vectors should be made once here
     // since they can be recreated later and should not be resized again
@@ -226,10 +226,11 @@ void tpd::GaussianEngine::createRenderTargets(const uint32_t width, const uint32
 
 void tpd::GaussianEngine::createPointCloudBuffer() {
     auto points = std::array<GaussianPoint, 2>{};
-    points[0].position   = { 1.0f, 0.0f, 0.0f };
-    points[0].quaternion = { 0.0f, 1.0f, 0.0f, 0.0f };
-    points[1].position   = { 0.0f, 0.0f, 1.0f };
-    points[1].quaternion = { 0.5f, 0.5f, 0.5f, 0.0f };
+    points[0].position   = { 0.0f, 0.0f, 0.0f };
+    points[0].opacity    = 1.0f;
+    points[0].quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
+    points[0].scale      = { 1.0f, 1.0f, 1.0f };
+    points[0].shDegree   = 3.0f;
 
     _pointCloudBuffer = StorageBuffer::Builder()
         .alloc(sizeof(GaussianPoint) * 2)
@@ -252,7 +253,7 @@ void tpd::GaussianEngine::createPipelineResources() {
     setBufferDescriptors();
 
     const auto shaderModule = ShaderModuleBuilder()
-        .shader(TORPEDO_VOLUMETRIC_ASSETS_DIR, "3dgs.slang")
+        .slang(TORPEDO_VOLUMETRIC_ASSETS_DIR, "3DGS.slang")
         .build(_device);
 
     const auto shaderStage = vk::PipelineShaderStageCreateInfo{}

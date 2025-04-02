@@ -21,6 +21,6 @@ target_link_libraries(${TARGET} PUBLIC vsg::vsg)
 torpedo_define_assets_dir(${TARGET} VOLUMETRIC ${CMAKE_CURRENT_BINARY_DIR} TORPEDO_VOLUMETRIC_ASSETS_DIR)
 # Shader assets
 set(TORPEDO_VOLUMETRIC_SHADERS
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/3DGS.slang)
-torpedo_compile_slang(${TARGET} "${TORPEDO_VOLUMETRIC_ASSETS_DIR}/shaders" "${TORPEDO_VOLUMETRIC_SHADERS}")
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/slang/3DGS.slang)
+torpedo_compile_slang(${TARGET} "${TORPEDO_VOLUMETRIC_ASSETS_DIR}/slang" "${TORPEDO_VOLUMETRIC_SHADERS}")
 target_link_libraries(${TARGET} PRIVATE "${TARGET}_spirv_binaries")

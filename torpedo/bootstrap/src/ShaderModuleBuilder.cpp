@@ -24,8 +24,13 @@ tpd::ShaderModuleBuilder& tpd::ShaderModuleBuilder::spirvPath(const std::filesys
     return *this;
 }
 
-tpd::ShaderModuleBuilder& tpd::ShaderModuleBuilder::shader(const std::string_view assetsDir, const std::string& shaderFileName) {
-    const auto path = std::filesystem::path(assetsDir) / "shaders" / (shaderFileName + ".spv");
+tpd::ShaderModuleBuilder& tpd::ShaderModuleBuilder::slang(const std::string_view assetsDir, const std::string& slangFile) {
+    const auto path = std::filesystem::path(assetsDir) / "slang" / (slangFile + ".spv");
+    return spirvPath(path);
+}
+
+tpd::ShaderModuleBuilder& tpd::ShaderModuleBuilder::glsl(const std::string_view assetsDir, const std::string& glslFile) {
+    const auto path = std::filesystem::path(assetsDir) / "glsl" / (glslFile + ".spv");
     return spirvPath(path);
 }
 
