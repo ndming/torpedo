@@ -27,8 +27,8 @@ conda env create --file env-win64.yml
 conda activate torpedo
 ```
 
-Additionally, the [Slang](https://github.com/shader-slang/slang/tree/v2024.17) compiler version `>=2024.17` needs to be 
-downloaded and extracted to a location whose path is specified during CMake configuration.
+Additionally, the [Slang](https://github.com/shader-slang/slang/releases/tag/v2024.17) compiler version `>=2024.17` needs 
+to be downloaded and extracted to a location whose path is specified during CMake configuration.
 
 ###### Using system packages
 The following components are required:
@@ -47,8 +47,8 @@ conda env create --file env-linux.yml
 conda activate torpedo
 ```
 
-Additionally, the [Slang](https://github.com/shader-slang/slang/tree/v2024.17) compiler version `>=2024.17` needs to be
-downloaded and extracted to a location whose path is specified during CMake configuration.
+Additionally, the [Slang](https://github.com/shader-slang/slang/releases/tag/v2024.17) compiler version `>=2024.17` needs 
+to be downloaded and extracted to a location whose path is specified during CMake configuration.
 
 There is a small limitation when setting up a full Conda environment for `torpedo`: the `xorg-dev` library, which
 provides compatibility with X11, is not well maintained on `conda-forge`. This only causes issues when performing
