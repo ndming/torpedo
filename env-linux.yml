@@ -14,4 +14,5 @@ dependencies:
   - pkg-config
   - glslang=14.2
   - vulkan-memory-allocator=3.1
+  - vulkanscenegraph=1.1.10
   - wayland

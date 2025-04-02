@@ -1,15 +1,15 @@
-[[vk::binding(0, 0)]]
+// set 0, binding 0
 WTexture2D outputImage;
+// set 0, binding 1
+StructuredBuffer<GaussianPoint> pointCloud;
 
 struct GaussianPoint {
     float3 position;
+    float opacity;
     float4 quaternion;
     float3 scale;
-    float opacity;
+    float shDegree;
 }
-
-[[vk::binding(1, 0)]]
-StructuredBuffer<GaussianPoint> pointCloud;
 
 [shader("compute")]
 [numthreads(16, 16, 1)]
@@ -23,8 +23,7 @@ void main(
 
     float4 color = float4(0.0, 0.0, 0.0, 1.0);
     if (localInvocationID.x != 0 && localInvocationID.y != 0) {
-        color.x = float(texelCoord.x) / (size.x);
-        color.y = float(texelCoord.y) / (size.y);	
+        color.xyz = pointCloud[1].quaternion.xyz;
     }
     
     outputImage.Store(texelCoord, color);

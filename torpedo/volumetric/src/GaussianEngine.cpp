@@ -171,9 +171,9 @@ vk::PhysicalDeviceVulkan13Features tpd::GaussianEngine::getVulkan13Features() {
 }
 
 void tpd::GaussianEngine::onInitialized() {
+    const auto assetsDir = std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR).make_preferred();
     PLOGD << "Assets directories used by " << getName() << ':';
-    PLOGD << " - " << std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR);
-    PLOGD << " - " << std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR) / "shaders";
+    PLOGD << " - " << assetsDir / "shaders";
 
     // The logic for resizing target and target view vectors should be made once here
     // since they can be recreated later and should not be resized again
@@ -226,10 +226,10 @@ void tpd::GaussianEngine::createRenderTargets(const uint32_t width, const uint32
 
 void tpd::GaussianEngine::createPointCloudBuffer() {
     auto points = std::array<GaussianPoint, 2>{};
-    points[0].position = { 1.0f, 0.0f, 0.0f };
-    points[0].color    = { 0.0f, 1.0f, 0.0f };
-    points[1].position = { 0.0f, 0.0f, 1.0f };
-    points[1].color    = { 0.5f, 0.5f, 0.5f };
+    points[0].position   = { 1.0f, 0.0f, 0.0f };
+    points[0].quaternion = { 0.0f, 1.0f, 0.0f, 0.0f };
+    points[1].position   = { 0.0f, 0.0f, 1.0f };
+    points[1].quaternion = { 0.5f, 0.5f, 0.5f, 0.0f };
 
     _pointCloudBuffer = StorageBuffer::Builder()
         .alloc(sizeof(GaussianPoint) * 2)

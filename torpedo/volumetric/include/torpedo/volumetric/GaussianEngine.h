@@ -4,6 +4,9 @@
 #include <torpedo/foundation/Target.h>
 #include <torpedo/foundation/ShaderLayout.h>
 
+#include <vsg/maths/vec3.h>
+#include <vsg/maths/quat.h>
+
 namespace tpd {
     class GaussianEngine final : public Engine {
     public:
@@ -36,8 +39,11 @@ namespace tpd {
         std::pmr::vector<vk::ImageView> _targetViews{ &_engineResourcePool };
 
         struct GaussianPoint {
-            std::array<float, 3> position;
-            alignas(16) std::array<float, 3> color;
+            vsg::vec3 position;
+            float opacity;
+            vsg::quat quaternion;
+            vsg::vec3 scale;
+            float shDegree;
         };
         void createPointCloudBuffer();
         std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _pointCloudBuffer{};
