@@ -16,6 +16,8 @@ endif()
 find_program(SLANG_COMPILER slangc HINTS ${SLANG_COMPILER_DIR})
 if (SLANG_COMPILER)
     message(STATUS "+ Slang: ${SLANG_COMPILER}")
+elseif (DEFINED ENV{CONDA_PREFIX})
+    message(STATUS "+ Slang: NOT found, did you forget to specify -DSLANG_COMPILER_DIR?")
 else()
     message(STATUS "+ Slang: NOT found")
 endif()
@@ -88,6 +90,30 @@ function(torpedo_compile_glsl TARGET_NAME SPIR_V_OUTPUT_DIR GLSL_SOURCE_FILES)
 
         list(APPEND SPIR_V_BINARY_FILES ${SPIR_V})
     endforeach(GLSL_FILE)
+
+    # Create an INTERFACE library to represent the compiled shaders
+    add_library(${TARGET_NAME}_spirv_binaries INTERFACE)
+    target_sources(${TARGET_NAME}_spirv_binaries INTERFACE ${SPIR_V_BINARY_FILES})
+endfunction()
+
+
+# UTILITY FUNCTION FOR COMPILING SLANG AS PART OF BUILD
+# ----------------------------------------------------
+function(torpedo_compile_slang TARGET_NAME SPIR_V_OUTPUT_DIR SLANG_SOURCE_FILES)
+    file(MAKE_DIRECTORY ${SPIR_V_OUTPUT_DIR})
+
+    foreach(SLANG_FILE ${SLANG_SOURCE_FILES})
+        get_filename_component(FILE_NAME ${SLANG_FILE} NAME)
+        set(SPIR_V "${SPIR_V_OUTPUT_DIR}/${FILE_NAME}.spv")
+
+        add_custom_command(
+                OUTPUT ${SPIR_V}
+                COMMAND ${SLANG_COMPILER} ${SLANG_FILE} -profile glsl_450 -target spirv -o ${SPIR_V} -entry main
+                DEPENDS ${SLANG_FILE}
+                COMMENT "Compiling ${FILE_NAME}")
+
+        list(APPEND SPIR_V_BINARY_FILES ${SPIR_V})
+    endforeach(SLANG_FILE)
 
     # Create an INTERFACE library to represent the compiled shaders
     add_library(${TARGET_NAME}_spirv_binaries INTERFACE)

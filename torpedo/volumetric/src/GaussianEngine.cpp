@@ -252,7 +252,7 @@ void tpd::GaussianEngine::createPipelineResources() {
     setBufferDescriptors();
 
     const auto shaderModule = ShaderModuleBuilder()
-        .shader(TORPEDO_VOLUMETRIC_ASSETS_DIR, "3dgs.comp")
+        .shader(TORPEDO_VOLUMETRIC_ASSETS_DIR, "3dgs.slang")
         .build(_device);
 
     const auto shaderStage = vk::PipelineShaderStageCreateInfo{}
