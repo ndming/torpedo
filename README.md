@@ -27,7 +27,7 @@ conda env create --file env-win64.yml
 conda activate torpedo
 ```
 
-Additionally, the [Slang](https://github.com/shader-slang/slang/releases/tag/v2024.17) compiler version `>=2024.17` needs 
+Additionally, the [Slang](https://github.com/shader-slang/slang/releases/tag/v2024.17) compiler version `2024.17` needs 
 to be downloaded and extracted to a location whose path is specified during CMake configuration.
 
 ###### Using system packages
@@ -35,7 +35,7 @@ The following components are required:
 - `CMake` version `3.25` or greater
 - `Ninja`
 - `Clang` version `19.1.7` or greater
-- `VulkanSDK` version `1.4.304` or greater with the following components: `glslc`, `slangc`, and `VMA`
+- `VulkanSDK` version `1.4.304` or greater with the following components: `glslangValidator`, `slangc`, and `VMA`
 
 #### Linux
 There is no need for GCC on Linux, as the build favors Clang by default.
@@ -47,7 +47,7 @@ conda env create --file env-linux.yml
 conda activate torpedo
 ```
 
-Additionally, the [Slang](https://github.com/shader-slang/slang/releases/tag/v2024.17) compiler version `>=2024.17` needs 
+Additionally, the [Slang](https://github.com/shader-slang/slang/releases/tag/v2024.17) compiler version `2024.17` needs 
 to be downloaded and extracted to a location whose path is specified during CMake configuration.
 
 There is a small limitation when setting up a full Conda environment for `torpedo`: the `xorg-dev` library, which
@@ -60,7 +60,7 @@ The following components are required:
 - `CMake` version `3.25` or greater
 - `Ninja`
 - `Clang` version `19.1.7` or greater
-- `VulkanSDK` version `1.4.304` or greater with the following components: `glslc`, `slangc`, and `VMA`
+- `VulkanSDK` version `1.4.304` or greater with the following components: `glslangValidator`, `slangc`, and `VMA`
 
 ### Release build
 Configure and build the project:

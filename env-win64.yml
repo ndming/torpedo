@@ -9,5 +9,5 @@ dependencies:
   - libvulkan-loader=1.4.304
   - lld=19.1.7
   - ninja
-  - shaderc=2023.7
+  - glslang=14.2
   - vulkan-memory-allocator=3.1

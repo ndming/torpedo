@@ -12,6 +12,6 @@ dependencies:
   - lld=19.1.7
   - ninja
   - pkg-config
-  - shaderc=2023.7
+  - glslang=14.2
   - vulkan-memory-allocator=3.1
   - wayland

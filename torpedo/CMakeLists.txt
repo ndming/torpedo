@@ -5,7 +5,7 @@ find_package(Vulkan 1.4 REQUIRED)
 # Find GLSL and Slang compilers
 message(STATUS "Path to shader compilers:")
 
-find_program(GLSL_COMPILER glslc)
+find_program(GLSL_COMPILER glslangValidator)
 if (GLSL_COMPILER)
     message(STATUS "+ GLSL:  ${GLSL_COMPILER}")
 else()
