@@ -11,7 +11,7 @@ struct GaussianPoint {
     float opacity;
     float4 quaternion;
     float3 scale;
-    float shDegree;
+    uint shDegree;
     SphericalHarmonics sh;
 }
 

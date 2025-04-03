@@ -43,7 +43,8 @@ namespace tpd {
             float opacity;
             vsg::quat quaternion;
             vsg::vec3 scale;
-            float shDegree;
+            uint32_t shDegree;
+            std::array<vsg::vec3, 16> sh;
         };
         void createPointCloudBuffer();
         std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _pointCloudBuffer{};

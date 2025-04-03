@@ -23,7 +23,7 @@ public float3x3 computeCovariance(float4 quaternion, float3 scale, float scaleMo
     // In the original CUDA code, the covariance matrix is computed as sigma = S * R
     // since they use glm which encodes matrices in column-major order
     float3x3 sigma = mul(R, S); // * in Slang is always element-wise multiplication 
-    return mul(sigma, transpose(sigma));
+    return mul(sigma, transpose(sigma)); // R * S * S^T * R^T
 }
 
 /// Projects a 3D covariance matrix of a Gaussian centered at `mean` in world space to a 2D covariance in clip space
