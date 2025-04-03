@@ -1,7 +1,6 @@
 implementing utils;
 
 // Based on: https://github.com/graphdeco-inria/gaussian-splatting
-static const float eps = 1e-7;
 
 /// Converts a `quaternion` and `scale` factors to a 3D covariance matrix in world space
 public float3x3 computeCovariance(float4 quaternion, float3 scale, float scaleModifier) {
@@ -39,11 +38,14 @@ public float2x2 projectCovariance(
 ) {
     float3x3 W = (float3x3)viewMatrix;
     float3x3 J = computeJacobian(mean, viewMatrix, focalX, focalY, tanHalfFovX, tanHalfFovY);
+    float3x3 cov2D = mul(J, mul(W, mul(cov3D, transpose(W))) * transpose(J)); // J * W * Sigma_3D * W^T * J^T
+    return (float2x2)cov2D;
 }
 
 /// Computes the local affine approximation of a projective transformation on `mean`, see EWA Spatting equation 29 
 float3x3 computeJacobian(float3 mean, float4x4 viewMatrix, float focalX, float focalY, float tanHalfFovX, float tanHalfFovY) {
-    float3 t = transformPoint(mean, viewMatrix);
+    // The Gaussian's center in camera space
+    float3 t = mul(viewMatrix, float4(mean, 1.0)).xyz;
 
     // TODO: Understand this logic
     float limx = 1.3 * tanHalfFovX;
@@ -58,10 +60,4 @@ float3x3 computeJacobian(float3 mean, float4x4 viewMatrix, float focalX, float f
         0.0,          focalY / t.z, -(focalY * t.y) / (t.z * t.z),
         0.0,          0.0,          0.0, 
     );
-}
-
-/// Transforms a 3D `point` given a 4x4 `matrix` and performs perspective division 
-float3 transformPoint(float3 point, float4x4 matrix) {
-    float4 p_out = mul(matrix, float4(point, 1.0));
-    return p_out.xyz / (p_out.w + eps);
 }
