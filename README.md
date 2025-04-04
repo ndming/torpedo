@@ -69,9 +69,6 @@ cmake -B build -G Ninja
 cmake --build build
 ```
 
-The `-DSLANG_COMPILER_DIR` may need to be explicitly set to the directory containing `slangc` to help CMake find it 
-if the compiler is not installed in system's default search paths (i.e. when not using a VulkanSDK).
-
 <details>
 <summary><span style="font-weight: bold;">There are additional CMake options to further fine-tune the configuration</span></summary>
 
@@ -88,8 +85,32 @@ Install the library:
 ```shell
 cmake --install build
 ```
-If performing build inside a Conda environment, the installation path is automatically set to `CONDA_PREFIX` unless
-`CMAKE_INSTALL_PREFIX` is explicitly set during CMake configuration.
+
+<details>
+<summary><span style="font-weight: bold;">Notes when using a Conda environment</span></summary>
+
+- The installation path is automatically set to `CONDA_PREFIX` unless `CMAKE_INSTALL_PREFIX` is explicitly set during 
+CMake configuration.
+- The `-DSLANG_COMPILER_DIR` may need to be explicitly set to the **directory** containing `slangc` to help CMake find it 
+if the compiler is not installed in system's default search paths (i.e. when not using a VulkanSDK):
+```shell
+cmake -B build -G Ninja -DSLANG_COMPILER_DIR=path/to/dir
+```
+- If the system already has VulkanSDK installed but building `torpedo` from within Conda is desirable, the `VULKAN_SDK` 
+environment variable must be set to `CONDA_PREFIX` (Linux) or `CONDA_PREFIX/Library` (Windows) prior to configuration.
+- Additionally, if your system already installs a default compiler, it may be necessary to specify Clang for CMake:
+```shell
+# Replace with the full path to clang/clang++ in the conda environment
+# if the system also has Clang installed
+cmake -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+```
+- The C/C++ compilers detected by CMake should ideally be like the following:
+```
+-- The C compiler identification is Clang 19.1.7
+-- The CXX compiler identification is Clang 19.1.7
+```
+
+</details>
 
 ### Debug build
 To configure for Debug build, define the `-DCMAKE_BUILD_TYPE` as `Debug`:
