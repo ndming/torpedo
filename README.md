@@ -50,9 +50,9 @@ conda activate torpedo
 Additionally, the [Slang](https://github.com/shader-slang/slang/releases/tag/v2024.17) compiler version `2024.17` needs
 to be downloaded and extracted to a location whose path is specified during CMake configuration.
 
-There is a small limitation when setting up a full Conda environment on Linux: the `xorg-dev` library, which provides
-support for X11, is not well maintained on `conda-forge`. This only causes issues when performing surface rendering on
-systems without Wayland. As long as `tpd::SurfaceRenderer` is not used, the Conda environment works fine at runtimes.
+There is a small limitation when setting up Conda environment on Linux: the `xorg-dev` library, which provides support
+for X11, is not well maintained on `conda-forge`. This only causes issues when performing surface rendering on systems
+using X11. As long as `tpd::SurfaceRenderer` is not used, the Conda environment works fine at runtimes.
 
 ###### Using system packages
 The following components are required:
