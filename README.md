@@ -15,12 +15,12 @@ privileges when installing tools or dependencies. The repo provides `.yml` files
 all necessary packages for each OS, and they assume no prerequisites on the host system.
 
 #### Windows
-Currently on Windows, Visual Studio version `>=17.9.7` is required for **both** build patterns. The library only needs
+Currently on Windows, Visual Studio version `>=17.9.7` is required for **both** build options. The library only needs
 the VS [BuildTools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with the following components in *Desktop development with C++*:
 - MSVC v143 - VS2022 C++ x86/64 build tools (MSVC `>=19.39`)
 - Windows SDK (either 10 or 11)
 
-###### Using a Conda environment
+###### Using Conda environment
 Set up the environment with `conda`/`mamba`:
 ```shell
 conda env create --file env-win64.yml
@@ -40,7 +40,7 @@ The following components are required:
 #### Linux
 There is no need for GCC on Linux, as the build favors Clang by default.
 
-###### Using a Conda environment
+###### Using Conda environment
 Set up the environment with `conda`/`mamba`:
 ```shell
 conda env create --file env-linux.yml
@@ -51,8 +51,8 @@ Additionally, the [Slang](https://github.com/shader-slang/slang/releases/tag/v20
 to be downloaded and extracted to a location whose path is specified during CMake configuration.
 
 There is a small limitation when setting up a full Conda environment on Linux: the `xorg-dev` library, which provides
-compatibility with X11, is not well maintained on `conda-forge`. This only causes issues when performing surface
-rendering on systems without Wayland. As long as `tpd::SurfaceRenderer` is not used, the Conda environment works fine.
+support for X11, is not well maintained on `conda-forge`. This only causes issues when performing surface rendering on
+systems without Wayland. As long as `tpd::SurfaceRenderer` is not used, the Conda environment works fine at runtimes.
 
 ###### Using system packages
 The following components are required:
@@ -86,7 +86,7 @@ cmake --install build
 ```
 
 <details>
-<summary><span style="font-weight: bold;">Notes when using a Conda environment</span></summary>
+<summary><span style="font-weight: bold;">Notes when using Conda environment</span></summary>
 
 - The installation path is automatically set to `CONDA_PREFIX` unless `CMAKE_INSTALL_PREFIX` is explicitly set during
 CMake configuration.
@@ -123,7 +123,7 @@ cmake --build build
 ```
 
 <details>
-<summary><span style="font-weight: bold;">Notes when using a Conda environment</span></summary>
+<summary><span style="font-weight: bold;">Notes when using Conda environment</span></summary>
 
 - For debug runs, the library requests and enables the `VK_LAYER_KHRONOS_validation` layer. This was not included in the
 provided `.yml` files must be installed from `conda-forge`:
