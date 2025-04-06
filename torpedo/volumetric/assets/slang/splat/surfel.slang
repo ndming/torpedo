@@ -1,1 +1,1 @@
-implementing splat;
+implementing splatting;

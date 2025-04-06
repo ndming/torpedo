@@ -6,7 +6,7 @@
 
 #include <filesystem>
 
-void tpd::GaussianEngine::preFramePass() {
+void tpd::GaussianEngine::preFrameCompute() {
     // Pre-frame pass only applies to async compute
     if (_graphicsFamilyIndex == _computeFamilyIndex) {
         return;
@@ -87,7 +87,7 @@ void tpd::GaussianEngine::recordComputeDispatchCommands(const vk::CommandBuffer 
         /* first set */ 0, _shaderInstance->getDescriptorSets(currentFrame), {});
 
     const auto [w, h, d] = _targets[currentFrame].getPixelSize();
-    cmd.dispatch(std::ceil(static_cast<float>(w) / 16.0f), std::ceil(static_cast<float>(h) / 16.0f), 1);
+    cmd.dispatch((w + RASTER_BLOCK_SIZE - 1) / RASTER_BLOCK_SIZE, (h + RASTER_BLOCK_SIZE - 1) / RASTER_BLOCK_SIZE, 1);
 }
 
 void tpd::GaussianEngine::recordCopyToSwapImageCommands(
@@ -226,11 +226,13 @@ void tpd::GaussianEngine::createRenderTargets(const uint32_t width, const uint32
 
 void tpd::GaussianEngine::createPointCloudBuffer() {
     auto points = std::array<GaussianPoint, 2>{};
-    points[0].position   = { 0.0f, 0.0f, 0.0f };
-    points[0].opacity    = 1.0f;
-    points[0].quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
-    points[0].scale      = { 1.0f, 1.0f, 1.0f };
-    points[0].shDegree   = 3.0f;
+    points[1].position   = vsg::vec3{ 0.0f, 0.0f, 0.0f };
+    points[1].opacity    = 1.0f;
+    points[1].quaternion = vsg::quat{ 0.0f, 0.0f, 0.0f, 1.0f };
+    points[1].scale      = vsg::vec4{ 1.0f, 1.0f, 1.0f, 0.0f };
+    points[1].sh[0] = 0.0f;
+    points[1].sh[1] = 1.0f;
+    points[1].sh[2] = 0.0f;
 
     _pointCloudBuffer = StorageBuffer::Builder()
         .alloc(sizeof(GaussianPoint) * 2)
@@ -253,7 +255,7 @@ void tpd::GaussianEngine::createPipelineResources() {
     setBufferDescriptors();
 
     const auto shaderModule = ShaderModuleBuilder()
-        .slang(TORPEDO_VOLUMETRIC_ASSETS_DIR, "3DGS.slang")
+        .slang(TORPEDO_VOLUMETRIC_ASSETS_DIR, "forward.slang")
         .build(_device);
 
     const auto shaderStage = vk::PipelineShaderStageCreateInfo{}

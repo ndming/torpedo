@@ -10,7 +10,7 @@
 namespace tpd {
     class GaussianEngine final : public Engine {
     public:
-        void preFramePass();
+        void preFrameCompute();
 
         [[nodiscard]] DrawPackage draw(vk::Image image) override;
 
@@ -38,14 +38,18 @@ namespace tpd {
         std::pmr::vector<Target> _targets{ &_engineResourcePool };
         std::pmr::vector<vk::ImageView> _targetViews{ &_engineResourcePool };
 
+        static constexpr uint32_t RASTER_BLOCK_SIZE = 16;  // the image is rasterized in 16x16 blocks
+        static constexpr uint32_t MAX_SH_COMPONENTS = 48;  // number of floats in a 3-band SH for RGB
+        static constexpr uint32_t PREP_THREAD_COUNT = 256; // number of local threads in prepare pass
+
         struct GaussianPoint {
             vsg::vec3 position;
             float opacity;
             vsg::quat quaternion;
-            vsg::vec3 scale;
-            uint32_t shDegree;
-            std::array<vsg::vec3, 16> sh;
+            vsg::vec4 scale;
+            std::array<float, MAX_SH_COMPONENTS> sh;
         };
+
         void createPointCloudBuffer();
         std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _pointCloudBuffer{};
 

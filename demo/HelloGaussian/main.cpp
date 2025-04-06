@@ -16,7 +16,7 @@ int main() {
         const auto engine = context->bindEngine<tpd::GaussianEngine>();
 
         renderer->getWindow()->loop([&] {
-            engine->preFramePass();
+            engine->preFrameCompute();
             if (const auto [valid, image, imageIndex] = renderer->launchFrame(); valid) {
                 const auto [buffer, waitStage, doneStage, waits] = engine->draw(image);
                 renderer->submitFrame(imageIndex, buffer, waitStage, doneStage, waits);
