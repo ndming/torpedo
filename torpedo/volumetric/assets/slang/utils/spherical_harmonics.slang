@@ -1,4 +1,4 @@
-implementing splatting;
+implementing utils;
 
 // Based on: https://github.com/graphdeco-inria/gaussian-splatting
 

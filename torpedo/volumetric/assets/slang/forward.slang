@@ -1,4 +1,4 @@
-import splatting;
+import splat;
 
 WTexture2D outputImage;
 StructuredBuffer<GaussianPoint> gaussianPoints;

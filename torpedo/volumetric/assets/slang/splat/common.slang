@@ -1,6 +1,8 @@
-implementing splatting;
+implementing splat;
 
 static const float NEAR_PLANE = 0.2;
+static const uint  BLOCK_X = 16;
+static const uint  BLOCK_Y = 16;
 
 public bool passNearCulling(float3 point, float4x4 viewMatrix, out float3 viewPos) {
     viewPos = mul(viewMatrix, float4(point, 1.0)).xyz;
@@ -19,4 +21,9 @@ public void getBoundingRect(float2 point, float radius, uint2 grid, out uint2 re
     rectMin.y = min(grid.y, max(0, (int)((point.y - radius) / BLOCK_Y)));
     rectMax.x = min(grid.x, max(0, (int)((point.x + radius + BLOCK_X - 1) / BLOCK_X)));
     rectMax.y = min(grid.y, max(0, (int)((point.y + radius + BLOCK_Y - 1) / BLOCK_Y)));
+}
+
+/// Returns the number of `BLOCK_X` x `BLOCK_Y` tiles for a `imageW` x `imageH` (pixels) image.
+public uint2 getComputeGrid(uint imageW, uint imageH) {
+    return uint2((imageW + BLOCK_X - 1) / BLOCK_X, (imageH + BLOCK_Y - 1) / BLOCK_Y);
 }

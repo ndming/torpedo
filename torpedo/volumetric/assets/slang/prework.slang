@@ -1,4 +1,5 @@
-import splatting;
+import splat;
+import utils;
 
 [[vk::push_constant]]
 uniform PointCloud pc; // push constant
@@ -53,16 +54,15 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
 
     // Use extent to compute a bounding rectangle of screen-space tiles that this Gaussian overlaps with
     let imgPoint = float2(ndc2pix(projPos.x, camera.imgW), ndc2pix(projPos.y, camera.imgH));
-    let grid = uint2((camera.imgW + BLOCK_X - 1) / BLOCK_X, (camera.imgH + BLOCK_Y - 1) / BLOCK_Y);
     uint2 rectMin, rectMax;
-    getBoundingRect(imgPoint, radius, grid, rectMin, rectMax);
+    getBoundingRect(imgPoint, radius, getComputeGrid(camera.imgW, camera.imgH), rectMin, rectMax);
     if ((rectMax.x - rectMin.x) * (rectMax.y - rectMin.y) == 0) return; // empty tile
 
     // Compute color from spherical harmonics
     let direction = mean - camera.position;
     let color = evaluateSphericalHarmonics(gaussianPoints[idx].sh, direction, pc.shDegree);
 
-    // Store the Gaussian's data in the raster point
+    // Store preprocessed Gaussian data as RasterPoint
     rasterPoints[idx].color = color;
     rasterPoints[idx].texel = float4(imgPoint, viewPos.z, radius);
     rasterPoints[idx].copac = float4(conic, gaussianPoints[idx].opacity);
