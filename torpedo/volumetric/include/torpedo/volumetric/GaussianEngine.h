@@ -83,6 +83,12 @@ namespace tpd {
         static constexpr uint32_t RASTER_POINT_SIZE = 48; // check splat.slang
         std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _rasterPointBuffer{};
 
+        void createPrefixOffsetsBuffer();
+        std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _prefixOffsetsBuffer{};
+
+        void createTilesRenderedBuffer();
+        std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _tilesRenderedBuffer{};
+
         void createRenderTargets(uint32_t width, uint32_t height);
         std::pmr::vector<Target> _targets{ &_engineResourcePool };
         std::pmr::vector<vk::ImageView> _targetViews{ &_engineResourcePool };
@@ -92,11 +98,17 @@ namespace tpd {
         std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _prepareInstance{};
         vk::Pipeline _preparePipeline{};
 
+        void createPrefixPipeline();
+        std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _prefixLayout{};
+        std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _prefixInstance{};
+        vk::Pipeline _prefixPipeline{};
+
         void createForwardPipeline();
         std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _forwardLayout{};
         std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _forwardInstance{};
         vk::Pipeline _forwardPipeline{};
 
+        [[nodiscard]] vk::Pipeline buildComputePipeline(const std::string& slangFile, vk::PipelineLayout layout) const;
         void setTargetDescriptors() const;
         void setStorageBufferDescriptors(const StorageBuffer& buffer, const ShaderInstance& instance, uint32_t binding, uint32_t set = 0) const;
 

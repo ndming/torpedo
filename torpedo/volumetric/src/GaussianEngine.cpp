@@ -103,7 +103,22 @@ void tpd::GaussianEngine::recordPreprocess(const vk::CommandBuffer cmd, const ui
         /* first set */ 0, _prepareInstance->getDescriptorSets(currentFrame), {});
     cmd.dispatch((GAUSSIAN_COUNT + LOCAL_SCAN - 1) / LOCAL_SCAN, 1, 1);
 
-    // TODO: prefix pass
+    auto barrier = vk::MemoryBarrier2{};
+    barrier.srcStageMask = vk::PipelineStageFlagBits2::eComputeShader;
+    barrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
+    barrier.srcAccessMask = vk::AccessFlagBits2::eShaderStorageWrite;
+    barrier.dstAccessMask = vk::AccessFlagBits2::eShaderStorageRead;
+
+    const auto dependencyInfo = vk::DependencyInfo{}.setMemoryBarriers(barrier);
+    cmd.pipelineBarrier2(dependencyInfo);
+
+    // Prefix pass
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _prefixPipeline);
+    cmd.pushConstants(_prefixLayout->getPipelineLayout(), vk::ShaderStageFlagBits::eCompute, 0, sizeof(PointCloud), &_pc);
+    cmd.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute, _prefixLayout->getPipelineLayout(),
+        /* first set */ 0, _prefixInstance->getDescriptorSets(currentFrame), {});
+    cmd.dispatch((GAUSSIAN_COUNT + LOCAL_SCAN - 1) / LOCAL_SCAN, 1, 1);
 
     cmd.end();
 }
@@ -224,15 +239,19 @@ void tpd::GaussianEngine::onInitialized() {
     const auto [w, h] = _renderer->getFramebufferSize();
 
     createPointCloudObject();
-    createCameraObject(w, h);
 
+    createCameraObject(w, h);
     createCameraBuffer();
+
     createGaussianPointBuffer();
     createRasterPointBuffer();
+    createPrefixOffsetsBuffer();
+    createTilesRenderedBuffer();
 
     createRenderTargets(w, h);
 
     createPreparePipeline();
+    createPrefixPipeline();
     createForwardPipeline();
 
     if (_graphicsFamilyIndex != _computeFamilyIndex) {
@@ -353,6 +372,19 @@ void tpd::GaussianEngine::createRasterPointBuffer() {
         .build(*_deviceAllocator, &_engineResourcePool);
 }
 
+void tpd::GaussianEngine::createPrefixOffsetsBuffer() {
+    _prefixOffsetsBuffer = StorageBuffer::Builder()
+        .alloc(sizeof(uint32_t) * GAUSSIAN_COUNT)
+        .build(*_deviceAllocator, &_engineResourcePool);
+}
+
+void tpd::GaussianEngine::createTilesRenderedBuffer() {
+    // TODO: make tiles rendered able to read back
+    _tilesRenderedBuffer = StorageBuffer::Builder()
+        .alloc(sizeof(uint32_t))
+        .build(*_deviceAllocator, &_engineResourcePool);
+}
+
 void tpd::GaussianEngine::createPreparePipeline() {
     _prepareLayout = ShaderLayout::Builder(&_engineResourcePool)
         .descriptorSetCount(1)
@@ -363,6 +395,7 @@ void tpd::GaussianEngine::createPreparePipeline() {
         .buildUnique(_device);
     
     _prepareInstance = _prepareLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
+    _preparePipeline = buildComputePipeline("prepare.slang", _prepareLayout->getPipelineLayout());
 
     for (uint32_t i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
         const auto descriptorInfo = vk::DescriptorBufferInfo{}
@@ -374,22 +407,23 @@ void tpd::GaussianEngine::createPreparePipeline() {
 
     setStorageBufferDescriptors(*_gaussianPointBuffer, *_prepareInstance, 1);
     setStorageBufferDescriptors(*_rasterPointBuffer,   *_prepareInstance, 2);
+}
 
-    const auto shaderModule = ShaderModuleBuilder()
-        .slang(TORPEDO_VOLUMETRIC_ASSETS_DIR, "prepare.slang")
-        .build(_device);
+void tpd::GaussianEngine::createPrefixPipeline() {
+    _prefixLayout = ShaderLayout::Builder(&_engineResourcePool)
+        .descriptorSetCount(1)
+        .pushConstantRange(vk::ShaderStageFlagBits::eCompute, 0, sizeof(PointCloud))
+        .descriptor(0, 0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute) // Raster points
+        .descriptor(0, 1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute) // prefix offsets
+        .descriptor(0, 2, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute) // tiles rendered
+        .buildUnique(_device);
 
-    const auto shaderStage = vk::PipelineShaderStageCreateInfo{}
-        .setModule(shaderModule)
-        .setStage(vk::ShaderStageFlagBits::eCompute)
-        .setPName("main");
-    
-    const auto pipelineInfo = vk::ComputePipelineCreateInfo{}
-        .setStage(shaderStage)
-        .setLayout(_prepareLayout->getPipelineLayout());
-    _preparePipeline = _device.createComputePipeline(nullptr, pipelineInfo).value;
+    _prefixInstance = _prefixLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
+    _prefixPipeline = buildComputePipeline("prefix.slang", _prefixLayout->getPipelineLayout());
 
-    _device.destroyShaderModule(shaderModule);
+    setStorageBufferDescriptors(*_rasterPointBuffer,   *_prefixInstance, 0);
+    setStorageBufferDescriptors(*_prefixOffsetsBuffer, *_prefixInstance, 1);
+    setStorageBufferDescriptors(*_tilesRenderedBuffer, *_prefixInstance, 2);
 }
 
 void tpd::GaussianEngine::createForwardPipeline() {
@@ -400,11 +434,15 @@ void tpd::GaussianEngine::createForwardPipeline() {
         .buildUnique(_device);
 
     _forwardInstance = _forwardLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
+    _forwardPipeline = buildComputePipeline("forward.slang", _forwardLayout->getPipelineLayout());
+
     setTargetDescriptors();
     setStorageBufferDescriptors(*_gaussianPointBuffer, *_forwardInstance, 1);
+}
 
+vk::Pipeline tpd::GaussianEngine::buildComputePipeline(const std::string& slangFile, const vk::PipelineLayout layout) const {
     const auto shaderModule = ShaderModuleBuilder()
-        .slang(TORPEDO_VOLUMETRIC_ASSETS_DIR, "forward.slang")
+        .slang(TORPEDO_VOLUMETRIC_ASSETS_DIR, slangFile)
         .build(_device);
 
     const auto shaderStage = vk::PipelineShaderStageCreateInfo{}
@@ -414,10 +452,11 @@ void tpd::GaussianEngine::createForwardPipeline() {
 
     const auto pipelineInfo = vk::ComputePipelineCreateInfo{}
         .setStage(shaderStage)
-        .setLayout(_forwardLayout->getPipelineLayout());
-    _forwardPipeline = _device.createComputePipeline(nullptr, pipelineInfo).value;
+        .setLayout(layout);
+    const auto pipeline = _device.createComputePipeline(nullptr, pipelineInfo).value;
 
     _device.destroyShaderModule(shaderModule);
+    return pipeline;
 }
 
 void tpd::GaussianEngine::setTargetDescriptors() const {
@@ -522,6 +561,12 @@ void tpd::GaussianEngine::destroy() noexcept {
         _forwardLayout->destroy(_device);
         _forwardLayout.reset();
 
+        _device.destroyPipeline(_prefixPipeline);
+        _prefixInstance->destroy(_device);
+        _prefixInstance.reset();
+        _prefixLayout->destroy(_device);
+        _prefixLayout.reset();
+
         _device.destroyPipeline(_preparePipeline);
         _prepareInstance->destroy(_device);
         _prepareInstance.reset();
@@ -531,6 +576,8 @@ void tpd::GaussianEngine::destroy() noexcept {
         cleanupRenderTargets();
         _targetViews.clear();
 
+        _tilesRenderedBuffer.reset();
+        _prefixOffsetsBuffer.reset();
         _rasterPointBuffer.reset();
         _gaussianPointBuffer.reset();
         _cameraBuffer.reset();
