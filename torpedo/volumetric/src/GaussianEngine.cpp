@@ -200,7 +200,7 @@ void tpd::GaussianEngine::onInitialized() {
 
     createRenderTargets(w, h);
 
-    createPreworkPipeline();
+    createPreparePipeline();
     createPipelineResources();
 
     if (_graphicsFamilyIndex != _computeFamilyIndex) {
@@ -233,7 +233,7 @@ void tpd::GaussianEngine::createCameraObject(const uint32_t width, const uint32_
     _camera.imageSize = { width, height };
     _camera.position  = { 0.0f, 0.0f, -2.0f };
 
-    const auto fovY = 60.0f * std::numbers::pi_v<float> / 180.0f; // radians
+    constexpr auto fovY = 60.0f * std::numbers::pi_v<float> / 180.0f; // radians
     const auto aspect = static_cast<float>(width) / static_cast<float>(height);
     _camera.tanFov.y  = std::numbers::inv_sqrt3_v<float>; // tan(60/2)
     _camera.tanFov.x  = _camera.tanFov.y * aspect;
@@ -314,8 +314,8 @@ void tpd::GaussianEngine::createRasterPointBuffer() {
         .build(*_deviceAllocator, &_engineResourcePool);
 }
 
-void tpd::GaussianEngine::createPreworkPipeline() {
-    _preworkLayout = ShaderLayout::Builder(&_engineResourcePool)
+void tpd::GaussianEngine::createPreparePipeline() {
+    _prepareLayout = ShaderLayout::Builder(&_engineResourcePool)
         .descriptorSetCount(1)
         .pushConstantRange(vk::ShaderStageFlagBits::eCompute, 0, sizeof(PointCloud))
         .descriptor(0, 0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eCompute) // Camera
@@ -323,21 +323,21 @@ void tpd::GaussianEngine::createPreworkPipeline() {
         .descriptor(0, 2, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute) // Raster points
         .buildUnique(_device);
     
-    _preworkInstance = _preworkLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
+    _prepareInstance = _prepareLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
 
     for (uint32_t i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
         const auto descriptorInfo = vk::DescriptorBufferInfo{}
             .setBuffer(_cameraBuffer->getVulkanBuffer())
             .setOffset(_cameraBuffer->getOffset(i))
             .setRange(_cameraBuffer->getPerBufferSize());
-        _preworkInstance->setDescriptor(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, descriptorInfo);
+        _prepareInstance->setDescriptor(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, descriptorInfo);
     }
 
-    setStorageBufferDescriptors(*_gaussianPointBuffer, *_preworkInstance, 1);
-    setStorageBufferDescriptors(*_rasterPointBuffer,   *_preworkInstance, 2);
+    setStorageBufferDescriptors(*_gaussianPointBuffer, *_prepareInstance, 1);
+    setStorageBufferDescriptors(*_rasterPointBuffer,   *_prepareInstance, 2);
 
     const auto shaderModule = ShaderModuleBuilder()
-        .slang(TORPEDO_VOLUMETRIC_ASSETS_DIR, "prework.slang")
+        .slang(TORPEDO_VOLUMETRIC_ASSETS_DIR, "prepare.slang")
         .build(_device);
 
     const auto shaderStage = vk::PipelineShaderStageCreateInfo{}
@@ -347,7 +347,7 @@ void tpd::GaussianEngine::createPreworkPipeline() {
     
     const auto pipelineInfo = vk::ComputePipelineCreateInfo{}
         .setStage(shaderStage)
-        .setLayout(_preworkLayout->getPipelineLayout());
+        .setLayout(_prepareLayout->getPipelineLayout());
     _preworkPipeline = _device.createComputePipeline(nullptr, pipelineInfo).value;
 
     _device.destroyShaderModule(shaderModule);
@@ -454,13 +454,13 @@ void tpd::GaussianEngine::destroy() noexcept {
         _device.destroyPipeline(_preworkPipeline);
         _device.destroyPipeline(_pipeline);
 
-        _preworkInstance->destroy(_device);
-        _preworkInstance.reset();
+        _prepareInstance->destroy(_device);
+        _prepareInstance.reset();
         _shaderInstance->destroy(_device);
         _shaderInstance.reset();
 
-        _preworkLayout->destroy(_device);
-        _preworkLayout.reset();
+        _prepareLayout->destroy(_device);
+        _prepareLayout.reset();
         _shaderLayout->destroy(_device);
         _shaderLayout.reset();
 

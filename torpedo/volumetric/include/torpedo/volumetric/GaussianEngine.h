@@ -86,9 +86,9 @@ namespace tpd {
         std::pmr::vector<Target> _targets{ &_engineResourcePool };
         std::pmr::vector<vk::ImageView> _targetViews{ &_engineResourcePool };
 
-        void createPreworkPipeline();
-        std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _preworkLayout{};
-        std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _preworkInstance{};
+        void createPreparePipeline();
+        std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _prepareLayout{};
+        std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _prepareInstance{};
         vk::Pipeline _preworkPipeline{};
 
         void createPipelineResources();
