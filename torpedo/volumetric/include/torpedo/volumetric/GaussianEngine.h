@@ -64,6 +64,7 @@ namespace tpd {
         static constexpr uint32_t BLOCK_Y = 16; // tile size in y-dimension
 
         void createCameraBuffer();
+        void updateCameraBuffer(uint32_t currentFrame) const;
         std::unique_ptr<RingBuffer, Deleter<RingBuffer>> _cameraBuffer{};
 
         struct GaussianPoint {
@@ -89,12 +90,12 @@ namespace tpd {
         void createPreparePipeline();
         std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _prepareLayout{};
         std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _prepareInstance{};
-        vk::Pipeline _preworkPipeline{};
+        vk::Pipeline _preparePipeline{};
 
-        void createPipelineResources();
-        std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _shaderLayout{};
-        std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _shaderInstance{};
-        vk::Pipeline _pipeline{};
+        void createForwardPipeline();
+        std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _forwardLayout{};
+        std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _forwardInstance{};
+        vk::Pipeline _forwardPipeline{};
 
         void setTargetDescriptors() const;
         void setStorageBufferDescriptors(const StorageBuffer& buffer, const ShaderInstance& instance, uint32_t binding, uint32_t set = 0) const;
@@ -102,7 +103,7 @@ namespace tpd {
         void createComputeCommandPool();
         vk::CommandPool _computeCommandPool{};
 
-        void createComputeCommandBuffers();
+        void createComputeDrawCommandBuffers();
         std::pmr::vector<vk::CommandBuffer> _computeCommandBuffers{ &_engineResourcePool };
 
         struct ComputeSync {
@@ -112,8 +113,15 @@ namespace tpd {
         void createComputeSyncs();
         std::pmr::vector<ComputeSync> _computeSyncs{ &_engineResourcePool };
 
-        void recordComputeDispatchCommands(vk::CommandBuffer cmd, uint32_t currentFrame);
-        void recordCopyToSwapImageCommands(vk::CommandBuffer cmd, vk::Image swapImage, uint32_t currentFrame) const;
+        void createPreprocessCommandBuffers();
+        std::pmr::vector<vk::CommandBuffer> _preprocessCommandBuffers{ &_engineResourcePool };
+
+        void createReadBackFences();
+        std::pmr::vector<vk::Fence> _readBackFences{ &_engineResourcePool };
+
+        void recordPreprocess(vk::CommandBuffer cmd, uint32_t currentFrame) const;
+        void recordFinalBlend(vk::CommandBuffer cmd, uint32_t currentFrame);
+        void recordTargetCopy(vk::CommandBuffer cmd, vk::Image swapImage, uint32_t currentFrame) const;
 
         void cleanupRenderTargets() noexcept;
         void destroy() noexcept override;

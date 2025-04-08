@@ -12,14 +12,34 @@ void tpd::GaussianEngine::preFrameCompute() {
     if (_graphicsFamilyIndex == _computeFamilyIndex) {
         return;
     }
-    const auto currentFrame = _renderer->getCurrentDrawingFrame();
-
     using limits = std::numeric_limits<uint64_t>;
+
+    const auto currentFrame = _renderer->getCurrentDrawingFrame();
+    updateCameraBuffer(currentFrame);
+
+    // We already waited for preprocess due to _tilesRendered read back
+    const auto preprocess = _preprocessCommandBuffers[currentFrame];
+    preprocess.reset();
+    preprocess.begin(vk::CommandBufferBeginInfo{});
+
+    // Preprocess dispatches these passes: prepare, prefix
+    recordPreprocess(preprocess, currentFrame);
+
+    const auto preprocessInfo = vk::CommandBufferSubmitInfo{ preprocess, 0b1 };
+    const auto preprocessSubmitInfo = vk::SubmitInfo2{}.setCommandBufferInfos(preprocessInfo);
+    _computeQueue.submit2(preprocessSubmitInfo, _readBackFences[currentFrame]);
+
+    // Wait until prefix has written _tilesRendered to the host visible buffer
+    [[maybe_unused]] const auto _ = _device.waitForFences(_readBackFences[currentFrame], vk::True, limits::max());
+    _device.resetFences(_readBackFences[currentFrame]);
+
+    // TODO: read _tilesRendered
+
+    // Wait until GPU has done with the compute draw buffer for this frame
     [[maybe_unused]] const auto result = _device.waitForFences(_computeSyncs[currentFrame].computeDrawFence, vk::True, limits::max());
-    
-    // This is the place to update UBOs (cameras, etc. )
-    
     _device.resetFences(_computeSyncs[currentFrame].computeDrawFence);
+
+    // TODO: dispatch the remaining passes
     const auto computeDraw = _computeCommandBuffers[currentFrame];
 
     // The computeDrawFence already ensures that we're not resting the command buffer while it's still in use
@@ -28,25 +48,22 @@ void tpd::GaussianEngine::preFrameCompute() {
 
     // We can safely transition the image layout to General since a Target image ensures the proper synchronization
     // with transfer operations (image copy in graphics), and this synchronization is multi-queue safe
-    recordComputeDispatchCommands(computeDraw, currentFrame);
+    recordFinalBlend(computeDraw, currentFrame);
 
     // Transfer ownership to graphics before submitting to the compute queue
     _targets[currentFrame].recordOwnershipRelease(computeDraw, _computeFamilyIndex, _graphicsFamilyIndex);
     computeDraw.end();
 
-    const auto computeInfo = vk::CommandBufferSubmitInfo{}
-        .setCommandBuffer(computeDraw)
-        .setDeviceMask(0b1); // ignored by single-GPU setups
-    
+    const auto computeDrawInfo = vk::CommandBufferSubmitInfo{ computeDraw, 0b1 };
     const auto ownershipInfo = vk::SemaphoreSubmitInfo{}
         .setSemaphore(_computeSyncs[currentFrame].ownershipSemaphore)
         .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)
         .setValue(1).setDeviceIndex(0);
 
-    const auto computeSubmitInfo = vk::SubmitInfo2{}
-        .setCommandBufferInfos(computeInfo)
+    const auto computeDrawSubmitInfo = vk::SubmitInfo2{}
+        .setCommandBufferInfos(computeDrawInfo)
         .setSignalSemaphoreInfos(ownershipInfo);
-    _computeQueue.submit2(computeSubmitInfo, _computeSyncs[currentFrame].computeDrawFence);
+    _computeQueue.submit2(computeDrawSubmitInfo, _computeSyncs[currentFrame].computeDrawFence);
 }
 
 tpd::Engine::DrawPackage tpd::GaussianEngine::draw(const vk::Image image) {
@@ -57,10 +74,11 @@ tpd::Engine::DrawPackage tpd::GaussianEngine::draw(const vk::Image image) {
     graphicsDraw.begin(vk::CommandBufferBeginInfo{});
 
     if (_graphicsFamilyIndex == _computeFamilyIndex) {
-        recordComputeDispatchCommands(graphicsDraw, currentFrame);
+        updateCameraBuffer(currentFrame);
+        recordFinalBlend(graphicsDraw, currentFrame);
 
         _targets[currentFrame].recordImageTransition(graphicsDraw, vk::ImageLayout::eTransferSrcOptimal);
-        recordCopyToSwapImageCommands(graphicsDraw, image, currentFrame);
+        recordTargetCopy(graphicsDraw, image, currentFrame);
 
         return { graphicsDraw, vk::PipelineStageFlagBits2::eTransfer, vk::PipelineStageFlagBits2::eTransfer, {} };
     }
@@ -68,7 +86,7 @@ tpd::Engine::DrawPackage tpd::GaussianEngine::draw(const vk::Image image) {
     // Async compute has drawn and released the image in preFramePass, acquire the released image from it
     // A Target image ensures its layout is TransferSrcOptimal after the ownership transfer
     _targets[currentFrame].recordOwnershipAcquire(graphicsDraw, _computeFamilyIndex, _graphicsFamilyIndex);
-    recordCopyToSwapImageCommands(graphicsDraw, image, currentFrame);
+    recordTargetCopy(graphicsDraw, image, currentFrame);
 
     constexpr vk::PipelineStageFlags2 ownershipWaitStage = vk::PipelineStageFlagBits2::eAllCommands;
     return { 
@@ -76,22 +94,36 @@ tpd::Engine::DrawPackage tpd::GaussianEngine::draw(const vk::Image image) {
         std::vector{ std::make_pair(_computeSyncs[currentFrame].ownershipSemaphore, ownershipWaitStage) } };
 }
 
-void tpd::GaussianEngine::recordComputeDispatchCommands(const vk::CommandBuffer cmd, const uint32_t currentFrame) {
+void tpd::GaussianEngine::recordPreprocess(const vk::CommandBuffer cmd, const uint32_t currentFrame) const {
+    // Prepare pass
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _preparePipeline);
+    cmd.pushConstants(_prepareLayout->getPipelineLayout(), vk::ShaderStageFlagBits::eCompute, 0, sizeof(PointCloud), &_pc);
+    cmd.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute, _prepareLayout->getPipelineLayout(),
+        /* first set */ 0, _prepareInstance->getDescriptorSets(currentFrame), {});
+    cmd.dispatch((GAUSSIAN_COUNT + LOCAL_SCAN - 1) / LOCAL_SCAN, 1, 1);
+
+    // TODO: prefix pass
+
+    cmd.end();
+}
+
+void tpd::GaussianEngine::recordFinalBlend(const vk::CommandBuffer cmd, const uint32_t currentFrame) {
     // Old contents from the previous frame will be cleared by the compute shader
     // Also, we don't need ownership transfer from graphics to compute here since
     // we don't care about the old content
     _targets[currentFrame].recordImageTransition(cmd, vk::ImageLayout::eGeneral);
 
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _pipeline);
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _forwardPipeline);
     cmd.bindDescriptorSets(
-        vk::PipelineBindPoint::eCompute, _shaderLayout->getPipelineLayout(),
-        /* first set */ 0, _shaderInstance->getDescriptorSets(currentFrame), {});
+        vk::PipelineBindPoint::eCompute, _forwardLayout->getPipelineLayout(),
+        /* first set */ 0, _forwardInstance->getDescriptorSets(currentFrame), {});
 
     const auto [w, h, d] = _targets[currentFrame].getPixelSize();
     cmd.dispatch((w + BLOCK_X - 1) / BLOCK_X, (h + BLOCK_Y - 1) / BLOCK_Y, 1);
 }
 
-void tpd::GaussianEngine::recordCopyToSwapImageCommands(
+void tpd::GaussianEngine::recordTargetCopy(
     const vk::CommandBuffer cmd,
     const vk::Image swapImage,
     const uint32_t currentFrame) const
@@ -201,14 +233,18 @@ void tpd::GaussianEngine::onInitialized() {
     createRenderTargets(w, h);
 
     createPreparePipeline();
-    createPipelineResources();
+    createForwardPipeline();
 
     if (_graphicsFamilyIndex != _computeFamilyIndex) {
         // Additional resources for async compute
         createComputeCommandPool();
-        createComputeCommandBuffers();
+        createComputeDrawCommandBuffers();
         createComputeSyncs();
     }
+
+    // Preprocess buffers may depend on command pool
+    createPreprocessCommandBuffers();
+    createReadBackFences();
 }
 
 void tpd::GaussianEngine::framebufferResizeCallback(void* ptr, const uint32_t width, const uint32_t height) {
@@ -286,6 +322,10 @@ void tpd::GaussianEngine::createCameraBuffer() {
         .build(*_deviceAllocator, &_engineResourcePool);
 }
 
+void tpd::GaussianEngine::updateCameraBuffer(const uint32_t currentFrame) const {
+    _cameraBuffer->updateData(currentFrame, &_camera, sizeof(Camera));
+}
+
 void tpd::GaussianEngine::createGaussianPointBuffer() {
     auto points = std::array<GaussianPoint, GAUSSIAN_COUNT>{};
     points[0].position   = vsg::vec3{ 0.0f, 0.0f, 0.0f };
@@ -347,21 +387,21 @@ void tpd::GaussianEngine::createPreparePipeline() {
     const auto pipelineInfo = vk::ComputePipelineCreateInfo{}
         .setStage(shaderStage)
         .setLayout(_prepareLayout->getPipelineLayout());
-    _preworkPipeline = _device.createComputePipeline(nullptr, pipelineInfo).value;
+    _preparePipeline = _device.createComputePipeline(nullptr, pipelineInfo).value;
 
     _device.destroyShaderModule(shaderModule);
 }
 
-void tpd::GaussianEngine::createPipelineResources() {
-    _shaderLayout = ShaderLayout::Builder(&_engineResourcePool)
+void tpd::GaussianEngine::createForwardPipeline() {
+    _forwardLayout = ShaderLayout::Builder(&_engineResourcePool)
         .descriptorSetCount(1)
         .descriptor(0, 0, vk::DescriptorType::eStorageImage,  1, vk::ShaderStageFlagBits::eCompute)
         .descriptor(0, 1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute)
         .buildUnique(_device);
 
-    _shaderInstance = _shaderLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
+    _forwardInstance = _forwardLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
     setTargetDescriptors();
-    setStorageBufferDescriptors(*_gaussianPointBuffer, *_shaderInstance, 1);
+    setStorageBufferDescriptors(*_gaussianPointBuffer, *_forwardInstance, 1);
 
     const auto shaderModule = ShaderModuleBuilder()
         .slang(TORPEDO_VOLUMETRIC_ASSETS_DIR, "forward.slang")
@@ -374,8 +414,8 @@ void tpd::GaussianEngine::createPipelineResources() {
 
     const auto pipelineInfo = vk::ComputePipelineCreateInfo{}
         .setStage(shaderStage)
-        .setLayout(_shaderLayout->getPipelineLayout());
-    _pipeline = _device.createComputePipeline(nullptr, pipelineInfo).value;
+        .setLayout(_forwardLayout->getPipelineLayout());
+    _forwardPipeline = _device.createComputePipeline(nullptr, pipelineInfo).value;
 
     _device.destroyShaderModule(shaderModule);
 }
@@ -385,7 +425,7 @@ void tpd::GaussianEngine::setTargetDescriptors() const {
         const auto descriptorInfo = vk::DescriptorImageInfo{}
             .setImageView(_targetViews[i])
             .setImageLayout(vk::ImageLayout::eGeneral);
-        _shaderInstance->setDescriptor(i, 0, 0, vk::DescriptorType::eStorageImage, _device, descriptorInfo);
+        _forwardInstance->setDescriptor(i, 0, 0, vk::DescriptorType::eStorageImage, _device, descriptorInfo);
     }
 }
 
@@ -411,7 +451,8 @@ void tpd::GaussianEngine::createComputeCommandPool() {
     _computeCommandPool = _device.createCommandPool(poolInfo);
 }
 
-void tpd::GaussianEngine::createComputeCommandBuffers() {
+void tpd::GaussianEngine::createComputeDrawCommandBuffers() {
+    // Compute draw buffers handle these passes in async compute: keygen, radix, identify, forward
     const auto allocInfo = vk::CommandBufferAllocateInfo{}
         .setCommandPool(_computeCommandPool)
         .setLevel(vk::CommandBufferLevel::ePrimary)
@@ -432,6 +473,27 @@ void tpd::GaussianEngine::createComputeSyncs() {
     }
 }
 
+void tpd::GaussianEngine::createPreprocessCommandBuffers() {
+    // Preprocess command buffers handle these passes: prepare, prefix
+    auto allocInfo = vk::CommandBufferAllocateInfo{};
+    allocInfo.commandPool = _graphicsFamilyIndex == _computeFamilyIndex ? _drawingCommandPool : _computeCommandPool;
+    allocInfo.level = vk::CommandBufferLevel::ePrimary;
+    allocInfo.commandBufferCount = _renderer->getInFlightFramesCount();
+
+    const auto allocatedBuffers = _device.allocateCommandBuffers(allocInfo);
+    _preprocessCommandBuffers.resize(allocatedBuffers.size());
+    for (size_t i = 0; i < allocatedBuffers.size(); ++i) {
+        _preprocessCommandBuffers[i] = allocatedBuffers[i];
+    }
+}
+
+void tpd::GaussianEngine::createReadBackFences() {
+    _readBackFences.resize(_renderer->getInFlightFramesCount());
+    for (auto& fence : _readBackFences) {
+        fence = _device.createFence({});
+    }
+}
+
 void tpd::GaussianEngine::cleanupRenderTargets() noexcept {
     std::ranges::for_each(_targetViews, [this](const auto it) { _device.destroyImageView(it); });
     std::ranges::for_each(_targets, [](Target& it) { it.destroy(); });
@@ -440,6 +502,10 @@ void tpd::GaussianEngine::cleanupRenderTargets() noexcept {
 
 void tpd::GaussianEngine::destroy() noexcept {
     if (_initialized) {
+        std::ranges::for_each(_readBackFences, [this](const auto it) { _device.destroyFence(it); });
+        _readBackFences.clear();
+        _preprocessCommandBuffers.clear();
+
         if (_graphicsFamilyIndex != _computeFamilyIndex) {
             std::ranges::for_each(_computeSyncs, [this](const auto& sync) {
                 _device.destroySemaphore(sync.ownershipSemaphore);
@@ -450,18 +516,17 @@ void tpd::GaussianEngine::destroy() noexcept {
             _device.destroyCommandPool(_computeCommandPool);
         }
 
-        _device.destroyPipeline(_preworkPipeline);
-        _device.destroyPipeline(_pipeline);
+        _device.destroyPipeline(_forwardPipeline);
+        _forwardInstance->destroy(_device);
+        _forwardInstance.reset();
+        _forwardLayout->destroy(_device);
+        _forwardLayout.reset();
 
+        _device.destroyPipeline(_preparePipeline);
         _prepareInstance->destroy(_device);
         _prepareInstance.reset();
-        _shaderInstance->destroy(_device);
-        _shaderInstance.reset();
-
         _prepareLayout->destroy(_device);
         _prepareLayout.reset();
-        _shaderLayout->destroy(_device);
-        _shaderLayout.reset();
 
         cleanupRenderTargets();
         _targetViews.clear();
