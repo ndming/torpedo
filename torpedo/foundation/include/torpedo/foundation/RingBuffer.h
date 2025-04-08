@@ -30,6 +30,9 @@ namespace tpd {
         void updateData(uint32_t bufferIndex, const void* data, std::size_t byteSize = 0) const;
         void updateData(const void* data, std::size_t byteSize = 0) const;
 
+        [[nodiscard]] std::size_t getOffset(uint32_t bufferIndex) const;
+        [[nodiscard]] std::size_t getPerBufferSize() const noexcept;
+
         void destroy() noexcept override;
         ~RingBuffer() noexcept override;
 
@@ -70,6 +73,17 @@ inline tpd::RingBuffer::RingBuffer(
     , _bufferCount{ bufferCount }
     , _perBufferSize{ bufferSize }
     , _perAllocSize{ allocSize } {
+}
+
+inline std::size_t tpd::RingBuffer::getOffset(const uint32_t bufferIndex) const {
+    if (bufferIndex >= _bufferCount) [[unlikely]] {
+        throw std::out_of_range("RingBuffer - Could NOT get offset to a buffer whose index is out of range");
+    }
+    return _perAllocSize * bufferIndex;
+}
+
+inline std::size_t tpd::RingBuffer::getPerBufferSize() const noexcept {
+    return _perBufferSize;
 }
 
 inline void tpd::RingBuffer::destroy() noexcept {
