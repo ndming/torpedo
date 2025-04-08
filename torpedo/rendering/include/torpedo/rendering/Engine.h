@@ -67,9 +67,6 @@ namespace tpd {
         vk::Queue _computeQueue{};
 
     private:
-        void createDrawingCommandPool();
-        vk::CommandPool _drawingCommandPool{};
-
         void createSyncWorkCommandPools();
         std::mutex _syncWorkPoolMutex{};
         vk::CommandPool _transferPool{};
@@ -82,7 +79,10 @@ namespace tpd {
     protected:
         // Keep drawing resources close together
         std::pmr::unsynchronized_pool_resource _engineResourcePool{};
-        
+
+        void createDrawingCommandPool();
+        vk::CommandPool _drawingCommandPool{};
+
         void createDrawingCommandBuffers();
         std::pmr::vector<vk::CommandBuffer> _drawingCommandBuffers{ &_engineResourcePool };
 
@@ -119,7 +119,7 @@ namespace tpd {
         template<RendererImpl R>
         friend class Context;
     };
-}  // namespace tpd
+} // namespace tpd
 
 inline void tpd::Engine::waitIdle() const noexcept {
     _device.waitIdle();

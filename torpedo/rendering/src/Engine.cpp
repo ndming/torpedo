@@ -53,11 +53,11 @@ void tpd::Engine::init(
         static_cast<VkQueue>(_computeQueue), vk::ObjectType::eQueue,
         getName() + std::string{ " - ComputeQueue" }, instance, _device);
 #endif
-    // Create command pools
-    createDrawingCommandPool();
+    // These pools handle transferring resources between queues
     createSyncWorkCommandPools();
 
     // Drawing command buffers used by downstream
+    createDrawingCommandPool();
     createDrawingCommandBuffers();
     PLOGD << "Number of drawing command buffers created by " << Engine::getName() << ": " << _drawingCommandBuffers.size();
 
@@ -114,14 +114,6 @@ vk::Device tpd::Engine::createDevice(
         .build(_physicalDevice, deviceExtensions);
 }
 
-void tpd::Engine::createDrawingCommandPool() {
-    // This pool allocates command buffers for drawing commands
-    const auto poolInfo = vk::CommandPoolCreateInfo{}
-        .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
-        .setQueueFamilyIndex(_graphicsFamilyIndex);
-    _drawingCommandPool = _device.createCommandPool(poolInfo);
-}
-
 void tpd::Engine::createSyncWorkCommandPools() {
     // These pools allocate command buffers for sync transfers at the start of the program
     _transferPool = _device.createCommandPool({ vk::CommandPoolCreateFlagBits::eTransient, _transferFamilyIndex });
@@ -130,6 +122,14 @@ void tpd::Engine::createSyncWorkCommandPools() {
     // the _graphicsFamilyIndex invalid. However, it's very unlikely to cause any issue in this case since the
     // pool should be ignored by the implementation.
     _graphicsPool = _device.createCommandPool({ vk::CommandPoolCreateFlagBits::eTransient, _graphicsFamilyIndex });
+}
+
+void tpd::Engine::createDrawingCommandPool() {
+    // This pool allocates command buffers for drawing commands
+    const auto poolInfo = vk::CommandPoolCreateInfo{}
+        .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
+        .setQueueFamilyIndex(_graphicsFamilyIndex);
+    _drawingCommandPool = _device.createCommandPool(poolInfo);
 }
 
 void tpd::Engine::createDrawingCommandBuffers() {
