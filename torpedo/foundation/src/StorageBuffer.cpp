@@ -19,7 +19,7 @@ std::unique_ptr<tpd::StorageBuffer, tpd::Deleter<tpd::StorageBuffer>> tpd::Stora
 }
 
 vk::Buffer tpd::StorageBuffer::Builder::creatBuffer(const DeviceAllocator& allocator, VmaAllocation* allocation) const {
-    const auto usage = _usage | vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst;
+    const auto usage = _usage | vk::BufferUsageFlagBits::eStorageBuffer;
     const auto bufferCreateInfo = vk::BufferCreateInfo{ {}, _allocSize, usage, vk::SharingMode::eExclusive };
     return allocator.allocateDeviceBuffer(bufferCreateInfo, allocation);
 }
