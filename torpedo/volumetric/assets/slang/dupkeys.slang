@@ -14,7 +14,7 @@ RWStructuredBuffer<uint32_t> unsortedIdxs;  // set 0, binding 4
 // Generates one key/value pair for all Gaussian/tile overlaps
 
 [shader("compute")]
-[numthreads(256, 1, 1)]
+[numthreads(LOCAL_SCAN, 1, 1)]
 void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     // Each thread processes one Gaussian point
     let idx = globalInvocationID.x;
@@ -27,9 +27,9 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     let depth = rasterPoints[idx].texel.z;
     let imgPoint = rasterPoints[idx].texel.xy;
 
-    let grid = getComputeGrid(camera.imgW, camera.imgH);
+    let grid = getComputeGrid(camera.imageSize);
     uint2 rectMin, rectMax;
-    getBoundingRect(imgPoint, radius, getComputeGrid(camera.imgW, camera.imgH), rectMin, rectMax);
+    getBoundingRect(imgPoint, radius, getComputeGrid(camera.imageSize), rectMin, rectMax);
 
     // Unlike the original CUDA code, we perform exclusive prefix sum,
     // thus the correct offset directly locates at the Gaussian index.

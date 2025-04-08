@@ -12,7 +12,7 @@ RWStructuredBuffer<RasterPoint> rasterPoints;   // set 0, binding 2
 // Performs initial steps for each Gaussian prior to rasterization
 
 [shader("compute")]
-[numthreads(256, 1, 1)]
+[numthreads(LOCAL_SCAN, 1, 1)]
 void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     // Each thread processes one Gaussian point
     let idx = globalInvocationID.x;
@@ -29,10 +29,9 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     if (!passNearCulling(mean, camera.viewMatrix, viewPos)) return;
 
     // Convert R and S to covariance 3D then project it to image space
-    let focalX = camera.imgW / (2.0 * camera.tanHalfFovX);
-    let focalY = camera.imgH / (2.0 * camera.tanHalfFovY);
+    let focal = camera.imageSize / (2.0 * camera.tanFov);
     let cov3D = computeCovariance(gaussianPoints[idx].quaternion, gaussianPoints[idx].scale);
-    let cov2D = projectCovariance(cov3D, mean, camera.viewMatrix, focalX, focalY, camera.tanHalfFovX, camera.tanHalfFovY);
+    let cov2D = projectCovariance(cov3D, mean, camera.viewMatrix, focal, camera.tanFov);
 
     // Apply low-pass filter: every Gaussian should be at least one pixel wide/high, discard 3rd row and column
     let cov = float3(cov2D[0][0] + 0.3, cov2D[1][0], cov2D[1][1] + 0.3f);
@@ -53,9 +52,9 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     let projPos = clipPos.xyz / (clipPos.w + EPSILON);
 
     // Use extent to compute a bounding rectangle of screen-space tiles that this Gaussian overlaps with
-    let imgPoint = float2(ndc2pix(projPos.x, camera.imgW), ndc2pix(projPos.y, camera.imgH));
+    let imgPoint = ndc2pix(projPos.xy, camera.imageSize);
     uint2 rectMin, rectMax;
-    getBoundingRect(imgPoint, radius, getComputeGrid(camera.imgW, camera.imgH), rectMin, rectMax);
+    getBoundingRect(imgPoint, radius, getComputeGrid(camera.imageSize), rectMin, rectMax);
     if ((rectMax.x - rectMin.x) * (rectMax.y - rectMin.y) == 0) return; // empty tile
 
     // Compute color from spherical harmonics

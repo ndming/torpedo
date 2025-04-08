@@ -4,7 +4,7 @@ WTexture2D outputImage;
 StructuredBuffer<GaussianPoint> gaussianPoints;
 
 [shader("compute")]
-[numthreads(16, 16, 1)]
+[numthreads(BLOCK_X, BLOCK_Y, 1)]
 void main(
     uint3 globalInvocationID : SV_DispatchThreadID,
     uint3 localInvocationID  : SV_GroupThreadID,

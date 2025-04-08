@@ -4,19 +4,21 @@ __include "splat/common.slang";
 __include "splat/surfel.slang";
 __include "splat/volume.slang";
 
+public static const uint LOCAL_SCAN = 256;
+public static const uint BLOCK_X = 16;
+public static const uint BLOCK_Y = 16;
+
 public struct PointCloud {
     public uint count;
     public uint shDegree;
 }
 
 public struct Camera {
-    public float4x4 viewMatrix; // world to view space
-    public float4x4 projMatrix; // world to clip space
-    public float3 position;
-    public float tanHalfFovX;
-    public float tanHalfFovY;
-    public uint imgW;
-    public uint imgH;
+    public float4x4 viewMatrix; // world to view space, row-major
+    public float4x4 projMatrix; // world to clip space, row-major
+    public float2 tanFov;   // tan (fov / 2) in x- and y-axis
+    public uint2 imageSize; // in pixels
+    public float3 position; // camera position in world space
 }
 
 // Size: 240 bytes, alignment: 16 bytes
