@@ -5,6 +5,7 @@
 #include <torpedo/foundation/ImageUtils.h>
 
 #include <filesystem>
+#include <numbers>
 
 void tpd::GaussianEngine::preFrameCompute() {
     // Pre-frame pass only applies to async compute
@@ -87,7 +88,7 @@ void tpd::GaussianEngine::recordComputeDispatchCommands(const vk::CommandBuffer 
         /* first set */ 0, _shaderInstance->getDescriptorSets(currentFrame), {});
 
     const auto [w, h, d] = _targets[currentFrame].getPixelSize();
-    cmd.dispatch((w + RASTER_BLOCK_SIZE - 1) / RASTER_BLOCK_SIZE, (h + RASTER_BLOCK_SIZE - 1) / RASTER_BLOCK_SIZE, 1);
+    cmd.dispatch((w + BLOCK_X - 1) / BLOCK_X, (h + BLOCK_Y - 1) / BLOCK_Y, 1);
 }
 
 void tpd::GaussianEngine::recordCopyToSwapImageCommands(
@@ -121,28 +122,7 @@ tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
         selector.requestPresentQueueFamily(surface);
     }
 
-    auto selection = selector.select(instance, deviceExtensions);
-
-    PLOGD << "Queue family indices selected:";
-    PLOGD << " - Compute:  " << selection.computeQueueFamilyIndex;
-    PLOGD << " - Transfer: " << selection.transferQueueFamilyIndex;
-    if (_renderer->hasSurfaceRenderingSupport()) {
-        PLOGD << " - Graphics: " << selection.graphicsQueueFamilyIndex;
-        PLOGD << " - Present:  " << selection.presentQueueFamilyIndex;
-    }
-
-    const auto limits = selection.physicalDevice.getProperties().limits;
-    PLOGD << "Compute space limits:";
-    PLOGD << " - Max work group x: " << limits.maxComputeWorkGroupCount[0];
-    PLOGD << " - Max work group y: " << limits.maxComputeWorkGroupCount[1];
-    PLOGD << " - Max work group z: " << limits.maxComputeWorkGroupCount[2];
-    PLOGD << " - Max local size x: " << limits.maxComputeWorkGroupSize[0];
-    PLOGD << " - Max local size y: " << limits.maxComputeWorkGroupSize[1];
-    PLOGD << " - Max local size z: " << limits.maxComputeWorkGroupSize[2];
-    PLOGD << " - Max invocations:  " << limits.maxComputeWorkGroupInvocations;
-    PLOGD << " - Max group memory: " << limits.maxComputeSharedMemorySize / 1024 << "KB";
-
-    return selection;
+    return selector.select(instance, deviceExtensions);
 }
 
 vk::Device tpd::GaussianEngine::createDevice(
@@ -171,6 +151,30 @@ vk::PhysicalDeviceVulkan13Features tpd::GaussianEngine::getVulkan13Features() {
 }
 
 void tpd::GaussianEngine::onInitialized() {
+    // Log queue families
+    PLOGD << "Queue family indices selected:";
+    PLOGD << " - Compute:  " << _computeFamilyIndex;
+    PLOGD << " - Transfer: " << _transferFamilyIndex;
+    if (_renderer->hasSurfaceRenderingSupport()) {
+        PLOGD << " - Graphics: " << _graphicsFamilyIndex;
+        PLOGD << " - Present:  " << _presentFamilyIndex;
+    }
+
+    // Log relevant physical device capabilities
+    const auto limits = _physicalDevice.getProperties().limits;
+    const auto groupSize = limits.maxComputeWorkGroupCount;
+    const auto localSize = limits.maxComputeWorkGroupSize;
+    PLOGD << "Compute space limits:";
+    PLOGD << " - Max work group: (" << groupSize[0] << ", " << groupSize[1] << ", " << groupSize[2] << ")";
+    PLOGD << " - Max local size: (" << localSize[0] << ", " << localSize[1] << ", " << localSize[2] << ")";
+    PLOGD << " - Max invocations: " << limits.maxComputeWorkGroupInvocations;
+    PLOGD << " - Max shared size: " << limits.maxComputeSharedMemorySize / 1024 << "KB";
+
+    PLOGD << "Storage buffer limits:";
+    PLOGD << " - Max range: " << limits.maxStorageBufferRange / 1048576 << "MB";
+    PLOGD << " - Min align: " << limits.minStorageBufferOffsetAlignment << "B";
+
+    // Log location of the assets directory
     const auto assetsDir = std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR).make_preferred();
     PLOGD << "Assets directories used by " << getName() << ':';
     PLOGD << " - " << assetsDir / "slang";
@@ -181,10 +185,22 @@ void tpd::GaussianEngine::onInitialized() {
     _targets.reserve(frameCount);     // only reserve here since the only way to append new Target is via push_back
     _targetViews.resize(frameCount);  // vk::ImageView can be copied
 
+    // Save the minimum uniform buffer alignment size
+    _minUniformBufferOffsetAlignment = limits.minUniformBufferOffsetAlignment;
+
     _renderer->addFramebufferResizeCallback(this, framebufferResizeCallback);
     const auto [w, h] = _renderer->getFramebufferSize();
+
+    createPointCloudObject();
+    createCameraObject(w, h);
+
+    createCameraBuffer();
+    createGaussianPointBuffer();
+    createRasterPointBuffer();
+
     createRenderTargets(w, h);
-    createPointCloudBuffer();
+
+    createPreworkPipeline();
     createPipelineResources();
 
     if (_graphicsFamilyIndex != _computeFamilyIndex) {
@@ -205,7 +221,45 @@ void tpd::GaussianEngine::onFramebufferResize(const uint32_t width, const uint32
 
     cleanupRenderTargets();
     createRenderTargets(width, height);
+    createCameraObject(width, height);
     setTargetDescriptors();
+}
+
+void tpd::GaussianEngine::createPointCloudObject() {
+    _pc = PointCloud{ GAUSSIAN_COUNT, 0 };
+}
+
+void tpd::GaussianEngine::createCameraObject(const uint32_t width, const uint32_t height) {
+    _camera.imageSize = { width, height };
+    _camera.position  = { 0.0f, 0.0f, -2.0f };
+
+    const auto fovY = 60.0f * std::numbers::pi_v<float> / 180.0f; // radians
+    const auto aspect = static_cast<float>(width) / static_cast<float>(height);
+    _camera.tanFov.y  = std::numbers::inv_sqrt3_v<float>; // tan(60/2)
+    _camera.tanFov.x  = _camera.tanFov.y * aspect;
+
+    // Note that matrices in vsg are column-major, whereas Slang uses row-major. As long as we don't 
+    // perform linear algebra arithmetics with vsg matrices, we can treat them as row-major.
+    _camera.viewMatrix = vsg::mat4{
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 2.0f,
+        0.0f, 0.0f, 0.0f, 1.0f,
+    };
+
+    // The projection map to reverse depth (1, 0) range, and the camera orientation is the same as OpenCV
+    const auto fy = 1.f / std::tan(fovY / 2.f);
+    const auto fx = fy / aspect;
+    const auto za = NEAR / (NEAR - FAR);
+    const auto zb = NEAR * FAR / (FAR - NEAR);
+    const auto projection = vsg::mat4{
+        fx,  0.f, 0.f, 0.f,
+        0.f, fy,  0.f, 0.f,
+        0.f, 0.f, za,  zb,
+        0.f, 0.f, 1.f, 0.f
+    };
+    // Swap the multiplication order to account for column-major
+    _camera.projMatrix = _camera.viewMatrix * projection;
 }
 
 void tpd::GaussianEngine::createRenderTargets(const uint32_t width, const uint32_t height) {
@@ -224,23 +278,79 @@ void tpd::GaussianEngine::createRenderTargets(const uint32_t width, const uint32
     PLOGD << "Number of target images created by " << getName() << ": " << _targets.size();
 }
 
-void tpd::GaussianEngine::createPointCloudBuffer() {
-    auto points = std::array<GaussianPoint, 2>{};
-    points[1].position   = vsg::vec3{ 0.0f, 0.0f, 0.0f };
-    points[1].opacity    = 1.0f;
-    points[1].quaternion = vsg::quat{ 0.0f, 0.0f, 0.0f, 1.0f };
-    points[1].scale      = vsg::vec4{ 1.0f, 1.0f, 1.0f, 0.0f };
-    points[1].sh[0] = 0.0f;
-    points[1].sh[1] = 1.0f;
-    points[1].sh[2] = 0.0f;
+void tpd::GaussianEngine::createCameraBuffer() {
+    _cameraBuffer = RingBuffer::Builder()
+        .count(_renderer->getInFlightFramesCount())
+        .usage(vk::BufferUsageFlagBits::eUniformBuffer)
+        .alloc(sizeof(Camera), Alignment::By_64)
+        .build(*_deviceAllocator, &_engineResourcePool);
+}
 
-    _pointCloudBuffer = StorageBuffer::Builder()
-        .alloc(sizeof(GaussianPoint) * 2)
+void tpd::GaussianEngine::createGaussianPointBuffer() {
+    auto points = std::array<GaussianPoint, GAUSSIAN_COUNT>{};
+    points[0].position   = vsg::vec3{ 0.0f, 0.0f, 0.0f };
+    points[0].opacity    = 1.0f;
+    points[0].quaternion = vsg::quat{ 0.0f, 0.0f, 0.0f, 1.0f };
+    points[0].scale      = vsg::vec4{ 2.0f, 1.0f, 1.0f, 0.0f };
+    // A gray Gaussian
+    points[0].sh[0] = 2.0f;
+    points[0].sh[1] = 2.0f;
+    points[0].sh[2] = 2.0f;
+
+    _gaussianPointBuffer = StorageBuffer::Builder()
+        .usage(vk::BufferUsageFlagBits::eTransferDst)
+        .alloc(sizeof(GaussianPoint) * GAUSSIAN_COUNT)
         .syncData(points.data())
         .dstPoint(vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead)
         .build(*_deviceAllocator, &_engineResourcePool);
 
-    sync(*_pointCloudBuffer, _computeFamilyIndex);
+    sync(*_gaussianPointBuffer, _computeFamilyIndex);
+}
+
+void tpd::GaussianEngine::createRasterPointBuffer() {
+    _rasterPointBuffer = StorageBuffer::Builder()
+        .alloc(RASTER_POINT_SIZE * GAUSSIAN_COUNT)
+        .syncData(nullptr, RASTER_POINT_SIZE * GAUSSIAN_COUNT)
+        .build(*_deviceAllocator, &_engineResourcePool);
+}
+
+void tpd::GaussianEngine::createPreworkPipeline() {
+    _preworkLayout = ShaderLayout::Builder(&_engineResourcePool)
+        .descriptorSetCount(1)
+        .pushConstantRange(vk::ShaderStageFlagBits::eCompute, 0, sizeof(PointCloud))
+        .descriptor(0, 0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eCompute) // Camera
+        .descriptor(0, 1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute) // Gaussian points
+        .descriptor(0, 2, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute) // Raster points
+        .buildUnique(_device);
+    
+    _preworkInstance = _preworkLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
+
+    for (uint32_t i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
+        const auto descriptorInfo = vk::DescriptorBufferInfo{}
+            .setBuffer(_cameraBuffer->getVulkanBuffer())
+            .setOffset(_cameraBuffer->getOffset(i))
+            .setRange(_cameraBuffer->getPerBufferSize());
+        _preworkInstance->setDescriptor(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, descriptorInfo);
+    }
+
+    setStorageBufferDescriptors(*_gaussianPointBuffer, *_preworkInstance, 1);
+    setStorageBufferDescriptors(*_rasterPointBuffer,   *_preworkInstance, 2);
+
+    const auto shaderModule = ShaderModuleBuilder()
+        .slang(TORPEDO_VOLUMETRIC_ASSETS_DIR, "prework.slang")
+        .build(_device);
+
+    const auto shaderStage = vk::PipelineShaderStageCreateInfo{}
+        .setModule(shaderModule)
+        .setStage(vk::ShaderStageFlagBits::eCompute)
+        .setPName("main");
+    
+    const auto pipelineInfo = vk::ComputePipelineCreateInfo{}
+        .setStage(shaderStage)
+        .setLayout(_preworkLayout->getPipelineLayout());
+    _preworkPipeline = _device.createComputePipeline(nullptr, pipelineInfo).value;
+
+    _device.destroyShaderModule(shaderModule);
 }
 
 void tpd::GaussianEngine::createPipelineResources() {
@@ -252,7 +362,7 @@ void tpd::GaussianEngine::createPipelineResources() {
 
     _shaderInstance = _shaderLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
     setTargetDescriptors();
-    setBufferDescriptors();
+    setStorageBufferDescriptors(*_gaussianPointBuffer, *_shaderInstance, 1);
 
     const auto shaderModule = ShaderModuleBuilder()
         .slang(TORPEDO_VOLUMETRIC_ASSETS_DIR, "forward.slang")
@@ -280,13 +390,18 @@ void tpd::GaussianEngine::setTargetDescriptors() const {
     }
 }
 
-void tpd::GaussianEngine::setBufferDescriptors() const {
+void tpd::GaussianEngine::setStorageBufferDescriptors(
+    const StorageBuffer& buffer,
+    const ShaderInstance& instance,
+    const uint32_t binding,
+    const uint32_t set) const 
+{
     for (uint32_t i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
         const auto descriptorInfo = vk::DescriptorBufferInfo{}
-            .setBuffer(_pointCloudBuffer->getVulkanBuffer())
+            .setBuffer(buffer.getVulkanBuffer())
             .setOffset(0)
-            .setRange(_pointCloudBuffer->getSyncDataSize());
-        _shaderInstance->setDescriptor(i, 0, 1, vk::DescriptorType::eStorageBuffer, _device, descriptorInfo);
+            .setRange(buffer.getSyncDataSize());
+        instance.setDescriptor(i, set, binding, vk::DescriptorType::eStorageBuffer, _device, descriptorInfo);
     }
 }
 
@@ -336,18 +451,25 @@ void tpd::GaussianEngine::destroy() noexcept {
             _device.destroyCommandPool(_computeCommandPool);
         }
 
+        _device.destroyPipeline(_preworkPipeline);
         _device.destroyPipeline(_pipeline);
 
+        _preworkInstance->destroy(_device);
+        _preworkInstance.reset();
         _shaderInstance->destroy(_device);
         _shaderInstance.reset();
 
+        _preworkLayout->destroy(_device);
+        _preworkLayout.reset();
         _shaderLayout->destroy(_device);
         _shaderLayout.reset();
 
-        _pointCloudBuffer.reset();
-
         cleanupRenderTargets();
         _targetViews.clear();
+
+        _rasterPointBuffer.reset();
+        _gaussianPointBuffer.reset();
+        _cameraBuffer.reset();
 
         if (_renderer) {
             _renderer->removeFramebufferResizeCallback(this);

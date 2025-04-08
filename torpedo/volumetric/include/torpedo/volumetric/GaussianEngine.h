@@ -2,10 +2,13 @@
 
 #include <torpedo/rendering/Engine.h>
 #include <torpedo/foundation/Target.h>
+#include <torpedo/foundation/RingBuffer.h>
 #include <torpedo/foundation/ShaderLayout.h>
 
-#include <vsg/maths/vec3.h>
+#include <vsg/maths/mat4.h>
 #include <vsg/maths/quat.h>
+#include <vsg/maths/vec2.h>
+#include <vsg/maths/vec4.h>
 
 namespace tpd {
     class GaussianEngine final : public Engine {
@@ -30,35 +33,71 @@ namespace tpd {
         static vk::PhysicalDeviceVulkan13Features getVulkan13Features();
 
         void onInitialized() override;
+        std::size_t _minUniformBufferOffsetAlignment{};
 
         static void framebufferResizeCallback(void* ptr, uint32_t width, uint32_t height);
         void onFramebufferResize(uint32_t width, uint32_t height);
 
-        void createRenderTargets(uint32_t width, uint32_t height);
-        std::pmr::vector<Target> _targets{ &_engineResourcePool };
-        std::pmr::vector<vk::ImageView> _targetViews{ &_engineResourcePool };
+        struct PointCloud {
+            uint32_t count;
+            uint32_t shDegree;
+        };
+        void createPointCloudObject();
+        PointCloud _pc{};
 
-        static constexpr uint32_t RASTER_BLOCK_SIZE = 16;  // the image is rasterized in 16x16 blocks
-        static constexpr uint32_t MAX_SH_COMPONENTS = 48;  // number of floats in a 3-band SH for RGB
-        static constexpr uint32_t PREP_THREAD_COUNT = 256; // number of local threads in prepare pass
+        static constexpr auto NEAR = 0.2f;
+        static constexpr auto FAR = 10.0f;
+
+        struct Camera {
+            vsg::mat4 viewMatrix;
+            vsg::mat4 projMatrix;
+            vsg::vec2 tanFov;
+            vsg::uivec2 imageSize;
+            vsg::vec3 position;
+        };
+        void createCameraObject(uint32_t width, uint32_t height);
+        Camera _camera{};
+
+        static constexpr uint32_t LOCAL_SCAN = 256; // number of local threads per workgroup in scan passes
+        static constexpr uint32_t MAX_SH_RGB = 48;  // the maximum number of floats for RGB spherical harmonics
+        static constexpr uint32_t BLOCK_X = 16; // tile size in x-dimension
+        static constexpr uint32_t BLOCK_Y = 16; // tile size in y-dimension
+
+        void createCameraBuffer();
+        std::unique_ptr<RingBuffer, Deleter<RingBuffer>> _cameraBuffer{};
 
         struct GaussianPoint {
             vsg::vec3 position;
             float opacity;
             vsg::quat quaternion;
             vsg::vec4 scale;
-            std::array<float, MAX_SH_COMPONENTS> sh;
+            std::array<float, MAX_SH_RGB> sh;
         };
 
-        void createPointCloudBuffer();
-        std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _pointCloudBuffer{};
+        void createGaussianPointBuffer();
+        static constexpr uint32_t GAUSSIAN_COUNT = 1;
+        std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _gaussianPointBuffer{};
+
+        void createRasterPointBuffer();
+        static constexpr uint32_t RASTER_POINT_SIZE = 48; // check splat.slang
+        std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _rasterPointBuffer{};
+
+        void createRenderTargets(uint32_t width, uint32_t height);
+        std::pmr::vector<Target> _targets{ &_engineResourcePool };
+        std::pmr::vector<vk::ImageView> _targetViews{ &_engineResourcePool };
+
+        void createPreworkPipeline();
+        std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _preworkLayout{};
+        std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _preworkInstance{};
+        vk::Pipeline _preworkPipeline{};
 
         void createPipelineResources();
-        void setTargetDescriptors() const;
-        void setBufferDescriptors() const;
         std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> _shaderLayout{};
         std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> _shaderInstance{};
         vk::Pipeline _pipeline{};
+
+        void setTargetDescriptors() const;
+        void setStorageBufferDescriptors(const StorageBuffer& buffer, const ShaderInstance& instance, uint32_t binding, uint32_t set = 0) const;
 
         void createComputeCommandPool();
         vk::CommandPool _computeCommandPool{};
@@ -79,7 +118,7 @@ namespace tpd {
         void cleanupRenderTargets() noexcept;
         void destroy() noexcept override;
     };
-}  // namespace tpd
+} // namespace tpd
 
 inline const char* tpd::GaussianEngine::getName() const noexcept {
     return "tpd::GaussianEngine";
