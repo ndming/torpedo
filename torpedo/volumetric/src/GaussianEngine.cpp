@@ -301,7 +301,7 @@ void tpd::GaussianEngine::createGaussianPointBuffer() {
         .usage(vk::BufferUsageFlagBits::eTransferDst)
         .alloc(sizeof(GaussianPoint) * GAUSSIAN_COUNT)
         .syncData(points.data())
-        .dstPoint(vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead)
+        .transferDstPoint(vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead)
         .build(*_deviceAllocator, &_engineResourcePool);
 
     sync(*_gaussianPointBuffer, _computeFamilyIndex);
@@ -310,7 +310,6 @@ void tpd::GaussianEngine::createGaussianPointBuffer() {
 void tpd::GaussianEngine::createRasterPointBuffer() {
     _rasterPointBuffer = StorageBuffer::Builder()
         .alloc(RASTER_POINT_SIZE * GAUSSIAN_COUNT)
-        .syncData(nullptr, RASTER_POINT_SIZE * GAUSSIAN_COUNT)
         .build(*_deviceAllocator, &_engineResourcePool);
 }
 
@@ -400,7 +399,7 @@ void tpd::GaussianEngine::setStorageBufferDescriptors(
         const auto descriptorInfo = vk::DescriptorBufferInfo{}
             .setBuffer(buffer.getVulkanBuffer())
             .setOffset(0)
-            .setRange(buffer.getSyncDataSize());
+            .setRange(buffer.getSize());
         instance.setDescriptor(i, set, binding, vk::DescriptorType::eStorageBuffer, _device, descriptorInfo);
     }
 }

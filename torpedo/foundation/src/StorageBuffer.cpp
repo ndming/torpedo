@@ -5,7 +5,7 @@ tpd::StorageBuffer tpd::StorageBuffer::Builder::build(const DeviceAllocator& all
     const auto buffer = creatBuffer(allocator, &allocation);
     // If the call site set data but not its size, we default to the buffer's size
     const auto dataSize = _data && _dataSize == 0 ? static_cast<uint32_t>(_allocSize) : _dataSize;
-    return StorageBuffer{ _dstPoint, buffer, allocation, allocator, _data, dataSize };
+    return StorageBuffer{ _dstPoint, _allocSize, buffer, allocation, allocator, _data, dataSize };
 }
 
 std::unique_ptr<tpd::StorageBuffer, tpd::Deleter<tpd::StorageBuffer>> tpd::StorageBuffer::Builder::build(
@@ -15,7 +15,7 @@ std::unique_ptr<tpd::StorageBuffer, tpd::Deleter<tpd::StorageBuffer>> tpd::Stora
     auto allocation = VmaAllocation{};
     const auto buffer = creatBuffer(allocator, &allocation);
     const auto dataSize = _data && _dataSize == 0 ? static_cast<uint32_t>(_allocSize) : _dataSize;
-    return foundation::make_unique<StorageBuffer>(pool, _dstPoint, buffer, allocation, allocator, _data, dataSize);
+    return foundation::make_unique<StorageBuffer>(pool, _dstPoint, _allocSize, buffer, allocation, allocator, _data, dataSize);
 }
 
 vk::Buffer tpd::StorageBuffer::Builder::creatBuffer(const DeviceAllocator& allocator, VmaAllocation* allocation) const {
@@ -32,7 +32,7 @@ void tpd::StorageBuffer::recordBufferTransfer(const vk::CommandBuffer cmd, const
     cmd.copyBuffer(stagingBuffer, _buffer, bufferCopyInfo);
 }
 
-void tpd::StorageBuffer::recordDstSync(const vk::CommandBuffer cmd) const noexcept {
+void tpd::StorageBuffer::recordTransferDstSync(const vk::CommandBuffer cmd) const noexcept {
     auto barrier = vk::BufferMemoryBarrier2{};
     barrier.buffer = _buffer;
     barrier.offset = 0;
@@ -41,8 +41,8 @@ void tpd::StorageBuffer::recordDstSync(const vk::CommandBuffer cmd) const noexce
     barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
     barrier.srcStageMask  = vk::PipelineStageFlagBits2::eTransfer;
     barrier.srcAccessMask = vk::AccessFlagBits2::eTransferWrite;
-    barrier.dstStageMask  = _dstSyncPoint.stage;
-    barrier.dstAccessMask = _dstSyncPoint.access;
+    barrier.dstStageMask  = _transferDstPoint.stage;
+    barrier.dstAccessMask = _transferDstPoint.access;
 
     const auto dependency = vk::DependencyInfo{}.setBufferMemoryBarriers(barrier);
     cmd.pipelineBarrier2(dependency);
@@ -79,8 +79,8 @@ void tpd::StorageBuffer::recordOwnershipAcquire(
     barrier.size   = vk::WholeSize;
     barrier.srcQueueFamilyIndex = srcFamilyIndex;
     barrier.dstQueueFamilyIndex = dstFamilyIndex;
-    barrier.dstStageMask  = _dstSyncPoint.stage;
-    barrier.dstAccessMask = _dstSyncPoint.access;
+    barrier.dstStageMask  = _transferDstPoint.stage;
+    barrier.dstAccessMask = _transferDstPoint.access;
 
     // TODO: consider VK_DEPENDENCY_QUEUE_FAMILY_OWNERSHIP_TRANSFER_USE_ALL_STAGES_BIT_KHR to avoid full pipeline stalls
     const auto dependency = vk::DependencyInfo{}.setBufferMemoryBarriers(barrier);

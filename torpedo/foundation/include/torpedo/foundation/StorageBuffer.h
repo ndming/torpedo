@@ -14,16 +14,16 @@ namespace tpd {
             Builder& syncData(const void* data, uint32_t byteSize = 0) noexcept;
 
             /**
-            * Sets the destination synchronization point, only relevant if the buffer acts as transfer dst.
+            * Sets the destination synchronization point, only relevant if the buffer also acts as transfer dst.
             * 
-            * When data is transfered from host to this buffer, this destination point will be used to synchronize
+            * When data is transferred from host to this buffer, this destination point will be used to synchronize
             * operations that consume this buffer after the transfer.
             *
             * @param stage The destination pipeline stage.
             * @param access The destination memory access mask.
             * @return This `Builder` for chaining calls.
             */
-            Builder& dstPoint(vk::PipelineStageFlags2 stage, vk::AccessFlags2 access) noexcept;
+            Builder& transferDstPoint(vk::PipelineStageFlags2 stage, vk::AccessFlags2 access) noexcept;
 
             [[nodiscard]] StorageBuffer build(const DeviceAllocator& allocator) const;
 
@@ -44,19 +44,20 @@ namespace tpd {
         };
 
         StorageBuffer(
-            SyncPoint dstSyncPoint, vk::Buffer buffer, VmaAllocation allocation, const DeviceAllocator& allocator,
+            SyncPoint dstSyncPoint, std::size_t allocSize, vk::Buffer buffer,
+            VmaAllocation allocation, const DeviceAllocator& allocator,
             const void* data = nullptr, uint32_t dataByteSize = 0);
 
         void recordBufferTransfer(vk::CommandBuffer cmd, vk::Buffer stagingBuffer) const noexcept;
-        void recordDstSync(vk::CommandBuffer cmd) const noexcept;
+        void recordTransferDstSync(vk::CommandBuffer cmd) const noexcept;
 
         void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept;
         void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept;
 
     private:
-        SyncPoint _dstSyncPoint;
+        SyncPoint _transferDstPoint;
     };
-}  // namespace tpd
+} // namespace tpd
 
 inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::usage(const vk::BufferUsageFlags usage) noexcept {
     _usage = usage;
@@ -74,7 +75,7 @@ inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::syncData(const 
     return *this;
 }
 
-inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::dstPoint(
+inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::transferDstPoint(
     const vk::PipelineStageFlags2 stage,
     const vk::AccessFlags2 access) noexcept
 {
@@ -85,12 +86,13 @@ inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::dstPoint(
 
 inline tpd::StorageBuffer::StorageBuffer(
     const SyncPoint dstSyncPoint,
+    const std::size_t allocSize,
     const vk::Buffer buffer,
     VmaAllocation allocation,
     const DeviceAllocator& allocator,
     const void* data,
     const uint32_t dataByteSize)
-    : Buffer{ buffer, allocation, allocator }
+    : Buffer{ allocSize, buffer, allocation, allocator }
     , SyncResource{ data, dataByteSize }
-    , _dstSyncPoint{ dstSyncPoint }
+    , _transferDstPoint{ dstSyncPoint }
 {}

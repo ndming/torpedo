@@ -17,7 +17,7 @@ std::unique_ptr<tpd::StagingBuffer, tpd::Deleter<tpd::StagingBuffer>> tpd::Stagi
 
 void tpd::StagingBuffer::setData(const void* const data, const std::size_t byteSize) const {
     void* mappedData = _allocator.mapMemory(_allocation);
-    const auto size = byteSize == 0 ? _bufferSize : byteSize;
+    const auto size = byteSize == 0 ? _size : byteSize;
     // Memory write by host is guaranteed to be visible
     // prior to the next queue submit
     memcpy(mappedData, data, size);

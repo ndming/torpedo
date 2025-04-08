@@ -42,7 +42,7 @@ namespace tpd {
         std::size_t _perBufferSize;
         std::size_t _perAllocSize;
     };
-}  // namespace tpd
+} // namespace tpd
 
 inline tpd::RingBuffer::Builder& tpd::RingBuffer::Builder::count(const uint32_t bufferCount) noexcept {
     _bufferCount = bufferCount;
@@ -68,12 +68,12 @@ inline tpd::RingBuffer::RingBuffer(
     const vk::Buffer buffer,
     VmaAllocation allocation,
     const DeviceAllocator& allocator)
-    : Buffer{ buffer, allocation, allocator }
+    : Buffer{ allocSize * bufferCount, buffer, allocation, allocator }
     , _pMappedData{ pMappedData }
     , _bufferCount{ bufferCount }
     , _perBufferSize{ bufferSize }
-    , _perAllocSize{ allocSize } {
-}
+    , _perAllocSize{ allocSize }
+{}
 
 inline std::size_t tpd::RingBuffer::getOffset(const uint32_t bufferIndex) const {
     if (bufferIndex >= _bufferCount) [[unlikely]] {

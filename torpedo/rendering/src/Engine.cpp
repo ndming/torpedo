@@ -259,7 +259,7 @@ void tpd::Engine::sync(const StorageBuffer& storageBuffer, const uint32_t acquir
 
     } else {
         // Ensure subsequent commands don't access the buffer during copy
-        storageBuffer.recordDstSync(releaseCommand);
+        storageBuffer.recordTransferDstSync(releaseCommand);
         endSyncCommands(releaseCommand, deletionFence);
         _stagingDeletionQueue.submit(_device, {}, deletionFence, std::move(stagingBuffer), {{ _transferPool, releaseCommand }});
     }

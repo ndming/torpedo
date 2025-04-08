@@ -22,11 +22,8 @@ namespace tpd {
         StagingBuffer(std::size_t size, vk::Buffer buffer, VmaAllocation allocation, const DeviceAllocator& allocator);
 
         void setData(const void* data, std::size_t byteSize = 0) const;
-
-    private:
-        std::size_t _bufferSize;
     };
-}  // namespace tpd
+} // namespace tpd
 
 inline tpd::StagingBuffer::Builder& tpd::StagingBuffer::Builder::alloc(const std::size_t byteSize, const std::size_t alignment) noexcept {
     _bufferSize = byteSize;
@@ -39,6 +36,5 @@ inline tpd::StagingBuffer::StagingBuffer(
     const vk::Buffer buffer,
     VmaAllocation allocation,
     const DeviceAllocator& allocator)
-    : Buffer{ buffer, allocation, allocator }
-    , _bufferSize{ size } {
-}
+    : Buffer{ size, buffer, allocation, allocator }
+{}
