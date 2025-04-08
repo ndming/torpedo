@@ -5,35 +5,6 @@
 #include <type_traits>
 
 namespace tpd {
-    /**
-     * Enum class representing alignment values in bytes, all powers of 2.
-     *
-     * This enum provides type-safe alignment values in bytes for memory allocations, where each entry
-     * corresponds to a power of 2 up to 512 bytes.
-     */
-    enum class Alignment : std::size_t {
-        /// No alignment requirement
-        None = 0,
-        /// Align by 2 bytes
-        By_2 = 1 << 1,
-        /// Align by 4 bytes
-        By_4 = 1 << 2,
-        /// Align by 8 bytes
-        By_8 = 1 << 3,
-        /// Align by 16 bytes
-        By_16 = 1 << 4,
-        /// Align by 32 bytes
-        By_32 = 1 << 5,
-        /// Align by 64 bytes
-        By_64 = 1 << 6,
-        /// Align by 128 bytes
-        By_128 = 1 << 7,
-        /// Align by 256 bytes
-        By_256 = 1 << 8,
-        /// Align by 512 bytes
-        By_512 = 1 << 9,
-    };
-
     template <typename T>
     struct Deleter {
         std::pmr::memory_resource* pool;
@@ -46,7 +17,7 @@ namespace tpd {
             pool->deallocate(ptr, sizeof(T), alignof(T));
         }
     };
-}  // namespace tpd
+} // namespace tpd
 
 namespace tpd::foundation {
     template <typename T, typename... Args> requires (!std::is_array_v<T>)
@@ -69,8 +40,8 @@ namespace tpd::foundation {
      * to the specified `alignment` boundary. If no alignment is provided, the function returns the `byteSize` as is.
      *
      * @param byteSize  The size in bytes to be aligned.
-     * @param alignment The alignment boundary, default to Alignment::None
+     * @param alignment The alignment boundary, default to 0 (no alignment)
      * @return The aligned size that is greater than or equal to the byteSize and aligned to the alignment boundary.
      */
-    std::size_t getAlignedSize(std::size_t byteSize, Alignment alignment = Alignment::None);
-}
+    std::size_t getAlignedSize(std::size_t byteSize, std::size_t alignment = 0);
+} // namespace tpd::foundation

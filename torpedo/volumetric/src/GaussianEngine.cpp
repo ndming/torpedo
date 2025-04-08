@@ -250,8 +250,8 @@ void tpd::GaussianEngine::createCameraObject(const uint32_t width, const uint32_
     // The projection map to reverse depth (1, 0) range, and the camera orientation is the same as OpenCV
     const auto fy = 1.f / std::tan(fovY / 2.f);
     const auto fx = fy / aspect;
-    const auto za = NEAR / (NEAR - FAR);
-    const auto zb = NEAR * FAR / (FAR - NEAR);
+    constexpr auto za = NEAR / (NEAR - FAR);
+    constexpr auto zb = NEAR * FAR / (FAR - NEAR);
     const auto projection = vsg::mat4{
         fx,  0.f, 0.f, 0.f,
         0.f, fy,  0.f, 0.f,
@@ -282,7 +282,7 @@ void tpd::GaussianEngine::createCameraBuffer() {
     _cameraBuffer = RingBuffer::Builder()
         .count(_renderer->getInFlightFramesCount())
         .usage(vk::BufferUsageFlagBits::eUniformBuffer)
-        .alloc(sizeof(Camera), Alignment::By_64)
+        .alloc(sizeof(Camera), _minUniformBufferOffsetAlignment)
         .build(*_deviceAllocator, &_engineResourcePool);
 }
 
