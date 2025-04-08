@@ -12,6 +12,17 @@ namespace tpd {
             Builder& alloc(std::size_t byteSize, Alignment alignment = Alignment::None) noexcept;
 
             Builder& syncData(const void* data, uint32_t byteSize = 0) noexcept;
+
+            /**
+            * Sets the destination synchronization point, only relevant if the buffer acts as transfer dst.
+            * 
+            * When data is transfered from host to this buffer, this destination point will be used to synchronize
+            * operations that consume this buffer after the transfer.
+            *
+            * @param stage The destination pipeline stage.
+            * @param access The destination memory access mask.
+            * @return This `Builder` for chaining calls.
+            */
             Builder& dstPoint(vk::PipelineStageFlags2 stage, vk::AccessFlags2 access) noexcept;
 
             [[nodiscard]] StorageBuffer build(const DeviceAllocator& allocator) const;
@@ -29,10 +40,7 @@ namespace tpd {
             uint32_t _dataSize{ 0 };
 
             using StageMask = vk::PipelineStageFlagBits2;
-            SyncPoint _dstPoint{
-                StageMask::eVertexShader | StageMask::eFragmentShader | StageMask::eComputeShader,
-                vk::AccessFlagBits2::eShaderStorageRead | vk::AccessFlagBits2::eShaderStorageWrite,
-            };
+            SyncPoint _dstPoint{ StageMask::eBottomOfPipe, vk::AccessFlagBits2::eNone };
         };
 
         StorageBuffer(
