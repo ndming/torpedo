@@ -34,7 +34,6 @@ namespace tpd {
         static vk::PhysicalDeviceVulkan13Features getVulkan13Features();
 
         void onInitialized() override;
-        std::size_t _minUniformBufferOffsetAlignment{};
 
         static void framebufferResizeCallback(void* ptr, uint32_t width, uint32_t height);
         void onFramebufferResize(uint32_t width, uint32_t height);
@@ -115,23 +114,17 @@ namespace tpd {
             vk::Buffer buffer, std::size_t size, const ShaderInstance& instance,
             uint32_t binding, uint32_t set = 0) const;
 
-        void createComputeCommandPool();
+        void createComputeCommandPool(); // only called if async compute is used
         vk::CommandPool _computeCommandPool{};
 
-        void createComputeDrawCommandBuffers();
-        std::pmr::vector<vk::CommandBuffer> _computeCommandBuffers{ &_engineResourcePool };
+        void createOwnershipSemaphores(); // only called if async compute is used
+        std::pmr::vector<vk::Semaphore> _ownershipSemaphores{ &_engineResourcePool };
 
-        struct ComputeSync {
-            vk::Semaphore ownershipSemaphore{};
-            vk::Fence computeDrawFence{};
-        };
-        void createComputeSyncs();
-        std::pmr::vector<ComputeSync> _computeSyncs{ &_engineResourcePool };
+        void createPreFrameCommandBuffers();
+        std::pmr::vector<vk::CommandBuffer> _preFrameCommandBuffers{ &_engineResourcePool };
 
-        void createPreprocessCommandBuffers();
-        std::pmr::vector<vk::CommandBuffer> _preprocessCommandBuffers{ &_engineResourcePool };
-
-        void createReadBackFences();
+        void createFences();
+        std::pmr::vector<vk::Fence> _preFrameFences{ &_engineResourcePool };
         std::pmr::vector<vk::Fence> _readBackFences{ &_engineResourcePool };
 
         void recordPreprocess(vk::CommandBuffer cmd, uint32_t currentFrame) const;

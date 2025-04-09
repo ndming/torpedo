@@ -8,21 +8,26 @@
 #include <numbers>
 
 void tpd::GaussianEngine::preFrameCompute() {
-    using limits = std::numeric_limits<uint64_t>;
+    // Choose the right queue to submit pre-frame work
     const auto preFrameQueue = _graphicsFamilyIndex != _computeFamilyIndex ? _computeQueue : _graphicsQueue;
 
     const auto currentFrame = _renderer->getCurrentDrawingFrame();
     updateCameraBuffer(currentFrame);
 
-    // We already waited for preprocess due to _tilesRendered read back
-    const auto preprocess = _preprocessCommandBuffers[currentFrame];
-    preprocess.reset();
-    preprocess.begin(vk::CommandBufferBeginInfo{});
+    // Wait until the GPU has done with the pre-frame compute buffer for this frame
+    using limits = std::numeric_limits<uint64_t>;
+    [[maybe_unused]] const auto result = _device.waitForFences(_preFrameFences[currentFrame], vk::True, limits::max());
+    _device.resetFences(_preFrameFences[currentFrame]);
+
+    const auto preFrameCompute = _preFrameCommandBuffers[currentFrame];
+    preFrameCompute.reset();
+    preFrameCompute.begin(vk::CommandBufferBeginInfo{});
 
     // Preprocess dispatches these passes: prepare, prefix
-    recordPreprocess(preprocess, currentFrame);
+    recordPreprocess(preFrameCompute, currentFrame);
+    preFrameCompute.end();
 
-    const auto preprocessInfo = vk::CommandBufferSubmitInfo{ preprocess, 0b1 };
+    const auto preprocessInfo = vk::CommandBufferSubmitInfo{ preFrameCompute, 0b1 };
     const auto preprocessSubmitInfo = vk::SubmitInfo2{}.setCommandBufferInfos(preprocessInfo);
     preFrameQueue.submit2(preprocessSubmitInfo, _readBackFences[currentFrame]);
 
@@ -30,42 +35,37 @@ void tpd::GaussianEngine::preFrameCompute() {
     [[maybe_unused]] const auto _ = _device.waitForFences(_readBackFences[currentFrame], vk::True, limits::max());
     _device.resetFences(_readBackFences[currentFrame]);
 
-    // PLOGD << "Tiles rendered: " << _tilesRenderedBuffer->readUint32() << " in frame " << currentFrame;
+    const auto tilesRendered = _tilesRenderedBuffer->readUint32();
 
-    // Subsequent steps only apply to async compute
-    if (_graphicsFamilyIndex == _computeFamilyIndex) {
-        return;
+    preFrameCompute.reset();
+    preFrameCompute.begin(vk::CommandBufferBeginInfo{});
+
+    recordFinalBlend(preFrameCompute, currentFrame);
+
+    // Transfer ownership to graphics before submitting if working with async compute
+    if (_graphicsFamilyIndex != _computeFamilyIndex) {
+        _targets[currentFrame].recordOwnershipRelease(preFrameCompute, _computeFamilyIndex, _graphicsFamilyIndex);
     }
 
-    // Wait until GPU has done with the compute draw buffer for this frame
-    [[maybe_unused]] const auto result = _device.waitForFences(_computeSyncs[currentFrame].computeDrawFence, vk::True, limits::max());
-    _device.resetFences(_computeSyncs[currentFrame].computeDrawFence);
+    preFrameCompute.end();
 
-    // TODO: dispatch the remaining passes
-    const auto computeDraw = _computeCommandBuffers[currentFrame];
+    const auto computeDrawInfo = vk::CommandBufferSubmitInfo{ preFrameCompute, 0b1 };
+    auto computeDrawSubmitInfo = vk::SubmitInfo2{};
+    computeDrawSubmitInfo.pCommandBufferInfos = &computeDrawInfo;
+    computeDrawSubmitInfo.commandBufferInfoCount = 1;
 
-    // The computeDrawFence already ensures that we're not resting the command buffer while it's still in use
-    computeDraw.reset();
-    computeDraw.begin(vk::CommandBufferBeginInfo{});
+    // Add an acquire semaphore for compute-graphics ownership transfer
+    if (_graphicsFamilyIndex != _computeFamilyIndex) {
+        const auto ownershipInfo = vk::SemaphoreSubmitInfo{}
+            .setSemaphore(_ownershipSemaphores[currentFrame])
+            .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)
+            .setValue(1).setDeviceIndex(0);
 
-    // We can safely transition the image layout to General since a Target image ensures the proper synchronization
-    // with transfer operations (image copy in graphics), and this synchronization is multi-queue safe
-    recordFinalBlend(computeDraw, currentFrame);
+        computeDrawSubmitInfo.signalSemaphoreInfoCount = 1;
+        computeDrawSubmitInfo.pSignalSemaphoreInfos = &ownershipInfo;
+    }
 
-    // Transfer ownership to graphics before submitting to the compute queue
-    _targets[currentFrame].recordOwnershipRelease(computeDraw, _computeFamilyIndex, _graphicsFamilyIndex);
-    computeDraw.end();
-
-    const auto computeDrawInfo = vk::CommandBufferSubmitInfo{ computeDraw, 0b1 };
-    const auto ownershipInfo = vk::SemaphoreSubmitInfo{}
-        .setSemaphore(_computeSyncs[currentFrame].ownershipSemaphore)
-        .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)
-        .setValue(1).setDeviceIndex(0);
-
-    const auto computeDrawSubmitInfo = vk::SubmitInfo2{}
-        .setCommandBufferInfos(computeDrawInfo)
-        .setSignalSemaphoreInfos(ownershipInfo);
-    _computeQueue.submit2(computeDrawSubmitInfo, _computeSyncs[currentFrame].computeDrawFence);
+    preFrameQueue.submit2(computeDrawSubmitInfo, _preFrameFences[currentFrame]);
 }
 
 tpd::Engine::DrawPackage tpd::GaussianEngine::draw(const vk::Image image) {
@@ -76,15 +76,13 @@ tpd::Engine::DrawPackage tpd::GaussianEngine::draw(const vk::Image image) {
     graphicsDraw.begin(vk::CommandBufferBeginInfo{});
 
     if (_graphicsFamilyIndex == _computeFamilyIndex) {
-        recordFinalBlend(graphicsDraw, currentFrame);
-
+        // Transition draw target to transfer src and copy to the swap image
         _targets[currentFrame].recordImageTransition(graphicsDraw, vk::ImageLayout::eTransferSrcOptimal);
         recordTargetCopy(graphicsDraw, image, currentFrame);
-
         return { graphicsDraw, vk::PipelineStageFlagBits2::eTransfer, vk::PipelineStageFlagBits2::eTransfer, {} };
     }
 
-    // Async compute has drawn and released the image in preFramePass, acquire the released image from it
+    // Async compute has drawn and released the image in preFrameCompute, acquire the released image from it
     // A Target image ensures its layout is TransferSrcOptimal after the ownership transfer
     _targets[currentFrame].recordOwnershipAcquire(graphicsDraw, _computeFamilyIndex, _graphicsFamilyIndex);
     recordTargetCopy(graphicsDraw, image, currentFrame);
@@ -92,7 +90,7 @@ tpd::Engine::DrawPackage tpd::GaussianEngine::draw(const vk::Image image) {
     constexpr vk::PipelineStageFlags2 ownershipWaitStage = vk::PipelineStageFlagBits2::eAllCommands;
     return { 
         graphicsDraw, vk::PipelineStageFlagBits2::eTransfer, vk::PipelineStageFlagBits2::eTransfer, 
-        std::vector{ std::make_pair(_computeSyncs[currentFrame].ownershipSemaphore, ownershipWaitStage) } };
+        std::vector{ std::make_pair(_ownershipSemaphores[currentFrame], ownershipWaitStage) } };
 }
 
 void tpd::GaussianEngine::recordPreprocess(const vk::CommandBuffer cmd, const uint32_t currentFrame) const {
@@ -104,6 +102,7 @@ void tpd::GaussianEngine::recordPreprocess(const vk::CommandBuffer cmd, const ui
         /* first set */ 0, _prepareInstance->getDescriptorSets(currentFrame), {});
     cmd.dispatch((GAUSSIAN_COUNT + LOCAL_SCAN - 1) / LOCAL_SCAN, 1, 1);
 
+    // Wait until prepare pass has populated the raster point buffer
     auto barrier = vk::MemoryBarrier2{};
     barrier.srcStageMask = vk::PipelineStageFlagBits2::eComputeShader;
     barrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
@@ -120,14 +119,13 @@ void tpd::GaussianEngine::recordPreprocess(const vk::CommandBuffer cmd, const ui
         vk::PipelineBindPoint::eCompute, _prefixLayout->getPipelineLayout(),
         /* first set */ 0, _prefixInstance->getDescriptorSets(currentFrame), {});
     cmd.dispatch((GAUSSIAN_COUNT + LOCAL_SCAN - 1) / LOCAL_SCAN, 1, 1);
-
-    cmd.end();
 }
 
 void tpd::GaussianEngine::recordFinalBlend(const vk::CommandBuffer cmd, const uint32_t currentFrame) {
-    // Old contents from the previous frame will be cleared by the compute shader
-    // Also, we don't need ownership transfer from graphics to compute here since
-    // we don't care about the old content
+    // We can safely transition the image layout to General since a Target image ensures synchronization
+    // with transfer operations (image copy to graphics), and this synchronization is multi-queue safe.
+    // In the case of async compute, we don't need ownership transfer from graphics to compute since
+    // we don't care about the old content.
     _targets[currentFrame].recordImageTransition(cmd, vk::ImageLayout::eGeneral);
 
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _forwardPipeline);
@@ -233,9 +231,6 @@ void tpd::GaussianEngine::onInitialized() {
     _targets.reserve(frameCount);     // only reserve here since the only way to append new Target is via push_back
     _targetViews.resize(frameCount);  // vk::ImageView can be copied
 
-    // Save the minimum uniform buffer alignment size
-    _minUniformBufferOffsetAlignment = limits.minUniformBufferOffsetAlignment;
-
     _renderer->addFramebufferResizeCallback(this, framebufferResizeCallback);
     const auto [w, h] = _renderer->getFramebufferSize();
 
@@ -258,13 +253,11 @@ void tpd::GaussianEngine::onInitialized() {
     if (_graphicsFamilyIndex != _computeFamilyIndex) {
         // Additional resources for async compute
         createComputeCommandPool();
-        createComputeDrawCommandBuffers();
-        createComputeSyncs();
+        createOwnershipSemaphores();
     }
 
-    // Preprocess buffers may depend on command pool
-    createPreprocessCommandBuffers();
-    createReadBackFences();
+    createPreFrameCommandBuffers();
+    createFences();
 }
 
 void tpd::GaussianEngine::framebufferResizeCallback(void* ptr, const uint32_t width, const uint32_t height) {
@@ -334,10 +327,14 @@ void tpd::GaussianEngine::createRenderTargets(const uint32_t width, const uint32
 }
 
 void tpd::GaussianEngine::createCameraBuffer() {
+    // A RingBuffer internally uses offsets to manage the buffer, and for a uniform buffer, these offsets
+    // must be aligned to the minUniformBufferOffsetAlignment limit of the physical device.
+    const auto minAlignment = _physicalDevice.getProperties().limits.minUniformBufferOffsetAlignment;
+
     _cameraBuffer = RingBuffer::Builder()
         .count(_renderer->getInFlightFramesCount())
         .usage(vk::BufferUsageFlagBits::eUniformBuffer)
-        .alloc(sizeof(Camera), _minUniformBufferOffsetAlignment)
+        .alloc(sizeof(Camera), minAlignment)
         .build(*_deviceAllocator, &_engineResourcePool);
 }
 
@@ -491,29 +488,14 @@ void tpd::GaussianEngine::createComputeCommandPool() {
     _computeCommandPool = _device.createCommandPool(poolInfo);
 }
 
-void tpd::GaussianEngine::createComputeDrawCommandBuffers() {
-    // Compute draw buffers handle these passes in async compute: keygen, radix, identify, forward
-    const auto allocInfo = vk::CommandBufferAllocateInfo{}
-        .setCommandPool(_computeCommandPool)
-        .setLevel(vk::CommandBufferLevel::ePrimary)
-        .setCommandBufferCount(_renderer->getInFlightFramesCount());
-
-    const auto allocatedBuffers = _device.allocateCommandBuffers(allocInfo);
-    _computeCommandBuffers.resize(allocatedBuffers.size());
-    for (size_t i = 0; i < allocatedBuffers.size(); ++i) {
-        _computeCommandBuffers[i] = allocatedBuffers[i];
+void tpd::GaussianEngine::createOwnershipSemaphores() {
+    _ownershipSemaphores.resize(_renderer->getInFlightFramesCount());
+    for (auto i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
+        _ownershipSemaphores[i] = _device.createSemaphore({});
     }
 }
 
-void tpd::GaussianEngine::createComputeSyncs() {
-    _computeSyncs.resize(_renderer->getInFlightFramesCount());
-    for (auto& [ownershipSemaphore, computeDrawFence] : _computeSyncs) {
-        ownershipSemaphore = _device.createSemaphore({});
-        computeDrawFence = _device.createFence(vk::FenceCreateInfo{ vk::FenceCreateFlagBits::eSignaled });
-    }
-}
-
-void tpd::GaussianEngine::createPreprocessCommandBuffers() {
+void tpd::GaussianEngine::createPreFrameCommandBuffers() {
     // Preprocess command buffers handle these passes: prepare, prefix
     auto allocInfo = vk::CommandBufferAllocateInfo{};
     allocInfo.commandPool = _graphicsFamilyIndex == _computeFamilyIndex ? _drawingCommandPool : _computeCommandPool;
@@ -521,16 +503,18 @@ void tpd::GaussianEngine::createPreprocessCommandBuffers() {
     allocInfo.commandBufferCount = _renderer->getInFlightFramesCount();
 
     const auto allocatedBuffers = _device.allocateCommandBuffers(allocInfo);
-    _preprocessCommandBuffers.resize(allocatedBuffers.size());
+    _preFrameCommandBuffers.resize(allocatedBuffers.size());
     for (size_t i = 0; i < allocatedBuffers.size(); ++i) {
-        _preprocessCommandBuffers[i] = allocatedBuffers[i];
+        _preFrameCommandBuffers[i] = allocatedBuffers[i];
     }
 }
 
-void tpd::GaussianEngine::createReadBackFences() {
+void tpd::GaussianEngine::createFences() {
+    _preFrameFences.resize(_renderer->getInFlightFramesCount());
     _readBackFences.resize(_renderer->getInFlightFramesCount());
-    for (auto& fence : _readBackFences) {
-        fence = _device.createFence({});
+    for (auto i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
+        _preFrameFences[i] = _device.createFence(vk::FenceCreateInfo{ vk::FenceCreateFlagBits::eSignaled });
+        _readBackFences[i] = _device.createFence({});
     }
 }
 
@@ -543,16 +527,14 @@ void tpd::GaussianEngine::cleanupRenderTargets() noexcept {
 void tpd::GaussianEngine::destroy() noexcept {
     if (_initialized) {
         std::ranges::for_each(_readBackFences, [this](const auto it) { _device.destroyFence(it); });
+        std::ranges::for_each(_preFrameFences, [this](const auto it) { _device.destroyFence(it); });
         _readBackFences.clear();
-        _preprocessCommandBuffers.clear();
+        _preFrameFences.clear();
+
+        _preFrameCommandBuffers.clear();
 
         if (_graphicsFamilyIndex != _computeFamilyIndex) {
-            std::ranges::for_each(_computeSyncs, [this](const auto& sync) {
-                _device.destroySemaphore(sync.ownershipSemaphore);
-                _device.destroyFence(sync.computeDrawFence);
-            });
-
-            _computeCommandBuffers.clear();
+            std::ranges::for_each(_ownershipSemaphores, [this](const auto it) { _device.destroySemaphore(it); });
             _device.destroyCommandPool(_computeCommandPool);
         }
 
