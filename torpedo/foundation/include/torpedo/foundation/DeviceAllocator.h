@@ -37,6 +37,7 @@ namespace tpd {
         void deallocateImage(vk::Image image, VmaAllocation allocation) const noexcept;
 
         [[nodiscard]] vk::Buffer allocateDeviceBuffer(const vk::BufferCreateInfo& bufferCreateInfo, VmaAllocation* allocation) const;
+        [[nodiscard]] vk::Buffer allocateTwoWayBuffer(const vk::BufferCreateInfo& bufferCreateInfo, VmaAllocation* allocation, VmaAllocationInfo* allocationInfo) const;
         [[nodiscard]] vk::Buffer allocateStagedBuffer(std::size_t bufferByteSize, VmaAllocation* allocation) const;
         [[nodiscard]] vk::Buffer allocateMappedBuffer(const vk::BufferCreateInfo& bufferCreateInfo, VmaAllocation* allocation, VmaAllocationInfo* allocationInfo) const;
 

@@ -9,6 +9,7 @@
 
 void tpd::GaussianEngine::preFrameCompute() {
     using limits = std::numeric_limits<uint64_t>;
+    const auto preFrameQueue = _graphicsFamilyIndex != _computeFamilyIndex ? _computeQueue : _graphicsQueue;
 
     const auto currentFrame = _renderer->getCurrentDrawingFrame();
     updateCameraBuffer(currentFrame);
@@ -23,14 +24,13 @@ void tpd::GaussianEngine::preFrameCompute() {
 
     const auto preprocessInfo = vk::CommandBufferSubmitInfo{ preprocess, 0b1 };
     const auto preprocessSubmitInfo = vk::SubmitInfo2{}.setCommandBufferInfos(preprocessInfo);
-    const auto preprocessQueue = _graphicsFamilyIndex != _computeFamilyIndex ? _computeQueue : _graphicsQueue;
-    preprocessQueue.submit2(preprocessSubmitInfo, _readBackFences[currentFrame]);
+    preFrameQueue.submit2(preprocessSubmitInfo, _readBackFences[currentFrame]);
 
     // Wait until prefix has written _tilesRendered to the host visible buffer
     [[maybe_unused]] const auto _ = _device.waitForFences(_readBackFences[currentFrame], vk::True, limits::max());
     _device.resetFences(_readBackFences[currentFrame]);
 
-    // TODO: read _tilesRendered
+    // PLOGD << "Tiles rendered: " << _tilesRenderedBuffer->readUint32() << " in frame " << currentFrame;
 
     // Subsequent steps only apply to async compute
     if (_graphicsFamilyIndex == _computeFamilyIndex) {
@@ -379,8 +379,8 @@ void tpd::GaussianEngine::createPrefixOffsetsBuffer() {
 }
 
 void tpd::GaussianEngine::createTilesRenderedBuffer() {
-    // TODO: make tiles rendered able to read back
-    _tilesRenderedBuffer = StorageBuffer::Builder()
+    _tilesRenderedBuffer = ReadbackBuffer::Builder()
+        .usage(vk::BufferUsageFlagBits::eStorageBuffer)
         .alloc(sizeof(uint32_t))
         .build(*_deviceAllocator, &_engineResourcePool);
 }
@@ -405,8 +405,8 @@ void tpd::GaussianEngine::createPreparePipeline() {
         _prepareInstance->setDescriptor(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, descriptorInfo);
     }
 
-    setStorageBufferDescriptors(*_gaussianPointBuffer, *_prepareInstance, 1);
-    setStorageBufferDescriptors(*_rasterPointBuffer,   *_prepareInstance, 2);
+    setStorageBufferDescriptors(_gaussianPointBuffer->getVulkanBuffer(), _gaussianPointBuffer->getSize(), *_prepareInstance, 1);
+    setStorageBufferDescriptors(  _rasterPointBuffer->getVulkanBuffer(), _rasterPointBuffer->getSize(),   *_prepareInstance, 2);
 }
 
 void tpd::GaussianEngine::createPrefixPipeline() {
@@ -421,9 +421,9 @@ void tpd::GaussianEngine::createPrefixPipeline() {
     _prefixInstance = _prefixLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
     _prefixPipeline = buildComputePipeline("prefix.slang", _prefixLayout->getPipelineLayout());
 
-    setStorageBufferDescriptors(*_rasterPointBuffer,   *_prefixInstance, 0);
-    setStorageBufferDescriptors(*_prefixOffsetsBuffer, *_prefixInstance, 1);
-    setStorageBufferDescriptors(*_tilesRenderedBuffer, *_prefixInstance, 2);
+    setStorageBufferDescriptors(  _rasterPointBuffer->getVulkanBuffer(),   _rasterPointBuffer->getSize(), *_prefixInstance, 0);
+    setStorageBufferDescriptors(_prefixOffsetsBuffer->getVulkanBuffer(), _prefixOffsetsBuffer->getSize(), *_prefixInstance, 1);
+    setStorageBufferDescriptors(_tilesRenderedBuffer->getVulkanBuffer(), _tilesRenderedBuffer->getSize(), *_prefixInstance, 2);
 }
 
 void tpd::GaussianEngine::createForwardPipeline() {
@@ -437,7 +437,7 @@ void tpd::GaussianEngine::createForwardPipeline() {
     _forwardPipeline = buildComputePipeline("forward.slang", _forwardLayout->getPipelineLayout());
 
     setTargetDescriptors();
-    setStorageBufferDescriptors(*_gaussianPointBuffer, *_forwardInstance, 1);
+    setStorageBufferDescriptors(_gaussianPointBuffer->getVulkanBuffer(), _gaussianPointBuffer->getSize(), *_forwardInstance, 1);
 }
 
 vk::Pipeline tpd::GaussianEngine::buildComputePipeline(const std::string& slangFile, const vk::PipelineLayout layout) const {
@@ -469,16 +469,17 @@ void tpd::GaussianEngine::setTargetDescriptors() const {
 }
 
 void tpd::GaussianEngine::setStorageBufferDescriptors(
-    const StorageBuffer& buffer,
+    const vk::Buffer buffer,
+    const std::size_t size,
     const ShaderInstance& instance,
     const uint32_t binding,
     const uint32_t set) const 
 {
     for (uint32_t i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
         const auto descriptorInfo = vk::DescriptorBufferInfo{}
-            .setBuffer(buffer.getVulkanBuffer())
+            .setBuffer(buffer)
             .setOffset(0)
-            .setRange(buffer.getSize());
+            .setRange(size);
         instance.setDescriptor(i, set, binding, vk::DescriptorType::eStorageBuffer, _device, descriptorInfo);
     }
 }

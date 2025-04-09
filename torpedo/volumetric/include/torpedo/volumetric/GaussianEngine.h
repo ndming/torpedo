@@ -2,6 +2,7 @@
 
 #include <torpedo/rendering/Engine.h>
 #include <torpedo/foundation/Target.h>
+#include <torpedo/foundation/ReadbackBuffer.h>
 #include <torpedo/foundation/RingBuffer.h>
 #include <torpedo/foundation/ShaderLayout.h>
 
@@ -87,7 +88,7 @@ namespace tpd {
         std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _prefixOffsetsBuffer{};
 
         void createTilesRenderedBuffer();
-        std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _tilesRenderedBuffer{};
+        std::unique_ptr<ReadbackBuffer, Deleter<ReadbackBuffer>> _tilesRenderedBuffer{};
 
         void createRenderTargets(uint32_t width, uint32_t height);
         std::pmr::vector<Target> _targets{ &_engineResourcePool };
@@ -110,7 +111,9 @@ namespace tpd {
 
         [[nodiscard]] vk::Pipeline buildComputePipeline(const std::string& slangFile, vk::PipelineLayout layout) const;
         void setTargetDescriptors() const;
-        void setStorageBufferDescriptors(const StorageBuffer& buffer, const ShaderInstance& instance, uint32_t binding, uint32_t set = 0) const;
+        void setStorageBufferDescriptors(
+            vk::Buffer buffer, std::size_t size, const ShaderInstance& instance,
+            uint32_t binding, uint32_t set = 0) const;
 
         void createComputeCommandPool();
         vk::CommandPool _computeCommandPool{};

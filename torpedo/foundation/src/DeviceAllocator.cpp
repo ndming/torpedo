@@ -85,6 +85,25 @@ vk::Buffer tpd::DeviceAllocator::allocateDeviceBuffer(
     return buffer;
 }
 
+vk::Buffer tpd::DeviceAllocator::allocateTwoWayBuffer(
+    const vk::BufferCreateInfo& bufferCreateInfo,
+    VmaAllocation* allocation,
+    VmaAllocationInfo* allocationInfo) const
+{
+    const auto bufferInfo = static_cast<VkBufferCreateInfo>(bufferCreateInfo);
+
+    constexpr auto allocInfo = VmaAllocationCreateInfo{
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO,
+    };
+
+    auto buffer = VkBuffer{};
+    if (vmaCreateBuffer(_vmaAllocator, &bufferInfo, &allocInfo, &buffer, allocation, allocationInfo) != VK_SUCCESS) {
+        throw std::runtime_error("DeviceAllocator - Failed to allocate a two-way buffer");
+    }
+    return buffer;
+}
+
 vk::Buffer tpd::DeviceAllocator::allocateStagedBuffer(const std::size_t bufferByteSize, VmaAllocation* allocation) const {
     const auto bufferCreateInfo = VkBufferCreateInfo{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,

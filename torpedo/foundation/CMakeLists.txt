@@ -6,6 +6,7 @@ set(TORPEDO_FOUNDATION_SOURCES
         src/DeviceAllocator.cpp
         src/Image.cpp
         src/ImageUtils.cpp
+        src/ReadbackBuffer.cpp
         src/ShaderLayout.cpp
         src/RingBuffer.cpp
         src/ShaderInstance.cpp
