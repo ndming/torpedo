@@ -26,11 +26,11 @@ namespace tpd {
 
         [[nodiscard]] void* readData() const noexcept;
 
-        [[nodiscard]] float readFloat() const noexcept;
-        [[nodiscard]] std::vector<float> readFloatArray(uint32_t count) const noexcept;
+        template<typename T>
+        [[nodiscard]] T read() const noexcept;
 
-        [[nodiscard]] uint32_t readUint32() const noexcept;
-        [[nodiscard]] std::vector<uint32_t> readUint32Array(uint32_t count) const noexcept;
+        template<typename T>
+        [[nodiscard]] std::vector<T> read(uint32_t count) const noexcept;
         
         void destroy() noexcept override;
         ~ReadbackBuffer() noexcept override;
@@ -62,6 +62,18 @@ inline tpd::ReadbackBuffer::ReadbackBuffer(
 
 inline void* tpd::ReadbackBuffer::readData() const noexcept {
     return _pMappedData;
+}
+
+template<typename T>
+T tpd::ReadbackBuffer::read() const noexcept {
+    return *static_cast<const T*>(_pMappedData);
+}
+
+template<typename T>
+std::vector<T> tpd::ReadbackBuffer::read(const uint32_t count) const noexcept {
+    auto data = std::vector<T>(count);
+    memcpy(data.data(), _pMappedData, count * sizeof(T));
+    return data;
 }
 
 inline void tpd::ReadbackBuffer::destroy() noexcept {

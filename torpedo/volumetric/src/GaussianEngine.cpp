@@ -35,7 +35,7 @@ void tpd::GaussianEngine::preFrameCompute() {
     [[maybe_unused]] const auto _ = _device.waitForFences(_readBackFences[currentFrame], vk::True, limits::max());
     _device.resetFences(_readBackFences[currentFrame]);
 
-    const auto tilesRendered = _tilesRenderedBuffer->readUint32();
+    const auto tilesRendered = _tilesRenderedBuffer->read<uint32_t>();
 
     preFrameCompute.reset();
     preFrameCompute.begin(vk::CommandBufferBeginInfo{});
