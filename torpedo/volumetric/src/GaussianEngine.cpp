@@ -8,10 +8,6 @@
 #include <numbers>
 
 void tpd::GaussianEngine::preFrameCompute() {
-    // Pre-frame pass only applies to async compute
-    if (_graphicsFamilyIndex == _computeFamilyIndex) {
-        return;
-    }
     using limits = std::numeric_limits<uint64_t>;
 
     const auto currentFrame = _renderer->getCurrentDrawingFrame();
@@ -27,13 +23,19 @@ void tpd::GaussianEngine::preFrameCompute() {
 
     const auto preprocessInfo = vk::CommandBufferSubmitInfo{ preprocess, 0b1 };
     const auto preprocessSubmitInfo = vk::SubmitInfo2{}.setCommandBufferInfos(preprocessInfo);
-    _computeQueue.submit2(preprocessSubmitInfo, _readBackFences[currentFrame]);
+    const auto preprocessQueue = _graphicsFamilyIndex != _computeFamilyIndex ? _computeQueue : _graphicsQueue;
+    preprocessQueue.submit2(preprocessSubmitInfo, _readBackFences[currentFrame]);
 
     // Wait until prefix has written _tilesRendered to the host visible buffer
     [[maybe_unused]] const auto _ = _device.waitForFences(_readBackFences[currentFrame], vk::True, limits::max());
     _device.resetFences(_readBackFences[currentFrame]);
 
     // TODO: read _tilesRendered
+
+    // Subsequent steps only apply to async compute
+    if (_graphicsFamilyIndex == _computeFamilyIndex) {
+        return;
+    }
 
     // Wait until GPU has done with the compute draw buffer for this frame
     [[maybe_unused]] const auto result = _device.waitForFences(_computeSyncs[currentFrame].computeDrawFence, vk::True, limits::max());
@@ -74,7 +76,6 @@ tpd::Engine::DrawPackage tpd::GaussianEngine::draw(const vk::Image image) {
     graphicsDraw.begin(vk::CommandBufferBeginInfo{});
 
     if (_graphicsFamilyIndex == _computeFamilyIndex) {
-        updateCameraBuffer(currentFrame);
         recordFinalBlend(graphicsDraw, currentFrame);
 
         _targets[currentFrame].recordImageTransition(graphicsDraw, vk::ImageLayout::eTransferSrcOptimal);
@@ -293,13 +294,12 @@ void tpd::GaussianEngine::createCameraObject(const uint32_t width, const uint32_
     _camera.tanFov.y  = std::numbers::inv_sqrt3_v<float>; // tan(60/2)
     _camera.tanFov.x  = _camera.tanFov.y * aspect;
 
-    // Note that matrices in vsg are column-major, whereas Slang uses row-major. As long as we don't 
-    // perform linear algebra arithmetics with vsg matrices, we can treat them as row-major.
+    // Note that matrices in vsg are column-major, whereas Slang uses row-major
     _camera.viewMatrix = vsg::mat4{
         1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 2.0f,
-        0.0f, 0.0f, 0.0f, 1.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 2.0f, 1.0f,
     };
 
     // The projection map to reverse depth (1, 0) range, and the camera orientation is the same as OpenCV
@@ -310,11 +310,11 @@ void tpd::GaussianEngine::createCameraObject(const uint32_t width, const uint32_
     const auto projection = vsg::mat4{
         fx,  0.f, 0.f, 0.f,
         0.f, fy,  0.f, 0.f,
-        0.f, 0.f, za,  zb,
-        0.f, 0.f, 1.f, 0.f
+        0.f, 0.f, za,  1.f,
+        0.f, 0.f, zb,  0.f,
     };
-    // Swap the multiplication order to account for column-major
-    _camera.projMatrix = _camera.viewMatrix * projection;
+
+    _camera.projMatrix = projection * _camera.viewMatrix;
 }
 
 void tpd::GaussianEngine::createRenderTargets(const uint32_t width, const uint32_t height) {
@@ -350,11 +350,11 @@ void tpd::GaussianEngine::createGaussianPointBuffer() {
     points[0].position   = vsg::vec3{ 0.0f, 0.0f, 0.0f };
     points[0].opacity    = 1.0f;
     points[0].quaternion = vsg::quat{ 0.0f, 0.0f, 0.0f, 1.0f };
-    points[0].scale      = vsg::vec4{ 2.0f, 1.0f, 1.0f, 0.0f };
+    points[0].scale      = vsg::vec4{ 0.2f, 0.1f, 0.1f, 1.0f };
     // A gray Gaussian
-    points[0].sh[0] = 2.0f;
-    points[0].sh[1] = 2.0f;
-    points[0].sh[2] = 2.0f;
+    points[0].sh[0] = 1.5f;
+    points[0].sh[1] = 1.5f;
+    points[0].sh[2] = 1.5f;
 
     _gaussianPointBuffer = StorageBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eTransferDst)
