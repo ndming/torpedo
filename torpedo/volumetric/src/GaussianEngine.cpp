@@ -234,13 +234,12 @@ void tpd::GaussianEngine::onInitialized() {
     _renderer->addFramebufferResizeCallback(this, framebufferResizeCallback);
     const auto [w, h] = _renderer->getFramebufferSize();
 
-    createPointCloudObject();
-
+    createPointCloudObject(w, h);
     createCameraObject(w, h);
     createCameraBuffer();
 
-    createGaussianPointBuffer();
-    createRasterPointBuffer();
+    createGaussianBuffer();
+    createSplatBuffer();
     createPrefixOffsetsBuffer();
     createTilesRenderedBuffer();
 
@@ -270,18 +269,16 @@ void tpd::GaussianEngine::onFramebufferResize(const uint32_t width, const uint32
 
     cleanupRenderTargets();
     createRenderTargets(width, height);
+    createPointCloudObject(width, height);
     createCameraObject(width, height);
     setTargetDescriptors();
 }
 
-void tpd::GaussianEngine::createPointCloudObject() {
-    _pc = PointCloud{ GAUSSIAN_COUNT, 0 };
+void tpd::GaussianEngine::createPointCloudObject(const uint32_t width, const uint32_t height) {
+    _pc = PointCloud{ GAUSSIAN_COUNT, 0, { width, height } };
 }
 
 void tpd::GaussianEngine::createCameraObject(const uint32_t width, const uint32_t height) {
-    _camera.imageSize = { width, height };
-    _camera.position  = { 0.0f, 0.0f, -2.0f };
-
     constexpr auto fovY = 60.0f * std::numbers::pi_v<float> / 180.0f; // radians
     const auto aspect = static_cast<float>(width) / static_cast<float>(height);
     _camera.tanFov.y  = std::numbers::inv_sqrt3_v<float>; // tan(60/2)
@@ -342,8 +339,8 @@ void tpd::GaussianEngine::updateCameraBuffer(const uint32_t currentFrame) const 
     _cameraBuffer->updateData(currentFrame, &_camera, sizeof(Camera));
 }
 
-void tpd::GaussianEngine::createGaussianPointBuffer() {
-    auto points = std::array<GaussianPoint, GAUSSIAN_COUNT>{};
+void tpd::GaussianEngine::createGaussianBuffer() {
+    auto points = std::array<Gaussian, GAUSSIAN_COUNT>{};
     points[0].position   = vsg::vec3{ 0.0f, 0.0f, 0.0f };
     points[0].opacity    = 1.0f;
     points[0].quaternion = vsg::quat{ 0.0f, 0.0f, 0.0f, 1.0f };
@@ -353,19 +350,19 @@ void tpd::GaussianEngine::createGaussianPointBuffer() {
     points[0].sh[1] = 1.5f;
     points[0].sh[2] = 1.5f;
 
-    _gaussianPointBuffer = StorageBuffer::Builder()
+    _gaussianBuffer = StorageBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eTransferDst)
-        .alloc(sizeof(GaussianPoint) * GAUSSIAN_COUNT)
+        .alloc(sizeof(Gaussian) * GAUSSIAN_COUNT)
         .syncData(points.data())
         .transferDstPoint(vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead)
         .build(*_deviceAllocator, &_engineResourcePool);
 
-    sync(*_gaussianPointBuffer, _computeFamilyIndex);
+    sync(*_gaussianBuffer, _computeFamilyIndex);
 }
 
-void tpd::GaussianEngine::createRasterPointBuffer() {
-    _rasterPointBuffer = StorageBuffer::Builder()
-        .alloc(RASTER_POINT_SIZE * GAUSSIAN_COUNT)
+void tpd::GaussianEngine::createSplatBuffer() {
+    _splatBuffer = StorageBuffer::Builder()
+        .alloc(SPLAT_SIZE * GAUSSIAN_COUNT)
         .build(*_deviceAllocator, &_engineResourcePool);
 }
 
@@ -402,8 +399,8 @@ void tpd::GaussianEngine::createPreparePipeline() {
         _prepareInstance->setDescriptor(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, descriptorInfo);
     }
 
-    setStorageBufferDescriptors(_gaussianPointBuffer->getVulkanBuffer(), _gaussianPointBuffer->getSize(), *_prepareInstance, 1);
-    setStorageBufferDescriptors(  _rasterPointBuffer->getVulkanBuffer(), _rasterPointBuffer->getSize(),   *_prepareInstance, 2);
+    setStorageBufferDescriptors(_gaussianBuffer->getVulkanBuffer(), _gaussianBuffer->getSize(), *_prepareInstance, 1);
+    setStorageBufferDescriptors(  _splatBuffer->getVulkanBuffer(), _splatBuffer->getSize(),   *_prepareInstance, 2);
 }
 
 void tpd::GaussianEngine::createPrefixPipeline() {
@@ -418,7 +415,7 @@ void tpd::GaussianEngine::createPrefixPipeline() {
     _prefixInstance = _prefixLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
     _prefixPipeline = buildComputePipeline("prefix.slang", _prefixLayout->getPipelineLayout());
 
-    setStorageBufferDescriptors(  _rasterPointBuffer->getVulkanBuffer(),   _rasterPointBuffer->getSize(), *_prefixInstance, 0);
+    setStorageBufferDescriptors(  _splatBuffer->getVulkanBuffer(),   _splatBuffer->getSize(), *_prefixInstance, 0);
     setStorageBufferDescriptors(_prefixOffsetsBuffer->getVulkanBuffer(), _prefixOffsetsBuffer->getSize(), *_prefixInstance, 1);
     setStorageBufferDescriptors(_tilesRenderedBuffer->getVulkanBuffer(), _tilesRenderedBuffer->getSize(), *_prefixInstance, 2);
 }
@@ -434,7 +431,7 @@ void tpd::GaussianEngine::createForwardPipeline() {
     _forwardPipeline = buildComputePipeline("forward.slang", _forwardLayout->getPipelineLayout());
 
     setTargetDescriptors();
-    setStorageBufferDescriptors(_gaussianPointBuffer->getVulkanBuffer(), _gaussianPointBuffer->getSize(), *_forwardInstance, 1);
+    setStorageBufferDescriptors(_gaussianBuffer->getVulkanBuffer(), _gaussianBuffer->getSize(), *_forwardInstance, 1);
 }
 
 vk::Pipeline tpd::GaussianEngine::buildComputePipeline(const std::string& slangFile, const vk::PipelineLayout layout) const {
@@ -561,8 +558,8 @@ void tpd::GaussianEngine::destroy() noexcept {
 
         _tilesRenderedBuffer.reset();
         _prefixOffsetsBuffer.reset();
-        _rasterPointBuffer.reset();
-        _gaussianPointBuffer.reset();
+        _splatBuffer.reset();
+        _gaussianBuffer.reset();
         _cameraBuffer.reset();
 
         if (_renderer) {

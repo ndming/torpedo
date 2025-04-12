@@ -1,9 +1,9 @@
 import splat;
 
 [[vk::push_constant]]
-uniform PointCloud pc; // push constant
+uniform PointCloud pc;
 
-StructuredBuffer<RasterPoint> rasterPoints; // set 0, binding 0
+StructuredBuffer<Splat> splats;             // set 0, binding 0
 RWStructuredBuffer<uint32_t> prefixOffsets; // set 0, binding 1
 RWStructuredBuffer<uint32_t> tilesRendered; // set 0, binding 2
 
@@ -26,11 +26,11 @@ void main(
     // TODO: replace with a better prefix scan algorithm
     prefixOffsets[idx] = 0;
     for (uint i = 0; i < idx; ++i) {
-        prefixOffsets[idx] += rasterPoints[i].tiles;
+        prefixOffsets[idx] += splats[i].tiles;
     }
 
     // Write the total sum of touched tiles to `tilesRendered` for CPU readback
     if (idx == pc.count - 1) {
-        tilesRendered[0] = prefixOffsets[idx] + rasterPoints[idx].tiles;
+        tilesRendered[0] = prefixOffsets[idx] + splats[idx].tiles;
     }
 }

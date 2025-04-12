@@ -41,8 +41,9 @@ namespace tpd {
         struct PointCloud {
             uint32_t count;
             uint32_t shDegree;
+            vsg::uivec2 imgSize;
         };
-        void createPointCloudObject();
+        void createPointCloudObject(uint32_t width, uint32_t height);
         PointCloud _pc{};
 
         static constexpr auto NEAR = 0.2f;
@@ -52,8 +53,6 @@ namespace tpd {
             vsg::mat4 viewMatrix;
             vsg::mat4 projMatrix;
             vsg::vec2 tanFov;
-            vsg::uivec2 imageSize;
-            vsg::vec3 position;
         };
         void createCameraObject(uint32_t width, uint32_t height);
         Camera _camera{};
@@ -67,7 +66,7 @@ namespace tpd {
         void updateCameraBuffer(uint32_t currentFrame) const;
         std::unique_ptr<RingBuffer, Deleter<RingBuffer>> _cameraBuffer{};
 
-        struct GaussianPoint {
+        struct Gaussian {
             vsg::vec3 position;
             float opacity;
             vsg::quat quaternion;
@@ -75,13 +74,13 @@ namespace tpd {
             std::array<float, MAX_SH_RGB> sh;
         };
 
-        void createGaussianPointBuffer();
+        void createGaussianBuffer();
         static constexpr uint32_t GAUSSIAN_COUNT = 1;
-        std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _gaussianPointBuffer{};
+        std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _gaussianBuffer{};
 
-        void createRasterPointBuffer();
-        static constexpr uint32_t RASTER_POINT_SIZE = 48; // check splat.slang
-        std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _rasterPointBuffer{};
+        void createSplatBuffer();
+        static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
+        std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _splatBuffer{};
 
         void createPrefixOffsetsBuffer();
         std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> _prefixOffsetsBuffer{};

@@ -28,3 +28,9 @@ public void getBoundingRect(float2 point, float radius, uint2 grid, out uint2 re
 public uint2 getComputeGrid(uint2 imageSize) {
     return uint2((imageSize.x + BLOCK_X - 1) / BLOCK_X, (imageSize.y + BLOCK_Y - 1) / BLOCK_Y);
 }
+
+public float3 extractWorldPosition(float4x4 viewMatrix) {
+    // The 4th column of the view matrix is -R^T*t
+    let R = transpose((float3x3)viewMatrix);
+    return -mul(R, viewMatrix[3].xyz);
+}

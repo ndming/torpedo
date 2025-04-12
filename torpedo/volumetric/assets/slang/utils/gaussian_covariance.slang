@@ -27,22 +27,22 @@ public float3x3 computeCovariance(float4 quaternion, float4 scale) {
 }
 
 /// Projects a 3D covariance matrix of a Gaussian centered at `mean` in world space to a 2D covariance in clip space
-public float2x2 projectCovariance(float3x3 cov3D, float3 mean, float4x4 viewMatrix, float2 focal, float2 tanFov) {
+public float2x2 projectCovariance(float3x3 cov3D, float3 mean, float4x4 viewMatrix, float2 focal, float2 tanHalfFov) {
     let W = (float3x3)viewMatrix;
-    let J = computeJacobian(mean, viewMatrix, focal, tanFov);
+    let J = computeJacobian(mean, viewMatrix, focal, tanHalfFov);
     let cov2D = mul(J, mul(W, mul(cov3D, transpose(W))) * transpose(J)); // J * W * Sigma_3D * W^T * J^T
     // Note that the low-pass filtering is hoisted out of this function, call site should apply it
     return (float2x2)cov2D;
 }
 
 /// Computes the local affine approximation of a projective transformation on `mean`, see EWA Spatting equation 29 
-float3x3 computeJacobian(float3 mean, float4x4 viewMatrix, float2 focal, float2 tanFov) {
+float3x3 computeJacobian(float3 mean, float4x4 viewMatrix, float2 focal, float2 tanHalfFov) {
     // The Gaussian's center in camera space
     var t = mul(viewMatrix, float4(mean, 1.0)).xyz;
 
     // TODO: Understand this logic
-    let limx = 1.3 * tanFov.x;
-    let limy = 1.3 * tanFov.y;
+    let limx = 1.3 * tanHalfFov.x;
+    let limy = 1.3 * tanHalfFov.y;
     let txtz = t.x / t.z;
     let tytz = t.y / t.z;
     t.x = min(limx, max(-limx, txtz)) * t.z;

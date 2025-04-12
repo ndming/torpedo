@@ -10,19 +10,18 @@ public static const uint BLOCK_Y = 16;
 
 public struct PointCloud {
     public uint count;
-    public uint shDegree;
+    public uint shDegree; // active SH degree
+    public uint2 imgSize; // in pixels
 }
 
 public struct Camera {
     public float4x4 viewMatrix; // world to view space, row-major
     public float4x4 projMatrix; // world to clip space, row-major
-    public float2 tanFov;   // tan (fov / 2) in x- and y-axis
-    public uint2 imageSize; // in pixels
-    public float3 position; // camera position in world space
+    public float2 tanHalfFov;   // tan (fov / 2) in x- and y-axis
 }
 
 // Size: 240 bytes, alignment: 16 bytes
-public struct GaussianPoint {
+public struct Gaussian {
     public float3 position;
     public float opacity;
     public float4 quaternion;
@@ -31,9 +30,9 @@ public struct GaussianPoint {
 }
 
 // Size: 48 bytes, alignment: 16 bytes
-public struct RasterPoint {
+public struct Splat {
     public float3 color;
     public uint   tiles; // tiles touched
-    public float4 texel; // texCoord + depth + radius
+    public float4 texel; // texCoord + view depth + radius
     public float4 copac; // conic + opacity
 }
