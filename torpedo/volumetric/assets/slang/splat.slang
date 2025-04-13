@@ -4,9 +4,10 @@ __include "splat/common.slang";
 __include "splat/surfel.slang";
 __include "splat/volume.slang";
 
-public static const uint LOCAL_SCAN = 256;
-public static const uint BLOCK_X = 16;
-public static const uint BLOCK_Y = 16;
+public static const uint LINEAR_WORKGROUP_SIZE = 256;
+
+public static const uint BLOCK_X = 16; // tile size in x
+public static const uint BLOCK_Y = 16; // tile size in y
 
 public struct PointCloud {
     public uint count;

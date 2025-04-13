@@ -1,5 +1,4 @@
 import splat;
-import utils;
 
 [[vk::push_constant]]
 uniform PointCloud pc;
@@ -11,7 +10,7 @@ RWStructuredBuffer<Splat> splats;     // set 0, binding 2
 // Performs initial steps for each Gaussian prior to rasterization
 
 [shader("compute")]
-[numthreads(LOCAL_SCAN, 1, 1)]
+[numthreads(LINEAR_WORKGROUP_SIZE, 1, 1)]
 void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     // Each thread processes one Gaussian point
     let idx = globalInvocationID.x;
@@ -57,7 +56,7 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     if ((rectMax.x - rectMin.x) * (rectMax.y - rectMin.y) == 0) return; // empty tile
 
     // Compute color from spherical harmonics
-    let direction = mean - extractWorldPosition(camera.viewMatrix);
+    let direction = mean - getCameraWorldPosition(camera.viewMatrix);
     let color = evaluateSphericalHarmonics(gaussians[idx].sh, direction, pc.shDegree);
 
     // Store preprocessed Gaussian data as RasterPoint
