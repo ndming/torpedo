@@ -1,6 +1,7 @@
 #pragma once
 
 #include "torpedo/foundation/Buffer.h"
+#include "torpedo/foundation/AllocationUtils.h"
 
 namespace tpd {
     class StagingBuffer final : public Buffer {

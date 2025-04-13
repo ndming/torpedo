@@ -65,7 +65,7 @@ void tpd::Engine::init(
     _deviceAllocator = DeviceAllocator::Builder()
         .flags(VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT | VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT)
         .vulkanApiVersion(VK_API_VERSION_1_3)
-        .build(instance, _physicalDevice, _device, &_syncResourcePool);
+        .build(instance, _physicalDevice, _device);
 
     PLOGI << "Using VMA API version: 1.3";
     PLOGD << "VMA created with the following flags (2):";
@@ -235,7 +235,7 @@ void tpd::Engine::sync(const StorageBuffer& storageBuffer, const uint32_t acquir
 
     auto stagingBuffer = StagingBuffer::Builder()
         .alloc(storageBuffer.getSyncDataSize())
-        .build(*_deviceAllocator, &_syncResourcePool);
+        .build(_deviceAllocator, &_syncResourcePool);
     stagingBuffer->setData(storageBuffer.getSyncData());
 
     const auto releaseCommand = beginSyncTransfer(_transferFamilyIndex);
@@ -273,7 +273,7 @@ void tpd::Engine::sync(Texture& texture, const uint32_t acquireFamily) {
 
     auto stagingBuffer = StagingBuffer::Builder()
         .alloc(texture.getSyncDataSize())
-        .build(*_deviceAllocator, &_syncResourcePool);
+        .build(_deviceAllocator, &_syncResourcePool);
     stagingBuffer->setData(texture.getSyncData());
 
     const auto releaseCommand = beginSyncTransfer(_transferFamilyIndex);
@@ -311,7 +311,7 @@ void tpd::Engine::syncAndGenMips(Texture& texture, const uint32_t acquireFamily)
 
     auto stagingBuffer = StagingBuffer::Builder()
         .alloc(texture.getSyncDataSize())
-        .build(*_deviceAllocator, &_syncResourcePool);
+        .build(_deviceAllocator, &_syncResourcePool);
     stagingBuffer->setData(texture.getSyncData());
 
     const auto releaseCommand = beginSyncTransfer(_transferFamilyIndex);
@@ -346,7 +346,7 @@ void tpd::Engine::destroy() noexcept {
         _initialized = false;
 
         _stagingDeletionQueue.waitEmpty();
-        _deviceAllocator->destroy();
+        _deviceAllocator.destroy();
 
         _drawingCommandBuffers.clear();
         _device.destroyCommandPool(_drawingCommandPool);

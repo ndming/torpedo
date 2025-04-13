@@ -1,6 +1,5 @@
 #pragma once
 
-#include "torpedo/foundation/AllocationUtils.h"
 #include "torpedo/foundation/VmaUsage.h"
 
 #include <vulkan/vulkan.hpp>
@@ -16,21 +15,23 @@ namespace tpd {
 
             [[nodiscard]] DeviceAllocator build(vk::Instance instance, vk::PhysicalDevice physicalDevice, vk::Device device) const;
 
-            [[nodiscard]] std::unique_ptr<DeviceAllocator, Deleter<DeviceAllocator>> build(
-                vk::Instance instance, vk::PhysicalDevice physicalDevice, vk::Device device,
-                std::pmr::memory_resource* pool) const;
-
         private:
-            [[nodiscard]] VmaAllocator createAllocator(vk::Instance instance, vk::PhysicalDevice physicalDevice, vk::Device device) const;
-
             VmaAllocatorCreateFlags _flags{};
             uint32_t _apiVersion{ VK_API_VERSION_1_3 };
         };
 
-        explicit DeviceAllocator(VmaAllocator vmaAllocator);
+        explicit DeviceAllocator(VmaAllocator vmaAllocator = nullptr);
 
         DeviceAllocator(const DeviceAllocator&) = delete;
         DeviceAllocator& operator=(const DeviceAllocator&) = delete;
+
+        DeviceAllocator& operator=(DeviceAllocator&& other) noexcept {
+            if (this != &other) [[likely]] {
+                _vmaAllocator = other._vmaAllocator;
+                other._vmaAllocator = nullptr;
+            }
+            return *this;
+        }
 
         [[nodiscard]] vk::Image allocateDeviceImage(const vk::ImageCreateInfo& imageCreateInfo, VmaAllocation* allocation) const;
 
@@ -67,7 +68,7 @@ namespace tpd {
         }
 
         Destroyable& operator=(Destroyable&& other) noexcept {
-            if (this != &other) {
+            if (this != &other) [[likely]] {
                 Destroyable::destroy();
                 _allocation = other._allocation;
                 other._allocation = nullptr;
@@ -109,9 +110,6 @@ inline tpd::DeviceAllocator::Builder& tpd::DeviceAllocator::Builder::vulkanApiVe
 }
 
 inline tpd::DeviceAllocator::DeviceAllocator(VmaAllocator vmaAllocator) {
-    if (!vmaAllocator) [[unlikely]] {
-        throw std::invalid_argument("DeviceAllocator - Uninitialized VmaAllocator: consider using DeviceAllocator::Builder");
-    }
     _vmaAllocator = vmaAllocator;
 }
 

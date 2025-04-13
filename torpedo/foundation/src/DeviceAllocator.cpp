@@ -5,25 +5,6 @@ tpd::DeviceAllocator tpd::DeviceAllocator::Builder::build(
     const vk::PhysicalDevice physicalDevice,
     const vk::Device device) const
 {
-    const auto allocator = createAllocator(instance, physicalDevice, device);
-    return DeviceAllocator{ allocator };
-}
-
-std::unique_ptr<tpd::DeviceAllocator, tpd::Deleter<tpd::DeviceAllocator>> tpd::DeviceAllocator::Builder::build(
-    const vk::Instance instance,
-    const vk::PhysicalDevice physicalDevice,
-    const vk::Device device,
-    std::pmr::memory_resource* const pool) const
-{
-    const auto allocator = createAllocator(instance, physicalDevice, device);
-    return foundation::make_unique<DeviceAllocator>(pool, allocator);
-}
-
-VmaAllocator tpd::DeviceAllocator::Builder::createAllocator(
-    const vk::Instance instance,
-    const vk::PhysicalDevice physicalDevice,
-    const vk::Device device) const
-{
     auto vulkanFunctions = VmaVulkanFunctions{};
     vulkanFunctions.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
     vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
@@ -40,7 +21,7 @@ VmaAllocator tpd::DeviceAllocator::Builder::createAllocator(
     if (vmaCreateAllocator(&allocatorCreateInfo, &allocator) != VK_SUCCESS) {
         throw std::runtime_error("DeviceAllocator::Builder - Failed to create a VMA allocator");
     }
-    return allocator;
+    return DeviceAllocator{ allocator };
 }
 
 vk::Image tpd::DeviceAllocator::allocateDeviceImage(

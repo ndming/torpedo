@@ -2,6 +2,7 @@
 
 #include "torpedo/foundation/Buffer.h"
 #include "torpedo/foundation/SyncResource.h"
+#include "torpedo/foundation/AllocationUtils.h"
 
 namespace tpd {
     class StorageBuffer final : public Buffer, public SyncResource {

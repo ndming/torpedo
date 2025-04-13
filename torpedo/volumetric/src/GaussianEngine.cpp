@@ -316,7 +316,7 @@ void tpd::GaussianEngine::createRenderTargets(const uint32_t width, const uint32
 
     // Create a render target image and image view for each in-flight frame
     for (auto i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
-        _targets.push_back(targetBuilder.build(*_deviceAllocator));
+        _targets.push_back(targetBuilder.build(_deviceAllocator));
         _targetViews[i] = _targets[i].createImageView(vk::ImageViewType::e2D, _device);
     }
 
@@ -332,7 +332,7 @@ void tpd::GaussianEngine::createCameraBuffer() {
         .count(_renderer->getInFlightFramesCount())
         .usage(vk::BufferUsageFlagBits::eUniformBuffer)
         .alloc(sizeof(Camera), minAlignment)
-        .build(*_deviceAllocator, &_engineResourcePool);
+        .build(_deviceAllocator, &_engineResourcePool);
 }
 
 void tpd::GaussianEngine::updateCameraBuffer(const uint32_t currentFrame) const {
@@ -355,7 +355,7 @@ void tpd::GaussianEngine::createGaussianBuffer() {
         .alloc(sizeof(Gaussian) * GAUSSIAN_COUNT)
         .syncData(points.data())
         .transferDstPoint(vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead)
-        .build(*_deviceAllocator, &_engineResourcePool);
+        .build(_deviceAllocator, &_engineResourcePool);
 
     sync(*_gaussianBuffer, _computeFamilyIndex);
 }
@@ -363,20 +363,20 @@ void tpd::GaussianEngine::createGaussianBuffer() {
 void tpd::GaussianEngine::createSplatBuffer() {
     _splatBuffer = StorageBuffer::Builder()
         .alloc(SPLAT_SIZE * GAUSSIAN_COUNT)
-        .build(*_deviceAllocator, &_engineResourcePool);
+        .build(_deviceAllocator, &_engineResourcePool);
 }
 
 void tpd::GaussianEngine::createPrefixOffsetsBuffer() {
     _prefixOffsetsBuffer = StorageBuffer::Builder()
         .alloc(sizeof(uint32_t) * GAUSSIAN_COUNT)
-        .build(*_deviceAllocator, &_engineResourcePool);
+        .build(_deviceAllocator, &_engineResourcePool);
 }
 
 void tpd::GaussianEngine::createTilesRenderedBuffer() {
     _tilesRenderedBuffer = ReadbackBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eStorageBuffer)
         .alloc(sizeof(uint32_t))
-        .build(*_deviceAllocator, &_engineResourcePool);
+        .build(_deviceAllocator, &_engineResourcePool);
 }
 
 void tpd::GaussianEngine::createPreparePipeline() {

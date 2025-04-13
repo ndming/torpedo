@@ -9,6 +9,8 @@
 #include <torpedo/foundation/StorageBuffer.h>
 #include <torpedo/foundation/Texture.h>
 
+#include <memory_resource>
+
 namespace tpd {
     class Engine;
 
@@ -79,15 +81,13 @@ namespace tpd {
     protected:
         // Keep drawing resources close together
         std::pmr::unsynchronized_pool_resource _engineResourcePool{};
+        DeviceAllocator _deviceAllocator{};
 
         void createDrawingCommandPool();
         vk::CommandPool _drawingCommandPool{};
 
         void createDrawingCommandBuffers();
         std::pmr::vector<vk::CommandBuffer> _drawingCommandBuffers{ &_engineResourcePool };
-
-        using DeviceAllocatorType = std::unique_ptr<DeviceAllocator, Deleter<DeviceAllocator>>;
-        DeviceAllocatorType _deviceAllocator{};  // must be declared after _syncResourcePool
 
         [[nodiscard]] virtual const char* getName() const noexcept;
         virtual void onInitialized() {}  // called by Context, not Engine base
