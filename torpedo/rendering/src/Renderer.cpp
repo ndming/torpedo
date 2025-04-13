@@ -19,8 +19,9 @@ std::vector<const char*> tpd::Renderer::getDeviceExtensions() const {
 }
 
 void tpd::Renderer::init(std::pmr::memory_resource* contextPool) {
-    PLOGI << "Initializing base renderer: tpd::Renderer";
     _framebufferResizeListeners = std::pmr::unordered_map<void*, std::function<void(void*, uint32_t, uint32_t)>>{ contextPool };
+    _initialized = true;
+    PLOGD << "Initialized base renderer: tpd::Renderer";
 }
 
 void tpd::Renderer::addFramebufferResizeCallback(void* ptr, const std::function<void(void*, uint32_t, uint32_t)>& callback) {
@@ -43,8 +44,8 @@ void tpd::Renderer::resetEngine() noexcept {
 
 void tpd::Renderer::destroy() noexcept {
     resetEngine();  // redundant, but still call for completeness
-    _framebufferResizeListeners.clear();
     _initialized = false;
+    _framebufferResizeListeners.clear();
     _instance = nullptr;
 }
 

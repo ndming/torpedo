@@ -32,8 +32,10 @@ namespace tpd {
         static std::pmr::unsynchronized_pool_resource _contextPool;
 
         explicit Context(R* renderer);
+
+        [[nodiscard]] bool preInitRenderer() const;
+        [[nodiscard]] R* setupInitRenderer() const;
         R* _renderer;
-        Engine* _engine{ nullptr };
 
         void createInstance(std::vector<const char*>&& instanceExtensions);
         vk::Instance _instance{};
@@ -42,14 +44,9 @@ namespace tpd {
         void createDebugMessenger();
         vk::DebugUtilsMessengerEXT _debugMessenger{};
 #endif
-    };
 
-    namespace rendering {
-        template<RendererImpl R>
-        constexpr auto FullScreenInitType = requires(R obj, bool fullscreen, std::pmr::memory_resource* contextPool) {
-            { obj.init(fullscreen, contextPool) };
-        };
-    }
+        Engine* _engine{ nullptr };
+    };
 }
 
 template<tpd::RendererImpl R>
@@ -144,17 +141,18 @@ void tpd::Context<R>::createDebugMessenger() {
 #endif // NDEBUG - Context::createDebugMessenger
 
 template<tpd::RendererImpl R>
-R* tpd::Context<R>::initRenderer(const uint32_t frameWidth, const uint32_t frameHeight) {
+bool tpd::Context<R>::preInitRenderer() const {
     if (_renderer->_initialized) [[unlikely]] {
         PLOGW << "Context - A Renderer has already been initialized with the current Context: "
                  "create a new Context if you want to have another Renderer, returning nullptr";
-        return nullptr;
+        return false;
     }
-
     _renderer->_instance = _instance;
-    _renderer->init(frameWidth, frameHeight, &_contextPool);
-    _renderer->_initialized = true;
+    return true;
+}
 
+template<tpd::RendererImpl R>
+R* tpd::Context<R>::setupInitRenderer() const {
     // If there's already an Engine bound to this Context, init the Renderer with its Vulkan resources
     if (_engine) {
         _renderer->_physicalDevice = _engine->_physicalDevice;
@@ -168,27 +166,21 @@ R* tpd::Context<R>::initRenderer(const uint32_t frameWidth, const uint32_t frame
 }
 
 template<tpd::RendererImpl R>
-R* tpd::Context<R>::initRenderer(const bool fullscreen) {
-    if (_renderer->_initialized) [[unlikely]] {
-        PLOGW << "Context - A Renderer has already been initialized with the current Context: "
-                 "create a new Context if you want to have another Renderer, returning nullptr";
+R* tpd::Context<R>::initRenderer(const uint32_t frameWidth, const uint32_t frameHeight) {
+    if (!preInitRenderer()) [[unlikely]] {
         return nullptr;
     }
+    _renderer->init(frameWidth, frameHeight, &_contextPool);
+    return setupInitRenderer();
+}
 
-    _renderer->_instance = _instance;
-    _renderer->init(fullscreen, &_contextPool);
-    _renderer->_initialized = true;
-
-    // If there's already an Engine bound to this Context, init the Renderer with its Vulkan resources
-    if (_engine) {
-        _renderer->_physicalDevice = _engine->_physicalDevice;
-        _renderer->_device = _engine->_device;
-
-        _renderer->engineInit(_engine->_graphicsFamilyIndex, _engine->_presentFamilyIndex);
-        _renderer->_engineInitialized = true;
+template<tpd::RendererImpl R>
+R* tpd::Context<R>::initRenderer(const bool fullscreen) {
+    if (!preInitRenderer()) [[unlikely]] {
+        return nullptr;
     }
-
-    return _renderer;
+    _renderer->init(fullscreen, &_contextPool);
+    return setupInitRenderer();
 }
 
 template<tpd::RendererImpl R>

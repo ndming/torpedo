@@ -41,6 +41,7 @@ namespace tpd {
         void init(std::pmr::memory_resource* contextPool);
         std::pmr::unordered_map<void*, std::function<void(void*, uint32_t, uint32_t)>> _framebufferResizeListeners{};
 
+        // Returns null if implementation doesn't support surface rendering
         [[nodiscard]] virtual vk::SurfaceKHR getVulkanSurface() const;
 
         virtual void engineInit(uint32_t graphicsFamilyIndex, uint32_t presentFamilyIndex) = 0;
@@ -54,7 +55,7 @@ namespace tpd {
         template<RendererImpl R>
         friend class Context;
     };
-}  // namespace tpd
+} // namespace tpd
 
 inline uint32_t tpd::Renderer::getInFlightFramesCount() const noexcept {
     return 1;
@@ -71,11 +72,3 @@ inline bool tpd::Renderer::hasSurfaceRenderingSupport() const noexcept {
 inline vk::SurfaceKHR tpd::Renderer::getVulkanSurface() const {
     return {};
 }
-
-// ========================= //
-// UTILITY MACRO DEFINITIONS //
-// ========================= //
-
-#define TPD_CONTEXT_AWARE_INITIALIZATION(ClassName) \
-    template<RendererImpl R>                        \
-    friend class Context;

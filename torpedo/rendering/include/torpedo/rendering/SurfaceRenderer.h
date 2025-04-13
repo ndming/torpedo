@@ -108,7 +108,7 @@ namespace tpd {
         template<RendererImpl R>
         friend class Context;
     };
-}
+} // namespace tpd
 
 inline void tpd::SurfaceRenderer::Window::setTitle(const std::string_view title) const {
     glfwSetWindowTitle(_glfwWindow, title.data());

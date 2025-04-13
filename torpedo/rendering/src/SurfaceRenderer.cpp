@@ -139,7 +139,9 @@ void tpd::SurfaceRenderer::init(const uint32_t frameWidth, const uint32_t frameH
         PLOGI << "Skipping already initialized renderer: tpd::SurfaceRenderer";
         return;
     }
-    PLOGI << "Initializing renderer: tpd::SurfaceRenderer";
+    // Tell base class to init its resources first
+    Renderer::init(contextPool);
+
     // Creating a GLFW window
     _window = foundation::make_unique<Window>(contextPool, vk::Extent2D{ frameWidth, frameHeight });
     glfwSetWindowUserPointer(_window->_glfwWindow, this);
@@ -147,6 +149,8 @@ void tpd::SurfaceRenderer::init(const uint32_t frameWidth, const uint32_t frameH
 
     // Bind the created window to the Vulkan surface
     createSurface();
+
+    PLOGI << "Initialized renderer: tpd::SurfaceRenderer";
     PLOGD << "Number of in-flight frames run by tpd::SurfaceRenderer: " << getInFlightFramesCount();
 }
 
@@ -165,6 +169,8 @@ void tpd::SurfaceRenderer::init(const bool fullscreen, std::pmr::memory_resource
 
     // Bind the created window to the Vulkan surface
     createSurface();
+
+    PLOGI << "Initialized renderer: tpd::SurfaceRenderer";
     PLOGD << "Number of in-flight frames run by tpd::SurfaceRenderer: " << getInFlightFramesCount();
 }
 
