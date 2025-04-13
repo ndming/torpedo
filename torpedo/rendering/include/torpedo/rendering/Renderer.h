@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.hpp>
 
 #include <functional>
+#include <map>
 
 namespace tpd {
     class Renderer;
@@ -35,11 +36,8 @@ namespace tpd {
         vk::Instance _instance{};
 
         virtual void init(uint32_t frameWidth, uint32_t frameHeight, std::pmr::memory_resource* contextPool) = 0;
-        bool _initialized{ false };
-
-        // Init base class's resources
-        void init(std::pmr::memory_resource* contextPool);
-        std::pmr::unordered_map<void*, std::function<void(void*, uint32_t, uint32_t)>> _framebufferResizeListeners{};
+        bool _initialized{ false }; // set by Context, reset by Renderer
+        std::pmr::map<void*, std::function<void(void*, uint32_t, uint32_t)>> _framebufferResizeListeners{};
 
         // Returns null if implementation doesn't support surface rendering
         [[nodiscard]] virtual vk::SurfaceKHR getVulkanSurface() const;

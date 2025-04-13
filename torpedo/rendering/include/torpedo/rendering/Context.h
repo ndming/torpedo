@@ -11,7 +11,7 @@ namespace tpd {
     template<RendererImpl R>
     class Context final {
     public:
-        [[nodiscard]] static std::unique_ptr<Context, Deleter<Context>> create();
+        [[nodiscard]] static std::unique_ptr<Context> create();
 
         Context(const Context&) = delete;
         Context& operator=(const Context&) = delete;
@@ -28,7 +28,7 @@ namespace tpd {
         ~Context() noexcept;
 
     private:
-        // Keep Context, Renderer, Engine, and their resources close on the heap
+        // Keep Renderer, Engine, and their resources close on the heap
         static std::pmr::unsynchronized_pool_resource _contextPool;
 
         explicit Context(R* renderer);
@@ -53,13 +53,15 @@ template<tpd::RendererImpl R>
 std::pmr::unsynchronized_pool_resource tpd::Context<R>::_contextPool{};
 
 template<tpd::RendererImpl R>
-std::unique_ptr<tpd::Context<R>, tpd::Deleter<tpd::Context<R>>> tpd::Context<R>::create() {
-    void* alloc = _contextPool.allocate(sizeof(R), alignof(R));
+std::unique_ptr<tpd::Context<R>> tpd::Context<R>::create() {
+    constexpr auto rendererSize = sizeof(R);
+    PLOGD << "Renderer alloc size: " << rendererSize;
+
+    void* alloc = _contextPool.allocate(rendererSize, alignof(R));
     R* renderer = new (alloc) R{};
 
-    void* mem = _contextPool.allocate(sizeof(Context), alignof(Context));
-    const auto context = new (mem) Context{ renderer };
-    return std::unique_ptr<Context, Deleter<Context>>(context, Deleter<Context>{ &_contextPool });
+    const auto context = new Context{ renderer };
+    return std::unique_ptr<Context>{ context };
 }
 
 template<tpd::RendererImpl R>
@@ -153,6 +155,8 @@ bool tpd::Context<R>::preInitRenderer() const {
 
 template<tpd::RendererImpl R>
 R* tpd::Context<R>::setupInitRenderer() const {
+    _renderer->_initialized = true;
+
     // If there's already an Engine bound to this Context, init the Renderer with its Vulkan resources
     if (_engine) {
         _renderer->_physicalDevice = _engine->_physicalDevice;

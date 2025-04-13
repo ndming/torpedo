@@ -4,7 +4,7 @@
 std::vector<const char*> tpd::Renderer::getInstanceExtensions() const {
 #ifndef NDEBUB
     auto extensions = std::vector {
-        vk::EXTDebugUtilsExtensionName,  // for naming Vulkan objects
+        vk::EXTDebugUtilsExtensionName, // for naming Vulkan objects
     };
     rendering::logDebugExtensions("Instance", "tpd::Renderer", extensions);
     return extensions;
@@ -16,12 +16,6 @@ std::vector<const char*> tpd::Renderer::getInstanceExtensions() const {
 std::vector<const char*> tpd::Renderer::getDeviceExtensions() const {
     rendering::logDebugExtensions("Device", "tpd::Renderer");
     return {};
-}
-
-void tpd::Renderer::init(std::pmr::memory_resource* contextPool) {
-    _framebufferResizeListeners = std::pmr::unordered_map<void*, std::function<void(void*, uint32_t, uint32_t)>>{ contextPool };
-    _initialized = true;
-    PLOGD << "Initialized base renderer: tpd::Renderer";
 }
 
 void tpd::Renderer::addFramebufferResizeCallback(void* ptr, const std::function<void(void*, uint32_t, uint32_t)>& callback) {

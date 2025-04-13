@@ -77,13 +77,11 @@ namespace tpd {
 
         void createSwapChain();
         vk::SwapchainKHR _swapChain{};
-
-        void createSwapChainImageViews();
-        std::vector<vk::Image> _swapChainImages{};
-        std::vector<vk::ImageView> _swapChainImageViews{};
-
         vk::Format _swapChainImageFormat{ vk::Format::eUndefined };
         vk::Extent2D _swapChainImageExtent{};
+
+        static constexpr uint32_t MAX_SWAP_IMAGES = 5;
+        std::array<vk::Image, MAX_SWAP_IMAGES> _swapChainImages{};
 
         struct FrameSync {
             vk::Semaphore imageReady{};

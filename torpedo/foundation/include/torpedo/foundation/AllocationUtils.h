@@ -43,5 +43,11 @@ namespace tpd::foundation {
      * @param alignment The alignment boundary, default to 0 (no alignment)
      * @return The aligned size that is greater than or equal to the byteSize and aligned to the alignment boundary.
      */
-    std::size_t getAlignedSize(std::size_t byteSize, std::size_t alignment = 0);
+    constexpr std::size_t getAlignedSize(const std::size_t byteSize, const std::size_t alignment = 0) {
+        if (alignment == 0) {
+            return byteSize;
+        }
+        // Return the least multiple of alignment greater than or equal byteSize
+        return byteSize + alignment - 1 & ~(alignment - 1);
+    }
 } // namespace tpd::foundation

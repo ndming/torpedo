@@ -139,8 +139,6 @@ void tpd::SurfaceRenderer::init(const uint32_t frameWidth, const uint32_t frameH
         PLOGI << "Skipping already initialized renderer: tpd::SurfaceRenderer";
         return;
     }
-    // Tell base class to init its resources first
-    Renderer::init(contextPool);
 
     // Creating a GLFW window
     _window = foundation::make_unique<Window>(contextPool, vk::Extent2D{ frameWidth, frameHeight });
@@ -159,8 +157,6 @@ void tpd::SurfaceRenderer::init(const bool fullscreen, std::pmr::memory_resource
         PLOGI << "Skipping already initialized renderer: tpd::SurfaceRenderer";
         return;
     }
-    // Tell base class to init its resources first
-    Renderer::init(contextPool);
 
     PLOGI << "Initializing renderer: tpd::SurfaceRenderer";
     _window = foundation::make_unique<Window>(contextPool, fullscreen);
@@ -195,17 +191,13 @@ void tpd::SurfaceRenderer::createSurface() {
 
 void tpd::SurfaceRenderer::engineInit(const uint32_t graphicsFamilyIndex, const uint32_t presentFamilyIndex) {
     // Just because graphics and present almost always come from the same queue family in practice, the Vulkan spec
-    // doesn't impose such an assumption. We thus must account for the fact that these queues are distinct.
+    // doesn't impose such an assumption. We thus must account for the fact that these queues might be distinct.
     _graphicsFamilyIndex = graphicsFamilyIndex;
     _presentFamilyIndex  = presentFamilyIndex;
     _graphicsQueue = _device.getQueue(_graphicsFamilyIndex, 0);
     _presentQueue  = _device.getQueue(_presentFamilyIndex,  0);
 
-    // Create new swap chain resources
     createSwapChain();
-    createSwapChainImageViews();
-
-    // Create frame sync objects
     createSyncPrimitives();
 }
 
@@ -218,7 +210,7 @@ void tpd::SurfaceRenderer::createSwapChain() {
                  "this will likely lead to suboptimal performance in some cases";
     }
 
-    const auto swapChain = SwapChainBuilder()
+    const auto [swapChain, surfaceFormat, presentMode, extent, minImageCount] = SwapChainBuilder()
         .desiredSurfaceFormat(vk::Format::eR8G8B8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear)
         .desiredPresentMode(vk::PresentModeKHR::eMailbox)
         .desiredExtent(static_cast<uint32_t>(width), static_cast<uint32_t>(height))
@@ -226,56 +218,28 @@ void tpd::SurfaceRenderer::createSwapChain() {
         .queueFamilyIndices(_graphicsFamilyIndex, _presentFamilyIndex)
         .build(_surface, _physicalDevice, _device);
 
-    _swapChain = swapChain.swapChain;
-    _swapChainImages = _device.getSwapchainImagesKHR(_swapChain);
+    _swapChain = swapChain;
+    _swapChainImageFormat = surfaceFormat.format;
+    _swapChainImageExtent = extent;
 
-    _swapChainImageFormat = swapChain.surfaceFormat.format;
-    _swapChainImageExtent = swapChain.extent;
+    const auto swapImages = _device.getSwapchainImagesKHR(_swapChain);
+    const auto swapImageCount = swapImages.size() > MAX_SWAP_IMAGES ? MAX_SWAP_IMAGES : swapImages.size();
+    for (uint32_t i = 0; i < swapImageCount; i++) {
+        _swapChainImages[i] = swapImages[i];
+    }
 
     PLOGD << "Swap chain created for tpd::SurfaceRenderer with:";
-    PLOGD << " - Present mode: " << rendering::toString(swapChain.presentMode);
+    PLOGD << " - Present mode: " << rendering::toString(presentMode);
     PLOGD << " - Image extent: " << rendering::toString(_swapChainImageExtent);
     PLOGD << " - Image format: " << foundation::toString(_swapChainImageFormat);
-    PLOGD << " - Color space:  " << rendering::toString(swapChain.surfaceFormat.colorSpace);
-    PLOGD << " - Image count:  " << _swapChainImages.size();
+    PLOGD << " - Color space:  " << rendering::toString(surfaceFormat.colorSpace);
+    PLOGD << " - Image count:  " << swapImageCount;
 
 #ifndef NDEBUG
-    for (auto i = 0; i < _swapChainImages.size(); ++i) {
+    for (auto i = 0; i < swapImageCount; ++i) {
         bootstrap::setVulkanObjectName(
             static_cast<VkImage>(_swapChainImages[i]), vk::ObjectType::eImage,
             "tpd::SurfaceRenderer - SwapChain Image " + std::to_string(i),
-            _instance, _device);
-    }
-#endif
-}
-
-void tpd::SurfaceRenderer::createSwapChainImageViews() {
-    const auto toImageView = [this](const auto& image) {
-        constexpr auto aspectFlags = vk::ImageAspectFlagBits::eColor;
-        constexpr auto mipLevels = 1;
-
-        auto subresourceRange = vk::ImageSubresourceRange{};
-        subresourceRange.aspectMask = aspectFlags;
-        subresourceRange.baseMipLevel = 0;
-        subresourceRange.levelCount = mipLevels;
-        subresourceRange.layerCount = 1;
-
-        auto viewInfo = vk::ImageViewCreateInfo{};
-        viewInfo.image = image;
-        viewInfo.format = _swapChainImageFormat;
-        viewInfo.viewType = vk::ImageViewType::e2D;
-        viewInfo.subresourceRange = subresourceRange;
-
-        return _device.createImageView(viewInfo);
-    };
-
-    _swapChainImageViews = _swapChainImages | std::views::transform(toImageView) | std::ranges::to<std::vector>();
-
-#ifndef NDEBUG
-    for (auto i = 0; i < _swapChainImageViews.size(); ++i) {
-        bootstrap::setVulkanObjectName(
-            static_cast<VkImageView>(_swapChainImageViews[i]), vk::ObjectType::eImageView,
-            "tpd::SurfaceRenderer - SwapChain ImageView " + std::to_string(i),
             _instance, _device);
     }
 #endif
@@ -409,7 +373,6 @@ void tpd::SurfaceRenderer::refreshSwapChain() {
 
     // Recreate new swap chain and resources
     createSwapChain();
-    createSwapChainImageViews();
 
     // Notify all listeners about the change
     for (const auto& [ptr, callback] : _framebufferResizeListeners) {
@@ -418,7 +381,6 @@ void tpd::SurfaceRenderer::refreshSwapChain() {
 }
 
 void tpd::SurfaceRenderer::cleanupSwapChain() const noexcept {
-    std::ranges::for_each(_swapChainImageViews, [this](const auto& it) { _device.destroyImageView(it); });
     _device.destroySwapchainKHR(_swapChain);
 }
 
