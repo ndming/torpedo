@@ -1,7 +1,7 @@
 #pragma once
 
 #include <torpedo/foundation/DeviceAllocator.h>
-#include <torpedo/foundation/AllocationUtils.h>
+#include <torpedo/foundation/Allocation.h>
 
 #include <plog/Log.h>
 

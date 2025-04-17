@@ -25,12 +25,8 @@ VmaAllocator tpd::vma::Builder::build(
     return allocator;
 }
 
-vk::Image tpd::vma::allocateDeviceImage(
-    VmaAllocator allocator,
-    const vk::ImageCreateInfo& imageCreateInfo,
-    VmaAllocation* allocation)
-{
-    const auto imgCreateInfo = static_cast<VkImageCreateInfo>(imageCreateInfo);
+vk::Image tpd::vma::allocateDeviceImage(VmaAllocator allocator, const vk::ImageCreateInfo& info, VmaAllocation* allocation) {
+    const auto imgCreateInfo = static_cast<VkImageCreateInfo>(info);
 
     constexpr auto allocInfo = VmaAllocationCreateInfo{
         .flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
@@ -49,12 +45,8 @@ void tpd::vma::deallocateImage(VmaAllocator allocator, const vk::Image image, Vm
     vmaDestroyImage(allocator, image, allocation);
 }
 
-vk::Buffer tpd::vma::allocateDeviceBuffer(
-    VmaAllocator allocator,
-    const vk::BufferCreateInfo& bufferCreateInfo,
-    VmaAllocation* allocation)
-{
-    const auto bufferInfo = static_cast<VkBufferCreateInfo>(bufferCreateInfo);
+vk::Buffer tpd::vma::allocateDeviceBuffer(VmaAllocator allocator, const vk::BufferCreateInfo& info, VmaAllocation* allocation) {
+    const auto bufferInfo = static_cast<VkBufferCreateInfo>(info);
 
     constexpr auto allocInfo = VmaAllocationCreateInfo{
         .flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
@@ -71,11 +63,11 @@ vk::Buffer tpd::vma::allocateDeviceBuffer(
 
 vk::Buffer tpd::vma::allocateTwoWayBuffer(
     VmaAllocator allocator,
-    const vk::BufferCreateInfo& bufferCreateInfo,
+    const vk::BufferCreateInfo& info,
     VmaAllocation* allocation,
     VmaAllocationInfo* allocationInfo)
 {
-    const auto bufferInfo = static_cast<VkBufferCreateInfo>(bufferCreateInfo);
+    const auto bufferInfo = static_cast<VkBufferCreateInfo>(info);
 
     constexpr auto allocInfo = VmaAllocationCreateInfo{
         .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
@@ -89,35 +81,13 @@ vk::Buffer tpd::vma::allocateTwoWayBuffer(
     return buffer;
 }
 
-vk::Buffer tpd::vma::allocateStagedBuffer(
-    VmaAllocator allocator,
-    const std::size_t bufferByteSize,
-    VmaAllocation* allocation)
-{
-    const auto bufferCreateInfo = VkBufferCreateInfo{
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size  = bufferByteSize,
-        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-    };
-    constexpr auto allocCreateInfo = VmaAllocationCreateInfo{
-        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-        .usage = VMA_MEMORY_USAGE_AUTO,
-    };
-
-    auto buffer = VkBuffer{};
-    if (vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &buffer, allocation, nullptr) != VK_SUCCESS) {
-        throw std::runtime_error("VMA - Failed to allocate a staging buffer");
-    }
-    return buffer;
-}
-
 vk::Buffer tpd::vma::allocateMappedBuffer(
     VmaAllocator allocator,
-    const vk::BufferCreateInfo& bufferCreateInfo,
+    const vk::BufferCreateInfo& info,
     VmaAllocation* allocation,
     VmaAllocationInfo* allocationInfo)
 {
-    const auto bufferInfo = static_cast<VkBufferCreateInfo>(bufferCreateInfo);
+    const auto bufferInfo = static_cast<VkBufferCreateInfo>(info);
 
     // This approach for creating persistently mapped buffers may not be optimal on systems with unified memory
     // (e.g., AMD APU or Intel integrated graphics, mobile chips)
@@ -133,18 +103,37 @@ vk::Buffer tpd::vma::allocateMappedBuffer(
     return buffer;
 }
 
-void tpd::vma::deallocateBuffer(VmaAllocator allocator, const vk::Buffer buffer, VmaAllocation allocation) noexcept {
-    vmaDestroyBuffer(allocator, buffer, allocation);
+std::pair<vk::Buffer, VmaAllocation> tpd::vma::allocateStagingBuffer(VmaAllocator allocator, const vk::DeviceSize size) {
+    auto allocation = VmaAllocation{};
+
+    const auto bufferCreateInfo = VkBufferCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size  = size,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    };
+    constexpr auto allocCreateInfo = VmaAllocationCreateInfo{
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO,
+    };
+
+    auto buffer = VkBuffer{};
+    if (vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &buffer, &allocation, nullptr) != VK_SUCCESS) {
+        throw std::runtime_error("VMA - Failed to allocate a staging buffer");
+    }
+    return std::make_pair(buffer, allocation);
 }
 
-void* tpd::vma::mapMemory(VmaAllocator allocator, VmaAllocation allocation) {
+void tpd::vma::copyStagingData(VmaAllocator allocator, const void* data, const vk::DeviceSize size, VmaAllocation allocation) {
     void* mappedData;
     vmaMapMemory(allocator, allocation, &mappedData);
-    return mappedData;
+    // Memory write by host is guaranteed to be visible
+    // prior to the next queue submit
+    memcpy(mappedData, data, size);
+    vmaUnmapMemory(allocator, allocation);
 }
 
-void tpd::vma::unmapMemory(VmaAllocator allocator, VmaAllocation allocation) {
-    vmaUnmapMemory(allocator, allocation);
+void tpd::vma::deallocateBuffer(VmaAllocator allocator, const vk::Buffer buffer, VmaAllocation allocation) noexcept {
+    vmaDestroyBuffer(allocator, buffer, allocation);
 }
 
 void tpd::vma::destroy(VmaAllocator allocator) noexcept {

@@ -1,4 +1,4 @@
-#include "torpedo/foundation/SyncResource.h"
+#include "torpedo/foundation/Sync.h"
 
 void tpd::SyncResource::setSyncData(const void* const data, const uint32_t byteSize) noexcept {
     _data = static_cast<const std::byte*>(data);

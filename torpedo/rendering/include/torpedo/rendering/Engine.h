@@ -1,13 +1,9 @@
 #pragma once
 
 #include "torpedo/rendering/Renderer.h"
-#include "torpedo/rendering/DeletionWorker.h"
-#include "torpedo/rendering/SyncGroup.h"
 
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
-#include <torpedo/foundation/StagingBuffer.h>
 #include <torpedo/foundation/StorageBuffer.h>
-#include <torpedo/foundation/Texture.h>
 
 #include <memory_resource>
 
@@ -76,12 +72,12 @@ namespace tpd {
         vk::CommandPool _computePool{};
 
         std::pmr::synchronized_pool_resource _syncResourcePool{};
-        DeletionWorker<StagingBuffer> _stagingDeletionQueue{ &_syncResourcePool, _syncWorkPoolMutex, "TransferCleanup" };
+        // DeletionWorker<StagingBuffer> _stagingDeletionQueue{ &_syncResourcePool, _syncWorkPoolMutex, "TransferCleanup" };
 
     protected:
         // Keep drawing resources close together
         std::pmr::unsynchronized_pool_resource _engineResourcePool{};
-        DeviceAllocator _deviceAllocator{};
+        VmaAllocator _vmaAllocator{};
 
         void createDrawingCommandPool();
         vk::CommandPool _drawingCommandPool{};
@@ -106,15 +102,12 @@ namespace tpd {
             uint32_t acquireFamily, vk::Fence deletionFence) const;
 
     protected:
-        void sync(const StorageBuffer& storageBuffer, uint32_t acquireFamily);
-        void sync(const SyncGroup<StorageBuffer>& group);
+        void transfer(const void* data, vk::DeviceSize size, const StorageBuffer& dstBuffer, uint32_t dstFamily, SyncPoint dstSync);
 
         static constexpr auto TEXTURE_FINAL_LAYOUT = vk::ImageLayout::eShaderReadOnlyOptimal;
-        void sync(Texture& texture, uint32_t acquireFamily);
-        void sync(const SyncGroup<Texture>& group);
+        // void sync(Texture& texture, uint32_t acquireFamily);
 
-        void syncAndGenMips(Texture& texture, uint32_t acquireFamily);
-        void syncAndGenMips(const SyncGroup<Texture>& group);
+        // void syncAndGenMips(Texture& texture, uint32_t acquireFamily);
 
         template<RendererImpl R>
         friend class Context;

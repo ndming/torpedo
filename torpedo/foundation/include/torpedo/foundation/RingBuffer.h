@@ -1,47 +1,36 @@
 #pragma once
 
 #include "torpedo/foundation/Buffer.h"
-#include "torpedo/foundation/AllocationUtils.h"
 
 namespace tpd {
     class RingBuffer final : public Buffer {
     public:
-        class Builder {
+        class Builder final : Buffer::Builder<Builder, RingBuffer> {
         public:
             Builder& count(uint32_t bufferCount) noexcept;
-            Builder& usage(vk::BufferUsageFlags usage) noexcept;
-            Builder& alloc(std::size_t byteSize, std::size_t alignment = 0) noexcept;
 
-            [[nodiscard]] RingBuffer build(const DeviceAllocator& allocator) const;
-
-            [[nodiscard]] std::unique_ptr<RingBuffer, Deleter<RingBuffer>> build(
-                const DeviceAllocator& allocator, std::pmr::memory_resource* pool) const;
+            [[nodiscard]] RingBuffer build(VmaAllocator allocator) const override;
 
         private:
             uint32_t _bufferCount{};
-            vk::BufferUsageFlags _usage{};
-            std::size_t _bufferSize{};
-            std::size_t _allocSize{};
         };
 
+        RingBuffer() noexcept = default;
+        RingBuffer(RingBuffer&& other) noexcept;
+
         RingBuffer(
-            std::byte* pMappedData, uint32_t bufferCount, std::size_t bufferSize, std::size_t allocSize,
-            vk::Buffer buffer, VmaAllocation allocation, const DeviceAllocator& allocator);
+            std::byte* pMappedData, uint32_t bufferCount, uint32_t allocSizePerBuffer,
+            vk::Buffer buffer, VmaAllocation allocation);
 
-        void updateData(uint32_t bufferIndex, const void* data, std::size_t byteSize = 0) const;
-        void updateData(const void* data, std::size_t byteSize = 0) const;
+        void update(uint32_t bufferIndex, const void* data, std::size_t size) const;
+        void update(const void* data, std::size_t size) const;
 
-        [[nodiscard]] std::size_t getOffset(uint32_t bufferIndex) const;
-        [[nodiscard]] std::size_t getPerBufferSize() const noexcept;
-
-        void destroy() noexcept override;
-        ~RingBuffer() noexcept override;
+        [[nodiscard]] uint32_t getOffset(uint32_t bufferIndex) const;
 
     private:
-        std::byte* _pMappedData;
-        uint32_t   _bufferCount;
-        std::size_t _perBufferSize;
-        std::size_t _perAllocSize;
+        std::byte* _pMappedData{ nullptr };
+        uint32_t _bufferCount{ 0 };
+        uint32_t _allocSizePerBuffer{ 0 };
     };
 } // namespace tpd
 
@@ -50,49 +39,25 @@ inline tpd::RingBuffer::Builder& tpd::RingBuffer::Builder::count(const uint32_t 
     return *this;
 }
 
-inline tpd::RingBuffer::Builder& tpd::RingBuffer::Builder::usage(const vk::BufferUsageFlags usage) noexcept {
-    _usage = usage;
-    return *this;
-}
-
-inline tpd::RingBuffer::Builder& tpd::RingBuffer::Builder::alloc(const std::size_t byteSize, const std::size_t alignment) noexcept {
-    _bufferSize = byteSize;
-    _allocSize  = foundation::getAlignedSize(byteSize, alignment);
-    return *this;
-}
-
 inline tpd::RingBuffer::RingBuffer(
     std::byte* pMappedData,
     const uint32_t bufferCount,
-    const std::size_t bufferSize,
-    const std::size_t allocSize,
+    const uint32_t allocSizePerBuffer,
     const vk::Buffer buffer,
-    VmaAllocation allocation,
-    const DeviceAllocator& allocator)
-    : Buffer{ allocSize * bufferCount, buffer, allocation, allocator }
+    VmaAllocation allocation)
+    : Buffer{ buffer, allocation }
     , _pMappedData{ pMappedData }
     , _bufferCount{ bufferCount }
-    , _perBufferSize{ bufferSize }
-    , _perAllocSize{ allocSize }
+    , _allocSizePerBuffer{ allocSizePerBuffer }
 {}
 
-inline std::size_t tpd::RingBuffer::getOffset(const uint32_t bufferIndex) const {
-    if (bufferIndex >= _bufferCount) [[unlikely]] {
-        throw std::out_of_range("RingBuffer - Could NOT get offset to a buffer whose index is out of range");
-    }
-    return _perAllocSize * bufferIndex;
-}
-
-inline std::size_t tpd::RingBuffer::getPerBufferSize() const noexcept {
-    return _perBufferSize;
-}
-
-inline void tpd::RingBuffer::destroy() noexcept {
-    _pMappedData = nullptr;
-    _bufferCount = 0;
-    Buffer::destroy();
-}
-
-inline tpd::RingBuffer::~RingBuffer() noexcept {
-    destroy();
+inline tpd::RingBuffer::RingBuffer(RingBuffer&& other) noexcept
+    : Buffer{ std::move(other) }
+    , _pMappedData{ other._pMappedData }
+    , _bufferCount{ other._bufferCount }
+    , _allocSizePerBuffer{ other._allocSizePerBuffer }
+{
+    other._pMappedData = nullptr;
+    other._bufferCount = 0;
+    other._allocSizePerBuffer = 0;
 }

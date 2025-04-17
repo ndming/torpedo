@@ -1,6 +1,6 @@
 #include "torpedo/bootstrap/DebugUtils.h"
 
-vk::Result tpd::bootstrap::createDebugUtilsMessenger(
+vk::Result tpd::utils::createDebugUtilsMessenger(
     const vk::Instance instance,
     const vk::DebugUtilsMessengerCreateInfoEXT* pCreateInfo,
     vk::DebugUtilsMessengerEXT* pDebugMessenger,
@@ -20,10 +20,10 @@ vk::Result tpd::bootstrap::createDebugUtilsMessenger(
     return vk::Result::eErrorExtensionNotPresent;
 }
 
-void tpd::bootstrap::destroyDebugUtilsMessenger(
+void tpd::utils::destroyDebugUtilsMessenger(
     const vk::Instance instance,
     const vk::DebugUtilsMessengerEXT debugMessenger,
-    const vk::AllocationCallbacks *pAllocator)
+    const vk::AllocationCallbacks* pAllocator)
 {
     constexpr auto destroyDebugFn = "vkDestroyDebugUtilsMessengerEXT";
     if (const auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, destroyDebugFn));

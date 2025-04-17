@@ -3,7 +3,6 @@
 
 #include <torpedo/bootstrap/DebugUtils.h>
 #include <torpedo/bootstrap/DeviceBuilder.h>
-#include <torpedo/foundation/StagingBuffer.h>
 
 void tpd::Engine::init(
     const vk::Instance instance,
@@ -33,26 +32,19 @@ void tpd::Engine::init(
     _computeQueue  = _device.getQueue(_computeFamilyIndex, 0);
 
 #ifndef NDEBUG
-    bootstrap::setVulkanObjectName(
-        static_cast<VkPhysicalDevice>(_physicalDevice), vk::ObjectType::ePhysicalDevice,
-        getName() + std::string{ " - PhysicalDevice" }, instance, _device);
-
-    bootstrap::setVulkanObjectName(
-        static_cast<VkDevice>(_device), vk::ObjectType::eDevice,
-        getName() + std::string{ " - Device" }, instance, _device);
-
-    bootstrap::setVulkanObjectName(
+    utils::setVulkanObjectName(
         static_cast<VkQueue>(_graphicsQueue), vk::ObjectType::eQueue,
-        getName() + std::string{ " - GraphicsQueue" }, instance, _device);
+        getName() + std::string{ " - Graphics Queue" }, instance, _device);
 
-    bootstrap::setVulkanObjectName(
+    utils::setVulkanObjectName(
         static_cast<VkQueue>(_transferQueue), vk::ObjectType::eQueue,
-        getName() + std::string{ " - TransferQueue" }, instance, _device);
+        getName() + std::string{ " - Transfer Queue" }, instance, _device);
 
-    bootstrap::setVulkanObjectName(
+    utils::setVulkanObjectName(
         static_cast<VkQueue>(_computeQueue), vk::ObjectType::eQueue,
-        getName() + std::string{ " - ComputeQueue" }, instance, _device);
+        getName() + std::string{ " - Compute Queue" }, instance, _device);
 #endif
+
     // These pools handle transferring resources between queues
     createSyncWorkCommandPools();
 
@@ -227,39 +219,44 @@ void tpd::Engine::endSyncAcquireCommands(
     }
 }
 
-void tpd::Engine::sync(const StorageBuffer& storageBuffer, const uint32_t acquireFamily) {
-    if (!storageBuffer.hasSyncData()) {
-        PLOGW << "Engine - Syncing an empty StorageBuffer: did you forget to call StorageBuffer::setSyncData()?";
+void tpd::Engine::transfer(
+    const void* data,
+    const vk::DeviceSize size,
+    const StorageBuffer& dstBuffer,
+    const uint32_t dstFamily,
+    const SyncPoint dstSync)
+{
+    if (size == 0) {
         return;
     }
 
-    auto stagingBuffer = StagingBuffer::Builder()
-        .alloc(storageBuffer.getSyncDataSize())
-        .build(_deviceAllocator, &_syncResourcePool);
-    stagingBuffer->setData(storageBuffer.getSyncData());
+    const auto [stagingBuffer, stagingAllocation] = vma::allocateStagingBuffer(_vmaAllocator, size);
+    vma::copyStagingData(_vmaAllocator, data, size, stagingAllocation);
 
     const auto releaseCommand = beginSyncTransfer(_transferFamilyIndex);
-    storageBuffer.recordBufferTransfer(releaseCommand, stagingBuffer->getVulkanBuffer());
+    dstBuffer.recordStagingCopy(releaseCommand, stagingBuffer);
 
-    // Signals the fence after all queue jobs finish, allowing resource cleanup in the deletion worker's thread
+    // Create a fence that will be signaled once all queued operations are completed.
+    // This allows the deletion worker thread to safely clean up resources after ensuring
+    // that no GPU operations are still using them.
     const auto deletionFence = _device.createFence(vk::FenceCreateInfo{});
 
-    if (_transferFamilyIndex != acquireFamily) {
-        storageBuffer.recordOwnershipRelease(releaseCommand, _transferFamilyIndex, acquireFamily);
+    if (_transferFamilyIndex != dstFamily) {
+        constexpr auto srcSync = SyncPoint{ vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferWrite };
+        dstBuffer.recordOwnershipRelease(releaseCommand, _transferFamilyIndex, dstFamily, srcSync);
         const auto ownershipSemaphoreInfo = createSyncOwnershipSemaphoreInfo();
         endSyncReleaseCommands(releaseCommand, ownershipSemaphoreInfo);
 
-        const auto acquireCommand = beginSyncTransfer(acquireFamily);
-        storageBuffer.recordOwnershipAcquire(acquireCommand, _transferFamilyIndex, acquireFamily);
-        endSyncAcquireCommands(acquireCommand, ownershipSemaphoreInfo, acquireFamily, deletionFence);
+        const auto acquireCommand = beginSyncTransfer(dstFamily);
+        dstBuffer.recordOwnershipAcquire(acquireCommand, _transferFamilyIndex, dstFamily, dstSync);
+        endSyncAcquireCommands(acquireCommand, ownershipSemaphoreInfo, dstFamily, deletionFence);
 
         _stagingDeletionQueue.submit(
             _device, ownershipSemaphoreInfo.semaphore, deletionFence, std::move(stagingBuffer),
             { { getSyncPool(acquireFamily), acquireCommand }, { _transferPool, releaseCommand } });
-
     } else {
         // Ensure subsequent commands don't access the buffer during copy
-        storageBuffer.recordTransferDstSync(releaseCommand);
+        dstBuffer.recordDstSyncCopy(releaseCommand, dstSync);
         endSyncCommands(releaseCommand, deletionFence);
         _stagingDeletionQueue.submit(_device, {}, deletionFence, std::move(stagingBuffer), {{ _transferPool, releaseCommand }});
     }

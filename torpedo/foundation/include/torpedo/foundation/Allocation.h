@@ -17,11 +17,27 @@ namespace tpd {
             pool->deallocate(ptr, sizeof(T), alignof(T));
         }
     };
+} // namespace tpd
+
+namespace tpd::alloc {
+    /**
+     * Returns the smallest size in bytes that is greater than or equal to `size` and is divisible by `alignment`.
+     *
+     * @param byteSize The minimum size in bytes to align up.
+     * @param alignment The alignment boundary, which must be a power of two. When set to 0, `byteSize` is returned as is.
+     */
+    constexpr std::size_t alignUp(const std::size_t size, const std::size_t alignment = 0) {
+        if (alignment == 0) {
+            return size;
+        }
+        // Return the least multiple of alignment greater than or equal byteSize
+        return size + alignment - 1 & ~(alignment - 1);
+    }
 
     template <typename T, typename... Args> requires (!std::is_array_v<T>)
     std::unique_ptr<T, Deleter<T>> make_unique(std::pmr::memory_resource* pool, Args&&... args) {
-        void* mem = pool->allocate(sizeof(T), alignof(T));  // allocate memory
-        T* obj = new (mem) T(std::forward<Args>(args)...);  // placement new
+        void* mem = pool->allocate(sizeof(T), alignof(T)); // allocate memory
+        T* obj = new (mem) T(std::forward<Args>(args)...); // placement new
         return std::unique_ptr<T, Deleter<T>>(obj, Deleter<T>{ pool });
     }
 
@@ -30,20 +46,4 @@ namespace tpd {
 
     template <typename T, typename... Args, std::enable_if_t<std::extent_v<T> != 0, int> = 0>
     void make_unique(std::pmr::memory_resource*, Args&&...) = delete;
-
-    /**
-     * Returns the smallest size that is greater than or equal to byteSize is divisible by `alignment`. If no alignment
-     * is provided, the function returns the `byteSize` as is.
-     *
-     * @param byteSize  The size in bytes to be aligned.
-     * @param alignment The alignment boundary, default to 0 (no alignment)
-     * @return The aligned size that is greater than or equal to the byteSize and aligned to the alignment boundary.
-     */
-    constexpr std::size_t getAlignedSize(const std::size_t byteSize, const std::size_t alignment = 0) {
-        if (alignment == 0) {
-            return byteSize;
-        }
-        // Return the least multiple of alignment greater than or equal byteSize
-        return byteSize + alignment - 1 & ~(alignment - 1);
-    }
-} // namespace tpd
+} // namespace tpd::alloc

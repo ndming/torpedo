@@ -1,10 +1,10 @@
 #pragma once
 
-#include "torpedo/foundation/DeviceAllocator.h"
-#include "torpedo/foundation/SyncResource.h"
+#include "torpedo/foundation/Sync.h"
+#include "torpedo/foundation/VmaUsage.h"
 
 namespace tpd {
-    class Image : public Destroyable {
+    class Image : public OpaqueResource<vk::Image> {
     public:
         Image(
             vk::Image image, vk::ImageLayout layout, vk::Format format,

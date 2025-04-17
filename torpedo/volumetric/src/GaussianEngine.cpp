@@ -353,11 +353,10 @@ void tpd::GaussianEngine::createGaussianBuffer() {
     _gaussianBuffer = StorageBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eTransferDst)
         .alloc(sizeof(Gaussian) * GAUSSIAN_COUNT)
-        .syncData(points.data())
-        .transferDstPoint(vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead)
-        .build(_deviceAllocator, &_engineResourcePool);
+        .build(_vmaAllocator);
 
-    sync(*_gaussianBuffer, _computeFamilyIndex);
+    constexpr auto dstSync = SyncPoint{ vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead };
+    transfer(points.data(), sizeof(Gaussian) * GAUSSIAN_COUNT, _gaussianBuffer, _computeFamilyIndex, dstSync);
 }
 
 void tpd::GaussianEngine::createSplatBuffer() {

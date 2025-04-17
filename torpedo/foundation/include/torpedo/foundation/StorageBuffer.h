@@ -1,99 +1,24 @@
 #pragma once
 
 #include "torpedo/foundation/Buffer.h"
-#include "torpedo/foundation/SyncResource.h"
-#include "torpedo/foundation/AllocationUtils.h"
 
 namespace tpd {
-    class StorageBuffer final : public Buffer, public SyncResource {
+    class StorageBuffer final : public Buffer {
     public:
-        class Builder {
+        class Builder final : public Buffer::Builder<Builder, StorageBuffer> {
         public:
-            Builder& usage(vk::BufferUsageFlags usage) noexcept;
-            Builder& alloc(std::size_t byteSize, std::size_t alignment = 0) noexcept;
-
-            Builder& syncData(const void* data, uint32_t byteSize = 0) noexcept;
-
-            /**
-            * Sets the destination synchronization point, only relevant if the buffer also acts as transfer dst.
-            * 
-            * When data is transferred from host to this buffer, this destination point will be used to synchronize
-            * operations that consume this buffer after the transfer.
-            *
-            * @param stage The destination pipeline stage.
-            * @param access The destination memory access mask.
-            * @return This `Builder` for chaining calls.
-            */
-            Builder& transferDstPoint(vk::PipelineStageFlags2 stage, vk::AccessFlags2 access) noexcept;
-
-            [[nodiscard]] StorageBuffer build(const DeviceAllocator& allocator) const;
-
-            [[nodiscard]] std::unique_ptr<StorageBuffer, Deleter<StorageBuffer>> build(
-                const DeviceAllocator& allocator, std::pmr::memory_resource* pool) const;
-
-        private:
-            [[nodiscard]] vk::Buffer creatBuffer(const DeviceAllocator& allocator, VmaAllocation* allocation) const;
-
-            vk::BufferUsageFlags _usage{};
-            std::size_t _allocSize{};
-
-            const void* _data{ nullptr };
-            uint32_t _dataSize{ 0 };
-
-            using StageMask = vk::PipelineStageFlagBits2;
-            SyncPoint _dstPoint{ StageMask::eBottomOfPipe, vk::AccessFlagBits2::eNone };
+            [[nodiscard]] StorageBuffer build(VmaAllocator allocator) const override;
         };
 
-        StorageBuffer(
-            SyncPoint dstSyncPoint, std::size_t allocSize, vk::Buffer buffer,
-            VmaAllocation allocation, const DeviceAllocator& allocator,
-            const void* data = nullptr, uint32_t dataByteSize = 0);
+        StorageBuffer() noexcept = default;
+        StorageBuffer(StorageBuffer&& other) = default;
 
-        void recordBufferTransfer(vk::CommandBuffer cmd, vk::Buffer stagingBuffer) const noexcept;
-        void recordTransferDstSync(vk::CommandBuffer cmd) const noexcept;
+        StorageBuffer(vk::Buffer buffer, VmaAllocation allocation);
 
-        void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept;
-        void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamilyIndex, uint32_t dstFamilyIndex) const noexcept;
-
-    private:
-        SyncPoint _transferDstPoint;
+        void recordStagingCopy(vk::CommandBuffer cmd, vk::Buffer stagingBuffer, vk::DeviceSize size = vk::WholeSize) const noexcept;
+        void recordDstSyncCopy(vk::CommandBuffer cmd, SyncPoint dstSync) const noexcept;
     };
 } // namespace tpd
 
-inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::usage(const vk::BufferUsageFlags usage) noexcept {
-    _usage = usage;
-    return *this;
-}
-
-inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::alloc(const std::size_t byteSize, const std::size_t alignment) noexcept {
-    _allocSize = foundation::getAlignedSize(byteSize, alignment);
-    return *this;
-}
-
-inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::syncData(const void* data, const uint32_t byteSize) noexcept {
-    _data = data;
-    _dataSize = byteSize;
-    return *this;
-}
-
-inline tpd::StorageBuffer::Builder& tpd::StorageBuffer::Builder::transferDstPoint(
-    const vk::PipelineStageFlags2 stage,
-    const vk::AccessFlags2 access) noexcept
-{
-    _dstPoint.stage = stage;
-    _dstPoint.access = access;
-    return *this;
-}
-
-inline tpd::StorageBuffer::StorageBuffer(
-    const SyncPoint dstSyncPoint,
-    const std::size_t allocSize,
-    const vk::Buffer buffer,
-    VmaAllocation allocation,
-    const DeviceAllocator& allocator,
-    const void* data,
-    const uint32_t dataByteSize)
-    : Buffer{ allocSize, buffer, allocation, allocator }
-    , SyncResource{ data, dataByteSize }
-    , _transferDstPoint{ dstSyncPoint }
-{}
+inline tpd::StorageBuffer::StorageBuffer(const vk::Buffer buffer, VmaAllocation allocation) 
+    : Buffer{ buffer, allocation } {}

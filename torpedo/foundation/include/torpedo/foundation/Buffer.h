@@ -1,59 +1,42 @@
 #pragma once
 
+#include "torpedo/foundation/Allocation.h"
 #include "torpedo/foundation/VmaUsage.h"
+#include "torpedo/foundation/Sync.h"
 
 namespace tpd {
-    class Buffer {
+    class Buffer : public OpaqueResource<vk::Buffer> {
     public:
-        Buffer(std::size_t size, vk::Buffer buffer, VmaAllocation allocation);
+        Buffer() noexcept = default;
+        Buffer(Buffer&& other) noexcept = default;
 
-        Buffer(Buffer&& other) noexcept;
-        Buffer& operator=(Buffer&& other) noexcept;
+        Buffer(vk::Buffer buffer, VmaAllocation allocation);
 
-        [[nodiscard]] vk::Buffer get() const noexcept;
-        [[nodiscard]] std::size_t getSize() const noexcept;
+        void recordOwnershipRelease(vk::CommandBuffer cmd, uint32_t srcFamily, uint32_t dstFamily, SyncPoint srcSync) const noexcept;
+        void recordOwnershipAcquire(vk::CommandBuffer cmd, uint32_t srcFamily, uint32_t dstFamily, SyncPoint dstSync) const noexcept;
 
-        void destroy(VmaAllocator allocator) noexcept;
+    public:
+        template<typename B, typename T>
+        class Builder {
+        public:
+            B& usage(const vk::BufferUsageFlags usage) noexcept {
+                _usage = usage;
+                return *static_cast<B*>(this);
+            }
 
-    protected:
-        std::size_t _size;
-        vk::Buffer _buffer;
-        VmaAllocation _allocation;
+            B& alloc(const vk::DeviceSize size, const vk::DeviceSize alignment = 0) noexcept {
+                _allocSize = alloc::alignUp(size, alignment);
+                return *static_cast<B*>(this);
+            }
+
+            [[nodiscard]] virtual T build(VmaAllocator allocator) const = 0;
+
+        protected:
+            vk::BufferUsageFlags _usage{};
+            vk::DeviceSize _allocSize{};
+        };
     };
 } // namespace tpd
 
-inline tpd::Buffer::Buffer(const std::size_t size, const vk::Buffer buffer, VmaAllocation allocation)
-    : _size{ size }
-    , _buffer{ buffer }
-    , _allocation { allocation }
-{
-    if (!buffer || !allocation) [[unlikely]] {
-        throw std::invalid_argument("Buffer - vk::Buffer is in invalid state: consider using a builder");
-    }
-}
-
-inline tpd::Buffer::Buffer(Buffer&& other) noexcept
-    : _size{ other._size }
-    , _buffer{ other._buffer }
-    , _allocation{ other._allocation }
-{
-    other._size = 0;
-    other._buffer = nullptr;
-    other._allocation = nullptr;
-}
-
-inline vk::Buffer tpd::Buffer::get() const noexcept {
-    return _buffer;
-}
-
-inline std::size_t tpd::Buffer::getSize() const noexcept {
-    return _size;
-}
-
-inline void tpd::Buffer::destroy(VmaAllocator allocator) noexcept {
-    if (_allocation) {
-        _size = 0;
-        vma::deallocateBuffer(allocator, _buffer, _allocation);
-        _allocation = nullptr;
-    }
-}
+inline tpd::Buffer::Buffer(const vk::Buffer buffer, VmaAllocation allocation)
+    : OpaqueResource{ buffer, allocation } {}

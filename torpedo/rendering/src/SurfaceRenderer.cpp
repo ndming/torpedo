@@ -237,7 +237,7 @@ void tpd::SurfaceRenderer::createSwapChain() {
 
 #ifndef NDEBUG
     for (auto i = 0; i < swapImageCount; ++i) {
-        bootstrap::setVulkanObjectName(
+        utils::setVulkanObjectName(
             static_cast<VkImage>(_swapChainImages[i]), vk::ObjectType::eImage,
             "tpd::SurfaceRenderer - SwapChain Image " + std::to_string(i),
             _instance, _device);

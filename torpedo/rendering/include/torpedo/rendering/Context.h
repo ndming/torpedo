@@ -135,7 +135,7 @@ void tpd::Context<R>::createDebugMessenger() {
     debugInfo.messageType = MessageType::eGeneral | MessageType::eValidation | MessageType::ePerformance;
     debugInfo.pfnUserCallback = torpedoDebugMessengerCallback;
 
-    using namespace bootstrap;
+    using namespace utils;
     if (createDebugUtilsMessenger(_instance, &debugInfo, &_debugMessenger) == vk::Result::eErrorExtensionNotPresent) [[unlikely]] {
         throw std::runtime_error("Context - Failed to set up a debug messenger: the extension is not present");
     }
@@ -261,6 +261,11 @@ void tpd::Context<R>::destroyEngine(std::unique_ptr<E, Deleter<E>> engine) noexc
 
 template<tpd::RendererImpl R>
 tpd::Context<R>::~Context() noexcept {
-    _renderer->destroy();  // don't call delete here
+    _renderer->destroy(); // don't call delete here
     _contextPool.deallocate(_renderer, sizeof(R), alignof(R));
+    _renderer = nullptr;
+#ifndef NDEBUG
+    utils::destroyDebugUtilsMessenger(_instance, _debugMessenger);
+#endif
+    _instance.destroy();
 }

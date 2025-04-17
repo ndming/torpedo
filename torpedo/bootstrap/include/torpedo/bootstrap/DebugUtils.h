@@ -2,12 +2,12 @@
 
 #include <vulkan/vulkan.hpp>
 
-namespace tpd::bootstrap {
+namespace tpd::utils {
     [[nodiscard]] vk::Result createDebugUtilsMessenger(
-            vk::Instance instance,
-            const vk::DebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-            vk::DebugUtilsMessengerEXT* pDebugMessenger,
-            const vk::AllocationCallbacks* pAllocator = nullptr);
+        vk::Instance instance,
+        const vk::DebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+        vk::DebugUtilsMessengerEXT* pDebugMessenger,
+        const vk::AllocationCallbacks* pAllocator = nullptr);
 
     void destroyDebugUtilsMessenger(
         vk::Instance instance,
@@ -17,14 +17,14 @@ namespace tpd::bootstrap {
     void setVulkanObjectName(
         auto handle, vk::ObjectType type, std::string_view name,
         vk::Instance instance, vk::Device device);
-}  // namespace tpd::bootstrap
+} // namespace tpd::utils
 
-void tpd::bootstrap::setVulkanObjectName(
+void tpd::utils::setVulkanObjectName(
     const auto handle,
     const vk::ObjectType type,
     const std::string_view name,
     const vk::Instance instance,
-    const vk::Device device)
+    const vk::Device device) 
 {
     constexpr auto setObjNameFn = "vkSetDebugUtilsObjectNameEXT";
     if (const auto func = reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(vkGetInstanceProcAddr(instance, setObjNameFn));

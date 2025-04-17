@@ -17,26 +17,21 @@ namespace tpd::vma {
         uint32_t _apiVersion{ VK_API_VERSION_1_3 };
     };
 
-    [[nodiscard]] vk::Image allocateDeviceImage(
-        VmaAllocator allocator, const vk::ImageCreateInfo& imageCreateInfo, VmaAllocation* allocation);
+    [[nodiscard]] vk::Image allocateDeviceImage(VmaAllocator allocator, const vk::ImageCreateInfo& info, VmaAllocation* allocation);
 
     void deallocateImage(VmaAllocator allocator, vk::Image image, VmaAllocation allocation) noexcept;
 
-    [[nodiscard]] vk::Buffer allocateDeviceBuffer(
-        VmaAllocator allocator, const vk::BufferCreateInfo& bufferCreateInfo, VmaAllocation* allocation);
-    [[nodiscard]] vk::Buffer allocateTwoWayBuffer(
-        VmaAllocator allocator, const vk::BufferCreateInfo& bufferCreateInfo, VmaAllocation* allocation, VmaAllocationInfo* allocationInfo);
-    [[nodiscard]] vk::Buffer allocateStagedBuffer(
-        VmaAllocator allocator, std::size_t bufferByteSize, VmaAllocation* allocation);
-    [[nodiscard]] vk::Buffer allocateMappedBuffer(
-        VmaAllocator allocator, const vk::BufferCreateInfo& bufferCreateInfo, VmaAllocation* allocation, VmaAllocationInfo* allocationInfo);
+    [[nodiscard]] vk::Buffer allocateDeviceBuffer(VmaAllocator allocator, const vk::BufferCreateInfo& info, VmaAllocation* allocation);
+    [[nodiscard]] vk::Buffer allocateTwoWayBuffer(VmaAllocator allocator, const vk::BufferCreateInfo& info, VmaAllocation* allocation, VmaAllocationInfo* allocationInfo);
+    [[nodiscard]] vk::Buffer allocateMappedBuffer(VmaAllocator allocator, const vk::BufferCreateInfo& info, VmaAllocation* allocation, VmaAllocationInfo* allocationInfo);
+
+    [[nodiscard]] std::pair<vk::Buffer, VmaAllocation> allocateStagingBuffer(VmaAllocator allocator, vk::DeviceSize size);
+    void copyStagingData(VmaAllocator allocator, const void* data, vk::DeviceSize size, VmaAllocation allocation);
 
     void deallocateBuffer(VmaAllocator allocator, vk::Buffer buffer, VmaAllocation allocation) noexcept;
 
-    [[nodiscard]] void* mapMemory(VmaAllocator allocator, VmaAllocation allocation);
-    void unmapMemory(VmaAllocator allocator, VmaAllocation allocation);
-
     void destroy(VmaAllocator allocator) noexcept;
+
 } // namespace tpd::vma
 
 inline tpd::vma::Builder& tpd::vma::Builder::flags(const VmaAllocatorCreateFlags flags) noexcept {
@@ -56,4 +51,57 @@ inline tpd::vma::Builder& tpd::vma::Builder::vulkanApiVersion(
 {
     _apiVersion = vk::makeApiVersion(0u, major, minor, patch);
     return *this;
+}
+
+namespace tpd {
+    template<typename T> requires(std::is_same_v<T, vk::Buffer> || std::is_same_v<T, vk::Image>)
+    class OpaqueResource {
+    public:
+        OpaqueResource() noexcept = default;
+        OpaqueResource(T resource, VmaAllocation allocation) noexcept;
+
+        OpaqueResource(OpaqueResource&& other) noexcept;
+        OpaqueResource& operator=(OpaqueResource&& other) noexcept = delete;
+
+        [[nodiscard]] T get() const noexcept { return _resource; }
+        [[nodiscard]] bool valid() const noexcept { return _allocation != nullptr; }
+
+        void destroy(VmaAllocator allocator) noexcept;
+
+    protected:
+        T _resource{};
+
+    private:
+        VmaAllocation _allocation{ nullptr };
+    };
+} // namespace tpd
+
+template <typename T> requires(std::is_same_v<T, vk::Buffer> || std::is_same_v<T, vk::Image>)
+inline tpd::OpaqueResource<T>::OpaqueResource(const T resource, VmaAllocation allocation) noexcept
+    : _resource{ resource }
+    , _allocation{ allocation }
+{}
+
+template<typename T> requires(std::is_same_v<T, vk::Buffer> || std::is_same_v<T, vk::Image>)
+inline tpd::OpaqueResource<T>::OpaqueResource(OpaqueResource&& other) noexcept
+    : _resource{ other._resource }
+    , _allocation{ other._allocation }
+{
+    other._resource = nullptr;
+    other._allocation = nullptr;
+}
+
+template<typename T> requires(std::is_same_v<T, vk::Buffer> || std::is_same_v<T, vk::Image>)
+inline void tpd::OpaqueResource<T>::destroy(VmaAllocator allocator) noexcept {
+    if (!valid())
+        return;
+
+    if constexpr (std::is_same_v<T, vk::Buffer>) {
+        vma::deallocateBuffer(allocator, _resource, _allocation);
+    } else if constexpr (std::is_same_v<T, vk::Image>) {
+        vma::deallocateImage(allocator, _resource, _allocation);
+    }
+
+    _resource = nullptr;
+    _allocation = nullptr;
 }

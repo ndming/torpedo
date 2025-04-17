@@ -1,7 +1,7 @@
 #pragma once
 
 #include "torpedo/foundation/Image.h"
-#include "torpedo/foundation/AllocationUtils.h"
+#include "torpedo/foundation/Allocation.h"
 
 namespace tpd {
     class Texture final : public Image, public SyncResource {
