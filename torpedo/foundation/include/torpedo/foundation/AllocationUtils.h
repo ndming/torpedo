@@ -17,9 +17,7 @@ namespace tpd {
             pool->deallocate(ptr, sizeof(T), alignof(T));
         }
     };
-} // namespace tpd
 
-namespace tpd::foundation {
     template <typename T, typename... Args> requires (!std::is_array_v<T>)
     std::unique_ptr<T, Deleter<T>> make_unique(std::pmr::memory_resource* pool, Args&&... args) {
         void* mem = pool->allocate(sizeof(T), alignof(T));  // allocate memory
@@ -34,10 +32,8 @@ namespace tpd::foundation {
     void make_unique(std::pmr::memory_resource*, Args&&...) = delete;
 
     /**
-     * Calculate the aligned size of a given byte size according to the specified alignment.
-     *
-     * Returns the smallest size that is greater than or equal to the given byteSize, ensuring that the size  is aligned 
-     * to the specified `alignment` boundary. If no alignment is provided, the function returns the `byteSize` as is.
+     * Returns the smallest size that is greater than or equal to byteSize is divisible by `alignment`. If no alignment
+     * is provided, the function returns the `byteSize` as is.
      *
      * @param byteSize  The size in bytes to be aligned.
      * @param alignment The alignment boundary, default to 0 (no alignment)
@@ -50,4 +46,4 @@ namespace tpd::foundation {
         // Return the least multiple of alignment greater than or equal byteSize
         return byteSize + alignment - 1 & ~(alignment - 1);
     }
-} // namespace tpd::foundation
+} // namespace tpd
