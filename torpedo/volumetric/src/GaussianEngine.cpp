@@ -1,159 +1,12 @@
 #include "torpedo/volumetric/GaussianEngine.h"
+#include "torpedo/rendering/LogUtils.h"
 
 #include <torpedo/bootstrap/DeviceBuilder.h>
 #include <torpedo/bootstrap/ShaderModuleBuilder.h>
-#include <torpedo/foundation/ImageUtils.h>
+#include <torpedo/bootstrap/PhysicalDeviceSelector.h>
 
 #include <filesystem>
 #include <numbers>
-
-void tpd::GaussianEngine::preFrameCompute() {
-    // Choose the right queue to submit pre-frame work
-    const auto preFrameQueue = _graphicsFamilyIndex != _computeFamilyIndex ? _computeQueue : _graphicsQueue;
-
-    const auto currentFrame = _renderer->getCurrentDrawingFrame();
-    updateCameraBuffer(currentFrame);
-
-    // Wait until the GPU has done with the pre-frame compute buffer for this frame
-    using limits = std::numeric_limits<uint64_t>;
-    [[maybe_unused]] const auto result = _device.waitForFences(_preFrameFences[currentFrame], vk::True, limits::max());
-    _device.resetFences(_preFrameFences[currentFrame]);
-
-    const auto preFrameCompute = _preFrameCommandBuffers[currentFrame];
-    preFrameCompute.reset();
-    preFrameCompute.begin(vk::CommandBufferBeginInfo{});
-
-    // Preprocess dispatches these passes: prepare, prefix
-    recordPreprocess(preFrameCompute, currentFrame);
-    preFrameCompute.end();
-
-    const auto preprocessInfo = vk::CommandBufferSubmitInfo{ preFrameCompute, 0b1 };
-    const auto preprocessSubmitInfo = vk::SubmitInfo2{}.setCommandBufferInfos(preprocessInfo);
-    preFrameQueue.submit2(preprocessSubmitInfo, _readBackFences[currentFrame]);
-
-    // Wait until prefix has written _tilesRendered to the host visible buffer
-    [[maybe_unused]] const auto _ = _device.waitForFences(_readBackFences[currentFrame], vk::True, limits::max());
-    _device.resetFences(_readBackFences[currentFrame]);
-
-    const auto tilesRendered = _tilesRenderedBuffer->read<uint32_t>();
-
-    preFrameCompute.reset();
-    preFrameCompute.begin(vk::CommandBufferBeginInfo{});
-
-    recordFinalBlend(preFrameCompute, currentFrame);
-
-    // Transfer ownership to graphics before submitting if working with async compute
-    if (_graphicsFamilyIndex != _computeFamilyIndex) {
-        _targets[currentFrame].recordOwnershipRelease(preFrameCompute, _computeFamilyIndex, _graphicsFamilyIndex);
-    }
-
-    preFrameCompute.end();
-
-    const auto computeDrawInfo = vk::CommandBufferSubmitInfo{ preFrameCompute, 0b1 };
-    auto computeDrawSubmitInfo = vk::SubmitInfo2{};
-    computeDrawSubmitInfo.pCommandBufferInfos = &computeDrawInfo;
-    computeDrawSubmitInfo.commandBufferInfoCount = 1;
-
-    // Add an acquire semaphore for compute-graphics ownership transfer
-    if (_graphicsFamilyIndex != _computeFamilyIndex) {
-        const auto ownershipInfo = vk::SemaphoreSubmitInfo{}
-            .setSemaphore(_ownershipSemaphores[currentFrame])
-            .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)
-            .setValue(1).setDeviceIndex(0);
-
-        computeDrawSubmitInfo.signalSemaphoreInfoCount = 1;
-        computeDrawSubmitInfo.pSignalSemaphoreInfos = &ownershipInfo;
-    }
-
-    preFrameQueue.submit2(computeDrawSubmitInfo, _preFrameFences[currentFrame]);
-}
-
-tpd::Engine::DrawPackage tpd::GaussianEngine::draw(const vk::Image image) {
-    const auto currentFrame = _renderer->getCurrentDrawingFrame();
-    const auto graphicsDraw = _drawingCommandBuffers[currentFrame];
-
-    graphicsDraw.reset();
-    graphicsDraw.begin(vk::CommandBufferBeginInfo{});
-
-    if (_graphicsFamilyIndex == _computeFamilyIndex) {
-        // Transition draw target to transfer src and copy to the swap image
-        _targets[currentFrame].recordImageTransition(graphicsDraw, vk::ImageLayout::eTransferSrcOptimal);
-        recordTargetCopy(graphicsDraw, image, currentFrame);
-        return { graphicsDraw, vk::PipelineStageFlagBits2::eTransfer, vk::PipelineStageFlagBits2::eTransfer, {} };
-    }
-
-    // Async compute has drawn and released the image in preFrameCompute, acquire the released image from it
-    // A Target image ensures its layout is TransferSrcOptimal after the ownership transfer
-    _targets[currentFrame].recordOwnershipAcquire(graphicsDraw, _computeFamilyIndex, _graphicsFamilyIndex);
-    recordTargetCopy(graphicsDraw, image, currentFrame);
-
-    constexpr vk::PipelineStageFlags2 ownershipWaitStage = vk::PipelineStageFlagBits2::eAllCommands;
-    return { 
-        graphicsDraw, vk::PipelineStageFlagBits2::eTransfer, vk::PipelineStageFlagBits2::eTransfer, 
-        std::vector{ std::make_pair(_ownershipSemaphores[currentFrame], ownershipWaitStage) } };
-}
-
-void tpd::GaussianEngine::recordPreprocess(const vk::CommandBuffer cmd, const uint32_t currentFrame) const {
-    // Prepare pass
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _preparePipeline);
-    cmd.pushConstants(_prepareLayout->getPipelineLayout(), vk::ShaderStageFlagBits::eCompute, 0, sizeof(PointCloud), &_pc);
-    cmd.bindDescriptorSets(
-        vk::PipelineBindPoint::eCompute, _prepareLayout->getPipelineLayout(),
-        /* first set */ 0, _prepareInstance->getDescriptorSets(currentFrame), {});
-    cmd.dispatch((GAUSSIAN_COUNT + LOCAL_SCAN - 1) / LOCAL_SCAN, 1, 1);
-
-    // Wait until prepare pass has populated the raster point buffer
-    auto barrier = vk::MemoryBarrier2{};
-    barrier.srcStageMask = vk::PipelineStageFlagBits2::eComputeShader;
-    barrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
-    barrier.srcAccessMask = vk::AccessFlagBits2::eShaderStorageWrite;
-    barrier.dstAccessMask = vk::AccessFlagBits2::eShaderStorageRead;
-
-    const auto dependencyInfo = vk::DependencyInfo{}.setMemoryBarriers(barrier);
-    cmd.pipelineBarrier2(dependencyInfo);
-
-    // Prefix pass
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _prefixPipeline);
-    cmd.pushConstants(_prefixLayout->getPipelineLayout(), vk::ShaderStageFlagBits::eCompute, 0, sizeof(PointCloud), &_pc);
-    cmd.bindDescriptorSets(
-        vk::PipelineBindPoint::eCompute, _prefixLayout->getPipelineLayout(),
-        /* first set */ 0, _prefixInstance->getDescriptorSets(currentFrame), {});
-    cmd.dispatch((GAUSSIAN_COUNT + LOCAL_SCAN - 1) / LOCAL_SCAN, 1, 1);
-}
-
-void tpd::GaussianEngine::recordFinalBlend(const vk::CommandBuffer cmd, const uint32_t currentFrame) {
-    // We can safely transition the image layout to General since a Target image ensures synchronization
-    // with transfer operations (image copy to graphics), and this synchronization is multi-queue safe.
-    // In the case of async compute, we don't need ownership transfer from graphics to compute since
-    // we don't care about the old content.
-    _targets[currentFrame].recordImageTransition(cmd, vk::ImageLayout::eGeneral);
-
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _forwardPipeline);
-    cmd.bindDescriptorSets(
-        vk::PipelineBindPoint::eCompute, _forwardLayout->getPipelineLayout(),
-        /* first set */ 0, _forwardInstance->getDescriptorSets(currentFrame), {});
-
-    const auto [w, h, d] = _targets[currentFrame].getPixelSize();
-    cmd.dispatch((w + BLOCK_X - 1) / BLOCK_X, (h + BLOCK_Y - 1) / BLOCK_Y, 1);
-}
-
-void tpd::GaussianEngine::recordTargetCopy(
-    const vk::CommandBuffer cmd,
-    const vk::Image swapImage,
-    const uint32_t currentFrame) const
-{
-    foundation::recordLayoutTransition(
-        cmd, swapImage, vk::ImageAspectFlagBits::eColor, 1, 
-        vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
-
-    _targets[currentFrame].recordImageCopyTo(swapImage, cmd);
-
-    foundation::recordLayoutTransition(
-        cmd, swapImage, vk::ImageAspectFlagBits::eColor, 1, 
-        vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::ePresentSrcKHR);
-
-    cmd.end();
-}
 
 tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
     const std::vector<const char*>& deviceExtensions,
@@ -163,7 +16,7 @@ tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
     auto selector = PhysicalDeviceSelector()
         .featuresVulkan13(getVulkan13Features());
 
-    if (_renderer->hasSurfaceRenderingSupport()) {
+    if (_renderer->supportSurfaceRendering()) {
         selector.requestGraphicsQueueFamily();
         selector.requestPresentQueueFamily(surface);
     }
@@ -197,11 +50,57 @@ vk::PhysicalDeviceVulkan13Features tpd::GaussianEngine::getVulkan13Features() {
 }
 
 void tpd::GaussianEngine::onInitialized() {
+#ifndef NDEBUG
+    logDebugInfos();
+#endif
+    // We're going to need a transfer worker for data transfer
+    _transferWorker = std::make_unique<TransferWorker>(
+        _transferFamilyIndex, _graphicsFamilyIndex, _computeFamilyIndex, _physicalDevice, _device, _vmaAllocator);
+
+    // Create queues relevant to Gaussian splatting
+    _graphicsQueue = _device.getQueue(_graphicsFamilyIndex, 0);
+    _computeQueue = _device.getQueue(_computeFamilyIndex, 0);
+
+    // Resize render targets when the framebuffer resizes
+    _renderer->addFramebufferResizeCallback(this, framebufferResizeCallback);
+
+    createDrawingCommandPool();
+    if (asyncCompute()) {
+        createComputeCommandPool();
+    }
+
+    const auto frameCount = _renderer->getInFlightFrameCount();
+    const auto [w, h] = _renderer->getFramebufferSize();
+
+    // The logic for resizing frame and target view vectors should be made once here
+    // since they can be recreated later and should not be resized again
+    _frames.reserve(frameCount);
+    _frames.resize(frameCount);
+    _targetViews.resize(frameCount);
+
+    createFrames();
+    createRenderTargets(w, h);
+
+    createPointCloudObject(w, h);
+    createCameraObject(w, h);
+
+    createCameraBuffer();
+    createGaussianBuffer();
+    createSplatBuffer();
+    createPrefixOffsetsBuffer();
+    createTilesRenderedBuffer();
+
+    createPreparePipeline();
+    createPrefixPipeline();
+    createForwardPipeline();
+}
+
+void tpd::GaussianEngine::logDebugInfos() const noexcept {
     // Log queue families
     PLOGD << "Queue family indices selected:";
     PLOGD << " - Compute:  " << _computeFamilyIndex;
     PLOGD << " - Transfer: " << _transferFamilyIndex;
-    if (_renderer->hasSurfaceRenderingSupport()) {
+    if (_renderer->supportSurfaceRendering()) {
         PLOGD << " - Graphics: " << _graphicsFamilyIndex;
         PLOGD << " - Present:  " << _presentFamilyIndex;
     }
@@ -224,39 +123,6 @@ void tpd::GaussianEngine::onInitialized() {
     const auto assetsDir = std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR).make_preferred();
     PLOGD << "Assets directories used by " << getName() << ':';
     PLOGD << " - " << assetsDir / "slang";
-
-    // The logic for resizing target and target view vectors should be made once here
-    // since they can be recreated later and should not be resized again
-    const auto frameCount = _renderer->getInFlightFramesCount();
-    _targets.reserve(frameCount);     // only reserve here since the only way to append new Target is via push_back
-    _targetViews.resize(frameCount);  // vk::ImageView can be copied
-
-    _renderer->addFramebufferResizeCallback(this, framebufferResizeCallback);
-    const auto [w, h] = _renderer->getFramebufferSize();
-
-    createPointCloudObject(w, h);
-    createCameraObject(w, h);
-    createCameraBuffer();
-
-    createGaussianBuffer();
-    createSplatBuffer();
-    createPrefixOffsetsBuffer();
-    createTilesRenderedBuffer();
-
-    createRenderTargets(w, h);
-
-    createPreparePipeline();
-    createPrefixPipeline();
-    createForwardPipeline();
-
-    if (_graphicsFamilyIndex != _computeFamilyIndex) {
-        // Additional resources for async compute
-        createComputeCommandPool();
-        createOwnershipSemaphores();
-    }
-
-    createPreFrameCommandBuffers();
-    createFences();
 }
 
 void tpd::GaussianEngine::framebufferResizeCallback(void* ptr, const uint32_t width, const uint32_t height) {
@@ -272,6 +138,54 @@ void tpd::GaussianEngine::onFramebufferResize(const uint32_t width, const uint32
     createPointCloudObject(width, height);
     createCameraObject(width, height);
     setTargetDescriptors();
+}
+
+void tpd::GaussianEngine::createDrawingCommandPool() {
+    const auto poolInfo = vk::CommandPoolCreateInfo{}
+        .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
+        .setQueueFamilyIndex(_graphicsFamilyIndex);
+    _drawingCommandPool = _device.createCommandPool(poolInfo);
+}
+
+void tpd::GaussianEngine::createComputeCommandPool() {
+    const auto poolInfo = vk::CommandPoolCreateInfo{}
+        .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
+        .setQueueFamilyIndex(_computeFamilyIndex);
+    _computeCommandPool = _device.createCommandPool(poolInfo);
+}
+
+void tpd::GaussianEngine::createFrames() {
+    const auto drawingAllocInfo = vk::CommandBufferAllocateInfo{ _drawingCommandPool, vk::CommandBufferLevel::ePrimary, 1 };
+    const auto computeAllocInfo = vk::CommandBufferAllocateInfo{ _computeCommandPool, vk::CommandBufferLevel::ePrimary, 1 };
+
+    for (auto& [drawing, compute, ownership, preFrameFence, readBackFence, _] : _frames) {
+        drawing = _device.allocateCommandBuffers(drawingAllocInfo)[0];
+        compute = _device.allocateCommandBuffers(asyncCompute()? computeAllocInfo : drawingAllocInfo)[0];
+        preFrameFence = _device.createFence(vk::FenceCreateInfo{ vk::FenceCreateFlagBits::eSignaled });
+        readBackFence = _device.createFence({});
+
+        if (asyncCompute()) {
+            ownership = _device.createSemaphore({});
+        }
+    }
+}
+
+void tpd::GaussianEngine::createRenderTargets(const uint32_t width, const uint32_t height) {
+    const auto targetBuilder = Image::Builder<Target>()
+        .extent(width, height)
+        .format(vk::Format::eR8G8B8A8Unorm)
+        .usage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc);
+
+    // Create a render target image and image view for each in-flight frame
+    for (auto i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
+        _frames[i].renderTarget = targetBuilder.build(_vmaAllocator);
+        _targetViews[i] = _frames[i].renderTarget.createImageView(vk::ImageViewType::e2D, _device);
+    }
+}
+
+void tpd::GaussianEngine::cleanupRenderTargets() noexcept {
+    std::ranges::for_each(_targetViews, [this](const auto it) { _device.destroyImageView(it); });
+    std::ranges::for_each(_frames, [this](Frame& it) { it.renderTarget.destroy(_vmaAllocator); });
 }
 
 void tpd::GaussianEngine::createPointCloudObject(const uint32_t width, const uint32_t height) {
@@ -307,36 +221,20 @@ void tpd::GaussianEngine::createCameraObject(const uint32_t width, const uint32_
     _camera.projMatrix = projection * _camera.viewMatrix;
 }
 
-void tpd::GaussianEngine::createRenderTargets(const uint32_t width, const uint32_t height) {
-    const auto targetBuilder = Target::Builder()
-        .extent(width, height)
-        .aspect(vk::ImageAspectFlagBits::eColor)
-        .format(vk::Format::eR8G8B8A8Unorm)
-        .usage(vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc);
-
-    // Create a render target image and image view for each in-flight frame
-    for (auto i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
-        _targets.push_back(targetBuilder.build(_deviceAllocator));
-        _targetViews[i] = _targets[i].createImageView(vk::ImageViewType::e2D, _device);
-    }
-
-    PLOGD << "Number of target images created by " << getName() << ": " << _targets.size();
-}
-
 void tpd::GaussianEngine::createCameraBuffer() {
     // A RingBuffer internally uses offsets to manage the buffer, and for a uniform buffer, these offsets
     // must be aligned to the minUniformBufferOffsetAlignment limit of the physical device.
     const auto minAlignment = _physicalDevice.getProperties().limits.minUniformBufferOffsetAlignment;
 
     _cameraBuffer = RingBuffer::Builder()
-        .count(_renderer->getInFlightFramesCount())
+        .count(_renderer->getInFlightFrameCount())
         .usage(vk::BufferUsageFlagBits::eUniformBuffer)
         .alloc(sizeof(Camera), minAlignment)
-        .build(_deviceAllocator, &_engineResourcePool);
+        .build(_vmaAllocator);
 }
 
 void tpd::GaussianEngine::updateCameraBuffer(const uint32_t currentFrame) const {
-    _cameraBuffer->updateData(currentFrame, &_camera, sizeof(Camera));
+    _cameraBuffer.update(currentFrame, &_camera, sizeof(Camera));
 }
 
 void tpd::GaussianEngine::createGaussianBuffer() {
@@ -356,84 +254,84 @@ void tpd::GaussianEngine::createGaussianBuffer() {
         .build(_vmaAllocator);
 
     constexpr auto dstSync = SyncPoint{ vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead };
-    transfer(points.data(), sizeof(Gaussian) * GAUSSIAN_COUNT, _gaussianBuffer, _computeFamilyIndex, dstSync);
+    _transferWorker->transfer(points.data(), sizeof(Gaussian) * GAUSSIAN_COUNT, _gaussianBuffer, _computeFamilyIndex, dstSync);
 }
 
 void tpd::GaussianEngine::createSplatBuffer() {
     _splatBuffer = StorageBuffer::Builder()
         .alloc(SPLAT_SIZE * GAUSSIAN_COUNT)
-        .build(_deviceAllocator, &_engineResourcePool);
+        .build(_vmaAllocator);
 }
 
 void tpd::GaussianEngine::createPrefixOffsetsBuffer() {
     _prefixOffsetsBuffer = StorageBuffer::Builder()
         .alloc(sizeof(uint32_t) * GAUSSIAN_COUNT)
-        .build(_deviceAllocator, &_engineResourcePool);
+        .build(_vmaAllocator);
 }
 
 void tpd::GaussianEngine::createTilesRenderedBuffer() {
     _tilesRenderedBuffer = ReadbackBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eStorageBuffer)
         .alloc(sizeof(uint32_t))
-        .build(_deviceAllocator, &_engineResourcePool);
+        .build(_vmaAllocator);
 }
 
 void tpd::GaussianEngine::createPreparePipeline() {
-    _prepareLayout = ShaderLayout::Builder(&_engineResourcePool)
+    _prepareLayout = ShaderLayout::Builder()
         .descriptorSetCount(1)
         .pushConstantRange(vk::ShaderStageFlagBits::eCompute, 0, sizeof(PointCloud))
         .descriptor(0, 0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eCompute) // Camera
         .descriptor(0, 1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute) // Gaussian points
         .descriptor(0, 2, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute) // Raster points
-        .buildUnique(_device);
+        .build(_device, &_preparePipelineLayout);
     
-    _prepareInstance = _prepareLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
-    _preparePipeline = buildComputePipeline("prepare.slang", _prepareLayout->getPipelineLayout());
+    _prepareInstance = _prepareLayout.createInstance(_device, _renderer->getInFlightFrameCount());
+    _preparePipeline = createPipeline("prepare.slang", _preparePipelineLayout);
 
-    for (uint32_t i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
+    for (uint32_t i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
         const auto descriptorInfo = vk::DescriptorBufferInfo{}
-            .setBuffer(_cameraBuffer->getVulkanBuffer())
-            .setOffset(_cameraBuffer->getOffset(i))
-            .setRange(_cameraBuffer->getPerBufferSize());
-        _prepareInstance->setDescriptor(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, descriptorInfo);
+            .setBuffer(_cameraBuffer)
+            .setOffset(_cameraBuffer.getOffset(i))
+            .setRange(sizeof(Camera));
+        _prepareInstance.setDescriptor(i, 0, 0, vk::DescriptorType::eUniformBuffer, _device, descriptorInfo);
     }
 
-    setStorageBufferDescriptors(_gaussianBuffer->getVulkanBuffer(), _gaussianBuffer->getSize(), *_prepareInstance, 1);
-    setStorageBufferDescriptors(  _splatBuffer->getVulkanBuffer(), _splatBuffer->getSize(),   *_prepareInstance, 2);
+    setStorageBufferDescriptors(_gaussianBuffer, sizeof(Gaussian) * GAUSSIAN_COUNT, _prepareInstance, 1);
+    setStorageBufferDescriptors(_splatBuffer, SPLAT_SIZE * GAUSSIAN_COUNT, _prepareInstance, 2);
 }
 
 void tpd::GaussianEngine::createPrefixPipeline() {
-    _prefixLayout = ShaderLayout::Builder(&_engineResourcePool)
+    _prefixLayout = ShaderLayout::Builder()
         .descriptorSetCount(1)
         .pushConstantRange(vk::ShaderStageFlagBits::eCompute, 0, sizeof(PointCloud))
         .descriptor(0, 0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute) // Raster points
         .descriptor(0, 1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute) // prefix offsets
         .descriptor(0, 2, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute) // tiles rendered
-        .buildUnique(_device);
+        .build(_device, &_prefixPipelineLayout);
 
-    _prefixInstance = _prefixLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
-    _prefixPipeline = buildComputePipeline("prefix.slang", _prefixLayout->getPipelineLayout());
+    _prefixInstance = _prefixLayout.createInstance(_device, _renderer->getInFlightFrameCount());
+    _prefixPipeline = createPipeline("prefix.slang", _prefixPipelineLayout);
 
-    setStorageBufferDescriptors(  _splatBuffer->getVulkanBuffer(),   _splatBuffer->getSize(), *_prefixInstance, 0);
-    setStorageBufferDescriptors(_prefixOffsetsBuffer->getVulkanBuffer(), _prefixOffsetsBuffer->getSize(), *_prefixInstance, 1);
-    setStorageBufferDescriptors(_tilesRenderedBuffer->getVulkanBuffer(), _tilesRenderedBuffer->getSize(), *_prefixInstance, 2);
+    setStorageBufferDescriptors(_splatBuffer, SPLAT_SIZE * GAUSSIAN_COUNT, _prefixInstance, 0);
+    setStorageBufferDescriptors(_prefixOffsetsBuffer, sizeof(uint32_t) * GAUSSIAN_COUNT, _prefixInstance, 1);
+    setStorageBufferDescriptors(_tilesRenderedBuffer, sizeof(uint32_t), _prefixInstance, 2);
 }
 
 void tpd::GaussianEngine::createForwardPipeline() {
-    _forwardLayout = ShaderLayout::Builder(&_engineResourcePool)
+    _forwardLayout = ShaderLayout::Builder()
         .descriptorSetCount(1)
         .descriptor(0, 0, vk::DescriptorType::eStorageImage,  1, vk::ShaderStageFlagBits::eCompute)
         .descriptor(0, 1, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute)
-        .buildUnique(_device);
+        .build(_device, &_forwardPipelineLayout);
 
-    _forwardInstance = _forwardLayout->createInstance(&_engineResourcePool, _device, _renderer->getInFlightFramesCount());
-    _forwardPipeline = buildComputePipeline("forward.slang", _forwardLayout->getPipelineLayout());
+    _forwardInstance = _forwardLayout.createInstance(_device, _renderer->getInFlightFrameCount());
+    _forwardPipeline = createPipeline("forward.slang", _forwardPipelineLayout);
 
     setTargetDescriptors();
-    setStorageBufferDescriptors(_gaussianBuffer->getVulkanBuffer(), _gaussianBuffer->getSize(), *_forwardInstance, 1);
+    setStorageBufferDescriptors(_gaussianBuffer, sizeof(Gaussian) * GAUSSIAN_COUNT, _forwardInstance, 1);
 }
 
-vk::Pipeline tpd::GaussianEngine::buildComputePipeline(const std::string& slangFile, const vk::PipelineLayout layout) const {
+vk::Pipeline tpd::GaussianEngine::createPipeline(const std::string& slangFile, const vk::PipelineLayout layout) const {
     const auto shaderModule = ShaderModuleBuilder()
         .slang(TORPEDO_VOLUMETRIC_ASSETS_DIR, slangFile)
         .build(_device);
@@ -453,11 +351,11 @@ vk::Pipeline tpd::GaussianEngine::buildComputePipeline(const std::string& slangF
 }
 
 void tpd::GaussianEngine::setTargetDescriptors() const {
-    for (uint32_t i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
+    for (uint32_t i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
         const auto descriptorInfo = vk::DescriptorImageInfo{}
             .setImageView(_targetViews[i])
             .setImageLayout(vk::ImageLayout::eGeneral);
-        _forwardInstance->setDescriptor(i, 0, 0, vk::DescriptorType::eStorageImage, _device, descriptorInfo);
+        _forwardInstance.setDescriptor(i, 0, 0, vk::DescriptorType::eStorageImage, _device, descriptorInfo);
     }
 }
 
@@ -468,7 +366,7 @@ void tpd::GaussianEngine::setStorageBufferDescriptors(
     const uint32_t binding,
     const uint32_t set) const 
 {
-    for (uint32_t i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
+    for (uint32_t i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
         const auto descriptorInfo = vk::DescriptorBufferInfo{}
             .setBuffer(buffer)
             .setOffset(0)
@@ -477,93 +375,224 @@ void tpd::GaussianEngine::setStorageBufferDescriptors(
     }
 }
 
-void tpd::GaussianEngine::createComputeCommandPool() {
-    const auto poolInfo = vk::CommandPoolCreateInfo{}
-        .setQueueFamilyIndex(_computeFamilyIndex)
-        .setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
-    _computeCommandPool = _device.createCommandPool(poolInfo);
-}
+void tpd::GaussianEngine::preFrameCompute() const {
+    // Choose the right queue to submit pre-frame work
+    const auto preFrameQueue = asyncCompute() ? _computeQueue : _graphicsQueue;
 
-void tpd::GaussianEngine::createOwnershipSemaphores() {
-    _ownershipSemaphores.resize(_renderer->getInFlightFramesCount());
-    for (auto i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
-        _ownershipSemaphores[i] = _device.createSemaphore({});
+    const auto frameIndex = _renderer->getCurrentFrameIndex();
+    updateCameraBuffer(frameIndex);
+
+    // Wait until the GPU has done with the pre-frame compute buffer for this frame
+    using limits = std::numeric_limits<uint64_t>;
+    const auto preFrameFence = _frames[frameIndex].preFrameFence;
+    [[maybe_unused]] const auto result = _device.waitForFences(preFrameFence, vk::True, limits::max());
+    _device.resetFences(preFrameFence);
+
+    const auto preFrameCompute = _frames[frameIndex].compute;
+    preFrameCompute.reset();
+    preFrameCompute.begin(vk::CommandBufferBeginInfo{});
+
+    // Preprocess dispatches these passes: prepare, prefix
+    recordPreprocess(preFrameCompute, frameIndex);
+    preFrameCompute.end();
+
+    const auto preprocessInfo = vk::CommandBufferSubmitInfo{ preFrameCompute, 0b1 };
+    const auto preprocessSubmitInfo = vk::SubmitInfo2{}.setCommandBufferInfos(preprocessInfo);
+    const auto readBackFence = _frames[frameIndex].readBackFence;
+    preFrameQueue.submit2(preprocessSubmitInfo, readBackFence);
+
+    // Wait until prefix has written _tilesRendered to the host visible buffer
+    [[maybe_unused]] const auto _ = _device.waitForFences(readBackFence, vk::True, limits::max());
+    _device.resetFences(readBackFence);
+
+    const auto tilesRendered = _tilesRenderedBuffer.read<uint32_t>();
+
+    preFrameCompute.reset();
+    preFrameCompute.begin(vk::CommandBufferBeginInfo{});
+
+    recordFinalBlend(preFrameCompute, frameIndex);
+
+    // Transfer ownership to graphics before submitting if working with async compute
+    if (asyncCompute()) {
+        constexpr auto releaseSrcSync = SyncPoint{ vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite };
+        _frames[frameIndex].renderTarget.recordOwnershipRelease(
+            preFrameCompute, _computeFamilyIndex, _graphicsFamilyIndex, releaseSrcSync,
+            vk::ImageLayout::eGeneral, vk::ImageLayout::eTransferSrcOptimal); // we're about to copy contents from target
     }
-}
 
-void tpd::GaussianEngine::createPreFrameCommandBuffers() {
-    // Preprocess command buffers handle these passes: prepare, prefix
-    auto allocInfo = vk::CommandBufferAllocateInfo{};
-    allocInfo.commandPool = _graphicsFamilyIndex == _computeFamilyIndex ? _drawingCommandPool : _computeCommandPool;
-    allocInfo.level = vk::CommandBufferLevel::ePrimary;
-    allocInfo.commandBufferCount = _renderer->getInFlightFramesCount();
+    preFrameCompute.end();
 
-    const auto allocatedBuffers = _device.allocateCommandBuffers(allocInfo);
-    _preFrameCommandBuffers.resize(allocatedBuffers.size());
-    for (size_t i = 0; i < allocatedBuffers.size(); ++i) {
-        _preFrameCommandBuffers[i] = allocatedBuffers[i];
+    const auto computeDrawInfo = vk::CommandBufferSubmitInfo{ preFrameCompute, 0b1 };
+    auto computeDrawSubmitInfo = vk::SubmitInfo2{};
+    computeDrawSubmitInfo.pCommandBufferInfos = &computeDrawInfo;
+    computeDrawSubmitInfo.commandBufferInfoCount = 1;
+
+    // Add an acquire semaphore for compute-graphics ownership transfer
+    if (asyncCompute()) {
+        const auto ownershipInfo = vk::SemaphoreSubmitInfo{}
+            .setSemaphore(_frames[frameIndex].ownership)
+            .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)
+            .setValue(1).setDeviceIndex(0);
+
+        computeDrawSubmitInfo.signalSemaphoreInfoCount = 1;
+        computeDrawSubmitInfo.pSignalSemaphoreInfos = &ownershipInfo;
     }
+
+    preFrameQueue.submit2(computeDrawSubmitInfo, preFrameFence);
 }
 
-void tpd::GaussianEngine::createFences() {
-    _preFrameFences.resize(_renderer->getInFlightFramesCount());
-    _readBackFences.resize(_renderer->getInFlightFramesCount());
-    for (auto i = 0; i < _renderer->getInFlightFramesCount(); ++i) {
-        _preFrameFences[i] = _device.createFence(vk::FenceCreateInfo{ vk::FenceCreateFlagBits::eSignaled });
-        _readBackFences[i] = _device.createFence({});
+void tpd::GaussianEngine::draw(const SwapImage image) {
+    const auto frameIndex = _renderer->getCurrentFrameIndex();
+    const auto [imageReady, renderDone, frameDrawFence] = _renderer->getCurrentFrameSync();
+
+    const auto graphicsDraw = _frames[frameIndex].drawing;
+
+    // Prepare submit info to the graphics queue
+    using PipelineStage = vk::PipelineStageFlagBits2;
+    const auto bufferInfo = vk::CommandBufferSubmitInfo{ graphicsDraw, 0b1 };
+    const auto doneInfo = vk::SemaphoreSubmitInfo{ renderDone, 1, PipelineStage::eTransfer, 0 };
+
+    auto waitInfos = std::array<vk::SemaphoreSubmitInfo, 2>{};
+    waitInfos[0].semaphore = imageReady;
+    waitInfos[0].stageMask = PipelineStage::eTransfer;
+    waitInfos[0].value = 1;
+    waitInfos[0].deviceIndex = 0;
+    waitInfos[1].semaphore = _frames[frameIndex].ownership;
+    waitInfos[1].stageMask = PipelineStage::eAllCommands;
+    waitInfos[1].value = 1;
+    waitInfos[1].deviceIndex = 0;
+
+    auto submitInfo = vk::SubmitInfo2{};
+    submitInfo.commandBufferInfoCount = 1;
+    submitInfo.pCommandBufferInfos = &bufferInfo;
+    submitInfo.waitSemaphoreInfoCount = asyncCompute() ? 2 : 1;
+    submitInfo.pWaitSemaphoreInfos = waitInfos.data();
+    submitInfo.signalSemaphoreInfoCount = 1;
+    submitInfo.pSignalSemaphoreInfos = &doneInfo;
+
+    graphicsDraw.reset();
+    graphicsDraw.begin(vk::CommandBufferBeginInfo{});
+
+    using enum vk::ImageLayout;
+    if (asyncCompute()) {
+        // Async compute has drawn and released the image in preFrameCompute, acquire the released image from it
+        constexpr auto acquireDstSync = SyncPoint{ PipelineStage::eTransfer, vk::AccessFlagBits2::eTransferRead };
+        _frames[frameIndex].renderTarget.recordOwnershipAcquire(
+            graphicsDraw, _computeFamilyIndex, _graphicsFamilyIndex, acquireDstSync,
+            eGeneral, eTransferSrcOptimal); // we're about to copy contents from target
+    } else {
+        // Transition draw target to transfer src and copy its content to the swap image
+        _frames[frameIndex].renderTarget.recordLayoutTransition(graphicsDraw, eGeneral, eTransferSrcOptimal);
     }
+
+    recordTargetCopy(graphicsDraw, image, frameIndex);
+    graphicsDraw.end();
+
+    _graphicsQueue.submit2(submitInfo, frameDrawFence);
 }
 
-void tpd::GaussianEngine::cleanupRenderTargets() noexcept {
-    std::ranges::for_each(_targetViews, [this](const auto it) { _device.destroyImageView(it); });
-    std::ranges::for_each(_targets, [](Target& it) { it.destroy(); });
-    _targets.clear(); // the capacity remains the same, clear so that new Target can be correctly pushed back
+void tpd::GaussianEngine::recordPreprocess(const vk::CommandBuffer cmd, const uint32_t frameIndex) const noexcept {
+    // Prepare pass
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _preparePipeline);
+    cmd.pushConstants(_preparePipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(PointCloud), &_pc);
+    cmd.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute, _preparePipelineLayout,
+        /* first set */ 0, _prepareInstance.getDescriptorSets(frameIndex), {});
+    cmd.dispatch((GAUSSIAN_COUNT + LINEAR_WORKGROUP_SIZE - 1) / LINEAR_WORKGROUP_SIZE, 1, 1);
+
+    // Wait until prepare pass has populated the raster point buffer
+    auto barrier = vk::MemoryBarrier2{};
+    barrier.srcStageMask = vk::PipelineStageFlagBits2::eComputeShader;
+    barrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
+    barrier.srcAccessMask = vk::AccessFlagBits2::eShaderStorageWrite;
+    barrier.dstAccessMask = vk::AccessFlagBits2::eShaderStorageRead;
+
+    const auto dependencyInfo = vk::DependencyInfo{}.setMemoryBarriers(barrier);
+    cmd.pipelineBarrier2(dependencyInfo);
+
+    // Prefix pass
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _prefixPipeline);
+    cmd.pushConstants(_prefixPipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(PointCloud), &_pc);
+    cmd.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute, _prefixPipelineLayout,
+        /* first set */ 0, _prefixInstance.getDescriptorSets(frameIndex), {});
+    cmd.dispatch((GAUSSIAN_COUNT + LINEAR_WORKGROUP_SIZE - 1) / LINEAR_WORKGROUP_SIZE, 1, 1);
+}
+
+void tpd::GaussianEngine::recordFinalBlend(const vk::CommandBuffer cmd, const uint32_t frameIndex) const noexcept {
+    // We can safely transition the image layout to General since a Target image ensures synchronization
+    // with transfer operations (image copy to graphics), and this synchronization is multi-queue safe.
+    // In the case of async compute, we don't need ownership transfer from graphics to compute since
+    // we don't care about the old content.
+    using enum vk::ImageLayout;
+    const auto oldLayout = frameIndex < _renderer->getInFlightFrameCount() ? eUndefined : eTransferSrcOptimal;
+    _frames[frameIndex].renderTarget.recordLayoutTransition(cmd, oldLayout, eGeneral);
+
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _forwardPipeline);
+    cmd.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute, _forwardPipelineLayout,
+        /* first set */ 0, _forwardInstance.getDescriptorSets(frameIndex), {});
+
+    const auto [w, h] = _renderer->getFramebufferSize();
+    cmd.dispatch((w + BLOCK_X - 1) / BLOCK_X, (h + BLOCK_Y - 1) / BLOCK_Y, 1);
+}
+
+void tpd::GaussianEngine::recordTargetCopy(
+    const vk::CommandBuffer cmd,
+    const SwapImage swapImage,
+    const uint32_t frameIndex) const noexcept
+{
+    using enum vk::ImageLayout;
+    swapImage.recordLayoutTransition(cmd, eUndefined, eTransferDstOptimal);
+    const auto [w, h] = _renderer->getFramebufferSize();
+    _frames[frameIndex].renderTarget.recordDstImageCopy(cmd, swapImage, { w, h, 1 });
+    swapImage.recordLayoutTransition(cmd, eTransferDstOptimal, ePresentSrcKHR);
 }
 
 void tpd::GaussianEngine::destroy() noexcept {
     if (_initialized) {
-        std::ranges::for_each(_readBackFences, [this](const auto it) { _device.destroyFence(it); });
-        std::ranges::for_each(_preFrameFences, [this](const auto it) { _device.destroyFence(it); });
-        _readBackFences.clear();
-        _preFrameFences.clear();
-
-        _preFrameCommandBuffers.clear();
-
-        if (_graphicsFamilyIndex != _computeFamilyIndex) {
-            std::ranges::for_each(_ownershipSemaphores, [this](const auto it) { _device.destroySemaphore(it); });
-            _device.destroyCommandPool(_computeCommandPool);
-        }
-
         _device.destroyPipeline(_forwardPipeline);
-        _forwardInstance->destroy(_device);
-        _forwardInstance.reset();
-        _forwardLayout->destroy(_device);
-        _forwardLayout.reset();
+        _forwardInstance.destroy(_device);
+        _forwardLayout.destroy(_device);
+        _device.destroyPipelineLayout(_forwardPipelineLayout);
 
         _device.destroyPipeline(_prefixPipeline);
-        _prefixInstance->destroy(_device);
-        _prefixInstance.reset();
-        _prefixLayout->destroy(_device);
-        _prefixLayout.reset();
+        _prefixInstance.destroy(_device);
+        _prefixLayout.destroy(_device);
+        _device.destroyPipelineLayout(_prefixPipelineLayout);
 
         _device.destroyPipeline(_preparePipeline);
-        _prepareInstance->destroy(_device);
-        _prepareInstance.reset();
-        _prepareLayout->destroy(_device);
-        _prepareLayout.reset();
+        _prepareInstance.destroy(_device);
+        _prepareLayout.destroy(_device);
+        _device.destroyPipelineLayout(_preparePipelineLayout);
+
+        _tilesRenderedBuffer.destroy(_vmaAllocator);
+        _prefixOffsetsBuffer.destroy(_vmaAllocator);
+        _splatBuffer.destroy(_vmaAllocator);
+        _gaussianBuffer.destroy(_vmaAllocator);
+        _cameraBuffer.destroy(_vmaAllocator);
 
         cleanupRenderTargets();
+        std::ranges::for_each(_frames, [this](const Frame& f) {
+            if (asyncCompute()) {
+                _device.destroySemaphore(f.ownership);
+            }
+            _device.destroyFence(f.readBackFence);
+            _device.destroyFence(f.preFrameFence);
+        });
         _targetViews.clear();
+        _frames.clear();
 
-        _tilesRenderedBuffer.reset();
-        _prefixOffsetsBuffer.reset();
-        _splatBuffer.reset();
-        _gaussianBuffer.reset();
-        _cameraBuffer.reset();
+        if (asyncCompute()) {
+            _device.destroyCommandPool(_computeCommandPool);
+        }
+        _device.destroyCommandPool(_drawingCommandPool);
 
         if (_renderer) {
             _renderer->removeFramebufferResizeCallback(this);
         }
+
+        _transferWorker->destroy();
     }
     Engine::destroy();
 }

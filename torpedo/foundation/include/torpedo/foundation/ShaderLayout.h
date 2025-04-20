@@ -1,15 +1,12 @@
 #pragma once
 
 #include "torpedo/foundation/ShaderInstance.h"
-#include "torpedo/foundation/AllocationUtils.h"
 
 namespace tpd {
     class ShaderLayout final {
     public:
         class Builder {
         public:
-            explicit Builder(std::pmr::memory_resource* pool = std::pmr::get_default_resource()) : _pool{ pool } {}
-
             Builder& descriptorSetCount(uint32_t count);
 
             Builder& descriptor(
@@ -25,27 +22,25 @@ namespace tpd {
                 uint32_t byteOffset,
                 uint32_t byteSize);
 
-            [[nodiscard]] ShaderLayout build(vk::Device device);
-            [[nodiscard]] std::unique_ptr<ShaderLayout, Deleter<ShaderLayout>> buildUnique(vk::Device device);
+            [[nodiscard]] ShaderLayout build(vk::Device device, vk::PipelineLayout* pipelineLayout);
 
         private:
-            [[nodiscard]] std::pmr::vector<vk::DescriptorSetLayout> createLayouts(vk::Device device) const;
-            [[nodiscard]] vk::PipelineLayout createPipelineLayout(vk::Device device, const std::pmr::vector<vk::DescriptorSetLayout>& layouts) const;
-            
-            std::pmr::memory_resource* _pool;
-            std::pmr::vector<std::pmr::vector<vk::DescriptorSetLayoutBinding>> _descriptorSetLayoutBindingLists{ _pool };
+            [[nodiscard]] std::vector<vk::DescriptorSetLayout> createLayouts(vk::Device device) const;
+            [[nodiscard]] vk::PipelineLayout createPipelineLayout(vk::Device device, const std::vector<vk::DescriptorSetLayout>& layouts) const;
+
+            std::vector<std::vector<vk::DescriptorSetLayoutBinding>> _descriptorSetLayoutBindingLists{};
 
             std::vector<std::vector<vk::DescriptorBindingFlags>> _descriptorSetBindingFlagLists{};
             std::vector<vk::PushConstantRange> _pushConstantRanges{};
         };
 
+        ShaderLayout() noexcept = default;
         ShaderLayout(
-            vk::PipelineLayout pipelineLayout,
-            std::pmr::vector<vk::DescriptorSetLayout>&& descriptorSetLayouts,
-            std::pmr::vector<std::pmr::vector<vk::DescriptorSetLayoutBinding>>&& descriptorSetBindingFlagLists) noexcept;
+            std::vector<vk::DescriptorSetLayout>&& descriptorSetLayouts,
+            std::vector<std::vector<vk::DescriptorSetLayoutBinding>>&& descriptorSetBindingFlagLists) noexcept;
 
-        ShaderLayout(const ShaderLayout&) = delete;
-        ShaderLayout& operator=(const ShaderLayout&) = delete;
+        ShaderLayout(ShaderLayout&&) noexcept = default;
+        ShaderLayout& operator=(ShaderLayout&&) noexcept = default;
 
         [[nodiscard]] ShaderInstance createInstance(
             vk::Device device,
@@ -53,17 +48,7 @@ namespace tpd {
             uint32_t firstSetIndex = 0,
             vk::DescriptorPoolCreateFlags flags = {}) const;
 
-        [[nodiscard]] std::unique_ptr<ShaderInstance, Deleter<ShaderInstance>> createInstance(
-            std::pmr::memory_resource* pool,
-            vk::Device device,
-            uint32_t instanceCount = 1,
-            uint32_t firstSetIndex = 0,
-            vk::DescriptorPoolCreateFlags flags = {}) const;
-
-        [[nodiscard]] vk::PipelineLayout getPipelineLayout() const noexcept;
-
         [[nodiscard]] bool empty() const noexcept;
-
         void destroy(vk::Device device) noexcept;
 
     private:
@@ -73,20 +58,26 @@ namespace tpd {
             uint32_t firstSetIndex,
             vk::DescriptorPoolCreateFlags flags) const;
 
-        [[nodiscard]] std::pmr::vector<vk::DescriptorSet> createDescriptorSets(
+        [[nodiscard]] std::vector<vk::DescriptorSet> createDescriptorSets(
             vk::Device device,
             vk::DescriptorPool descriptorPool,
             uint32_t firstSetIndex,
-            uint32_t instanceCount,
-            std::pmr::memory_resource* pool = std::pmr::get_default_resource()) const;
+            uint32_t instanceCount) const;
 
-        vk::PipelineLayout _pipelineLayout;
-        std::pmr::vector<vk::DescriptorSetLayout> _descriptorSetLayouts;
-        std::pmr::vector<std::pmr::vector<vk::DescriptorSetLayoutBinding>> _descriptorSetLayoutBindingLists;
+        /*------------------*/
+
+        std::vector<vk::DescriptorSetLayout> _setLayouts{};
+        std::vector<std::vector<vk::DescriptorSetLayoutBinding>> _bindingLists{};
+
+        /*------------------*/
     };
-}  // namespace tpd
+} // namespace tpd
 
 inline tpd::ShaderLayout::Builder& tpd::ShaderLayout::Builder::descriptorSetCount(const uint32_t count) {
+    if (count > ShaderInstance::MAX_DESCRIPTOR_SETS) [[unlikely]] {
+        throw std::invalid_argument(
+            "ShaderLayout::Builder - Only allow up to " + std::to_string(ShaderInstance::MAX_DESCRIPTOR_SETS) + " descriptor sets!");
+    }
     _descriptorSetLayoutBindingLists.resize(count);
     _descriptorSetBindingFlagLists.resize(count);
     return *this;
@@ -102,11 +93,12 @@ inline tpd::ShaderLayout::Builder& tpd::ShaderLayout::Builder::descriptor(
 {
     if (set >= _descriptorSetLayoutBindingLists.size()) {
         throw std::invalid_argument(
-            "ShaderLayout::Builder - Descriptor set index out of range: did you forget to call Builder::descriptorSetCount()?");
+            "ShaderLayout::Builder - Descriptor set index out of range: "
+            "did you forget to call Builder::descriptorSetCount()?");
     }
+
     _descriptorSetLayoutBindingLists[set].emplace_back(binding, type, elementCount, shaderStages);
     _descriptorSetBindingFlagLists[set].push_back(flags);
-
     return *this;
 }
 
@@ -120,18 +112,12 @@ inline tpd::ShaderLayout::Builder&tpd::ShaderLayout::Builder::pushConstantRange(
 }
 
 inline tpd::ShaderLayout::ShaderLayout(
-    const vk::PipelineLayout pipelineLayout,
-    std::pmr::vector<vk::DescriptorSetLayout>&& descriptorSetLayouts,
-    std::pmr::vector<std::pmr::vector<vk::DescriptorSetLayoutBinding>>&& descriptorSetBindingFlagLists) noexcept
-    : _pipelineLayout{ pipelineLayout }
-    , _descriptorSetLayouts{ std::move(descriptorSetLayouts) }
-    , _descriptorSetLayoutBindingLists{ std::move(descriptorSetBindingFlagLists) } {
-}
-
-inline vk::PipelineLayout tpd::ShaderLayout::getPipelineLayout() const noexcept {
-    return _pipelineLayout;
-}
+    std::vector<vk::DescriptorSetLayout>&& descriptorSetLayouts,
+    std::vector<std::vector<vk::DescriptorSetLayoutBinding>>&& descriptorSetBindingFlagLists) noexcept
+    : _setLayouts{ std::move(descriptorSetLayouts) }
+    , _bindingLists{ std::move(descriptorSetBindingFlagLists) }
+{}
 
 inline bool tpd::ShaderLayout::empty() const noexcept {
-    return _descriptorSetLayouts.empty();
+    return _setLayouts.empty();
 }

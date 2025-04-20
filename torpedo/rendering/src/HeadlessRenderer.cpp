@@ -1,16 +1,18 @@
 #include "torpedo/rendering/HeadlessRenderer.h"
+#include "torpedo/rendering/LogUtils.h"
 
-#include <plog/Log.h>
-
-void tpd::HeadlessRenderer::init(const uint32_t frameWidth, const uint32_t frameHeight, std::pmr::memory_resource* contextPool) {
-    if (_initialized) [[unlikely]] {
-        PLOGI << "Skipping already initialized renderer: tpd::SurfaceRenderer";
+void tpd::HeadlessRenderer::init(const uint32_t frameWidth, const uint32_t frameHeight) {
+    if (initialized()) [[unlikely]] {
+        PLOGI << "Skipping already initialized renderer: tpd::HeadlessRenderer";
         return;
     }
-    PLOGI << "Initializing renderer: HeadlessRenderer";
+    PLOGI << "Initializing renderer: tpd::HeadlessRenderer";
     _framebufferSize = vk::Extent2D{ frameWidth, frameHeight };
 }
 
-void tpd::HeadlessRenderer::engineInit(uint32_t graphicsFamilyIndex, uint32_t presentFamilyIndex) {
-
+void tpd::HeadlessRenderer::engineInit(
+    const uint32_t graphicsFamily,
+    const uint32_t transferFamily,
+    std::pmr::memory_resource* frameResource)
+{
 }

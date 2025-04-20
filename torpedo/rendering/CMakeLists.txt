@@ -20,13 +20,12 @@ FetchContent_MakeAvailable(plog)
 # -------------------
 set(TORPEDO_RENDERING_SOURCES
         src/Context.cpp
-        src/DeletionWorker.cpp
         src/Engine.cpp
         src/HeadlessRenderer.cpp
         src/LogUtils.cpp
         src/Renderer.cpp
         src/SurfaceRenderer.cpp
-        src/SyncGroup.cpp)
+        src/TransferWorker.cpp)
 
 
 # TORPEDO RENDERING MODULE

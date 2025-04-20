@@ -3,21 +3,15 @@
 #include <ranges>
 #include <unordered_map>
 
-tpd::ShaderLayout tpd::ShaderLayout::Builder::build(const vk::Device device) {
+tpd::ShaderLayout tpd::ShaderLayout::Builder::build(const vk::Device device, vk::PipelineLayout* pipelineLayout) {
     auto layouts = createLayouts(device);
-    const auto pipelineLayout = createPipelineLayout(device, layouts);
-    return ShaderLayout{ pipelineLayout, std::move(layouts), std::move(_descriptorSetLayoutBindingLists) };
+    *pipelineLayout = createPipelineLayout(device, layouts);
+    return ShaderLayout{ std::move(layouts), std::move(_descriptorSetLayoutBindingLists) };
 }
 
-std::unique_ptr<tpd::ShaderLayout, tpd::Deleter<tpd::ShaderLayout>> tpd::ShaderLayout::Builder::buildUnique(const vk::Device device) {
-    auto layouts = createLayouts(device);
-    const auto pipelineLayout = createPipelineLayout(device, layouts);
-    return foundation::make_unique<ShaderLayout>(_pool, pipelineLayout, std::move(layouts), std::move(_descriptorSetLayoutBindingLists));
-}
-
-std::pmr::vector<vk::DescriptorSetLayout> tpd::ShaderLayout::Builder::createLayouts(const vk::Device device) const {
+std::vector<vk::DescriptorSetLayout> tpd::ShaderLayout::Builder::createLayouts(const vk::Device device) const {
     // Create one descriptor set layout for each descriptor set
-    auto descriptorSetLayouts = std::pmr::vector<vk::DescriptorSetLayout>{ _pool };
+    auto descriptorSetLayouts = std::vector<vk::DescriptorSetLayout>{};
     descriptorSetLayouts.resize(_descriptorSetLayoutBindingLists.size());
 
     for (uint32_t i = 0; i < _descriptorSetLayoutBindingLists.size(); i++) {
@@ -37,7 +31,7 @@ std::pmr::vector<vk::DescriptorSetLayout> tpd::ShaderLayout::Builder::createLayo
 
 vk::PipelineLayout tpd::ShaderLayout::Builder::createPipelineLayout(
     const vk::Device device,
-    const std::pmr::vector<vk::DescriptorSetLayout>& layouts) const
+    const std::vector<vk::DescriptorSetLayout>& layouts) const
 {
     auto pipelineLayoutInfo = vk::PipelineLayoutCreateInfo{};
     pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(layouts.size());
@@ -53,37 +47,21 @@ tpd::ShaderInstance tpd::ShaderLayout::createInstance(
     const uint32_t firstSetIndex,
     const vk::DescriptorPoolCreateFlags flags) const
 {
+    if (instanceCount > ShaderInstance::MAX_INSTANCES) {
+        throw std::runtime_error("ShaderLayout - Only allow up to " + std::to_string(ShaderInstance::MAX_INSTANCES) + " instances");
+    }
+
     // Create an empty ShaderInstance if the number of sets to include is zero
     // This also means the shader layout contains no descriptor sets
-    if (firstSetIndex >= _descriptorSetLayouts.size()) {
+    if (firstSetIndex >= _setLayouts.size()) [[unlikely]] {
         return ShaderInstance{};
     }
 
     const auto descriptorPool = createDescriptorPool(device, instanceCount, firstSetIndex, flags);
-    auto descriptorSets = createDescriptorSets(device, descriptorPool, firstSetIndex, instanceCount);
+    const auto descriptorSets = createDescriptorSets(device, descriptorPool, firstSetIndex, instanceCount);
 
-    const auto setCountPerInstance = static_cast<uint32_t>(_descriptorSetLayouts.size() - firstSetIndex);
-    return ShaderInstance{ descriptorPool, setCountPerInstance, std::move(descriptorSets) };
-}
-
-std::unique_ptr<tpd::ShaderInstance, tpd::Deleter<tpd::ShaderInstance>> tpd::ShaderLayout::createInstance(
-    std::pmr::memory_resource* pool,
-    const vk::Device device,
-    const uint32_t instanceCount,
-    const uint32_t firstSetIndex,
-    const vk::DescriptorPoolCreateFlags flags) const
-{
-    // Create an empty ShaderInstance if the number of sets to include is zero
-    // This also means the shader layout contains no descriptor sets
-    if (firstSetIndex >= _descriptorSetLayouts.size()) {
-        return foundation::make_unique<ShaderInstance>(pool);
-    }
-
-    const auto descriptorPool = createDescriptorPool(device, instanceCount, firstSetIndex, flags);
-    auto descriptorSets = createDescriptorSets(device, descriptorPool, firstSetIndex, instanceCount, pool);
-
-    const auto setCountPerInstance = static_cast<uint32_t>(_descriptorSetLayouts.size() - firstSetIndex);
-    return foundation::make_unique<ShaderInstance>(pool, descriptorPool, setCountPerInstance, std::move(descriptorSets));
+    const auto setCountPerInstance = static_cast<uint32_t>(_setLayouts.size() - firstSetIndex);
+    return ShaderInstance{ descriptorPool, setCountPerInstance, descriptorSets };
 }
 
 vk::DescriptorPool tpd::ShaderLayout::createDescriptorPool(
@@ -94,7 +72,7 @@ vk::DescriptorPool tpd::ShaderLayout::createDescriptorPool(
 {
     // Count how many descriptors of each type in this pipeline, ...
     auto descriptorTypeCounts = std::unordered_map<vk::DescriptorType, uint32_t>{};
-    for (const auto binding : _descriptorSetLayoutBindingLists | std::views::drop(firstSetIndex) | std::views::join) {
+    for (const auto binding : _bindingLists | std::views::drop(firstSetIndex) | std::views::join) {
         descriptorTypeCounts[binding.descriptorType] += binding.descriptorCount;
     }
     // ... then compute the pool sizes for each descriptor type
@@ -104,39 +82,29 @@ vk::DescriptorPool tpd::ShaderLayout::createDescriptorPool(
         poolSizes.emplace_back(descriptorType, instanceCount * descriptorCount);
     }
     
-    const auto maxSets = static_cast<uint32_t>(instanceCount * (_descriptorSetLayoutBindingLists.size() - firstSetIndex));
+    const auto maxSets = static_cast<uint32_t>(instanceCount * (_bindingLists.size() - firstSetIndex));
     return device.createDescriptorPool({ flags, maxSets, poolSizes });
 }
 
-std::pmr::vector<vk::DescriptorSet> tpd::ShaderLayout::createDescriptorSets(
+std::vector<vk::DescriptorSet> tpd::ShaderLayout::createDescriptorSets(
     const vk::Device device,
     const vk::DescriptorPool descriptorPool,
     const uint32_t firstSetIndex,
-    const uint32_t instanceCount,
-    std::pmr::memory_resource* pool) const
+    const uint32_t instanceCount) const
 {
     // Allocate one descriptor set for each instance
-    const auto layouts =  std::views::repeat(_descriptorSetLayouts | std::views::drop(firstSetIndex), instanceCount)
+    const auto layouts =  std::views::repeat(_setLayouts | std::views::drop(firstSetIndex), instanceCount)
         | std::views::join
         | std::ranges::to<std::vector>();
+
     const auto allocInfo = vk::DescriptorSetAllocateInfo{}
         .setDescriptorPool(descriptorPool)
         .setSetLayouts(layouts);
-
-    const auto allocatedSets = device.allocateDescriptorSets(allocInfo);
-
-    // Copy the allocated sets to the vector allocated with a custom memory resource
-    auto descriptorSets = std::pmr::vector<vk::DescriptorSet>{ pool };
-    descriptorSets.resize(layouts.size());
-    for (uint32_t i = 0; i < layouts.size(); i++) {
-        descriptorSets[i] = allocatedSets[i];
-    }
-    return descriptorSets;
+    return device.allocateDescriptorSets(allocInfo);
 }
 
 void tpd::ShaderLayout::destroy(const vk::Device device) noexcept {
-    device.destroyPipelineLayout(_pipelineLayout);
-    std::ranges::for_each(_descriptorSetLayouts, [&device](const auto& it) { device.destroyDescriptorSetLayout(it); });
-    _descriptorSetLayouts.clear();
-    _descriptorSetLayoutBindingLists.clear();
+    std::ranges::for_each(_setLayouts, [&device](const auto& it) { device.destroyDescriptorSetLayout(it); });
+    _setLayouts.clear();
+    _bindingLists.clear();
 }

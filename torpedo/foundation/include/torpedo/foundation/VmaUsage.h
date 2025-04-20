@@ -31,7 +31,6 @@ namespace tpd::vma {
     void deallocateBuffer(VmaAllocator allocator, vk::Buffer buffer, VmaAllocation allocation) noexcept;
 
     void destroy(VmaAllocator allocator) noexcept;
-
 } // namespace tpd::vma
 
 inline tpd::vma::Builder& tpd::vma::Builder::flags(const VmaAllocatorCreateFlags flags) noexcept {
@@ -61,10 +60,11 @@ namespace tpd {
         OpaqueResource(T resource, VmaAllocation allocation) noexcept;
 
         OpaqueResource(OpaqueResource&& other) noexcept;
-        OpaqueResource& operator=(OpaqueResource&& other) noexcept = delete;
+        OpaqueResource& operator=(OpaqueResource&& other) noexcept;
 
-        [[nodiscard]] T get() const noexcept { return _resource; }
+        [[nodiscard]] operator T() const noexcept { return _resource; }
         [[nodiscard]] bool valid() const noexcept { return _allocation != nullptr; }
+        [[nodiscard]] std::string toString() const noexcept;
 
         void destroy(VmaAllocator allocator) noexcept;
 
@@ -74,16 +74,21 @@ namespace tpd {
     private:
         VmaAllocation _allocation{ nullptr };
     };
+
+    struct SyncPoint {
+        vk::PipelineStageFlags2 stage{};
+        vk::AccessFlags2 access{};
+    };
 } // namespace tpd
 
 template <typename T> requires(std::is_same_v<T, vk::Buffer> || std::is_same_v<T, vk::Image>)
-inline tpd::OpaqueResource<T>::OpaqueResource(const T resource, VmaAllocation allocation) noexcept
+tpd::OpaqueResource<T>::OpaqueResource(const T resource, VmaAllocation allocation) noexcept
     : _resource{ resource }
     , _allocation{ allocation }
 {}
 
 template<typename T> requires(std::is_same_v<T, vk::Buffer> || std::is_same_v<T, vk::Image>)
-inline tpd::OpaqueResource<T>::OpaqueResource(OpaqueResource&& other) noexcept
+tpd::OpaqueResource<T>::OpaqueResource(OpaqueResource&& other) noexcept
     : _resource{ other._resource }
     , _allocation{ other._allocation }
 {
@@ -91,8 +96,29 @@ inline tpd::OpaqueResource<T>::OpaqueResource(OpaqueResource&& other) noexcept
     other._allocation = nullptr;
 }
 
+template<typename T> requires (std::is_same_v<T, vk::Buffer> || std::is_same_v<T, vk::Image>)
+tpd::OpaqueResource<T>& tpd::OpaqueResource<T>::operator=(OpaqueResource&& other) noexcept {
+    if (this == &other || valid()) {
+        return *this;
+    }
+
+    _resource = other._resource;
+    _allocation = other._allocation;
+
+    other._resource = nullptr;
+    other._allocation = nullptr;
+    return *this;
+}
+
+template<typename T> requires (std::is_same_v<T, vk::Buffer> || std::is_same_v<T, vk::Image>)
+std::string tpd::OpaqueResource<T>::toString() const noexcept {
+    char buffer[20];
+    std::snprintf(buffer, sizeof(buffer), "%p", static_cast<const void*>(_resource));
+    return buffer;
+}
+
 template<typename T> requires(std::is_same_v<T, vk::Buffer> || std::is_same_v<T, vk::Image>)
-inline void tpd::OpaqueResource<T>::destroy(VmaAllocator allocator) noexcept {
+void tpd::OpaqueResource<T>::destroy(VmaAllocator allocator) noexcept {
     if (!valid())
         return;
 

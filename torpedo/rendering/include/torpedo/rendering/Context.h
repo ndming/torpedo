@@ -6,8 +6,12 @@
 
 #include <torpedo/bootstrap/InstanceBuilder.h>
 #include <torpedo/bootstrap/DebugUtils.h>
+#include <torpedo/foundation/Allocation.h>
 
 namespace tpd {
+    class SurfaceRenderer;
+    class HeadlessRenderer;
+
     template<RendererImpl R>
     class Context final {
     public:
@@ -28,13 +32,10 @@ namespace tpd {
         ~Context() noexcept;
 
     private:
-        // Keep Renderer, Engine, and their resources close on the heap
-        static std::pmr::unsynchronized_pool_resource _contextPool;
+        // Keep Renderer and Engine close on the heap
+        static std::pmr::unsynchronized_pool_resource _contextResource;
 
         explicit Context(R* renderer);
-
-        [[nodiscard]] bool preInitRenderer() const;
-        [[nodiscard]] R* setupInitRenderer() const;
         R* _renderer;
 
         void createInstance(std::vector<const char*>&& instanceExtensions);
@@ -45,19 +46,17 @@ namespace tpd {
         vk::DebugUtilsMessengerEXT _debugMessenger{};
 #endif
 
+        void engineInitRenderer() const;
         Engine* _engine{ nullptr };
     };
 }
 
 template<tpd::RendererImpl R>
-std::pmr::unsynchronized_pool_resource tpd::Context<R>::_contextPool{};
+std::pmr::unsynchronized_pool_resource tpd::Context<R>::_contextResource{};
 
 template<tpd::RendererImpl R>
 std::unique_ptr<tpd::Context<R>> tpd::Context<R>::create() {
-    constexpr auto rendererSize = sizeof(R);
-    PLOGD << "Renderer alloc size: " << rendererSize;
-
-    void* alloc = _contextPool.allocate(rendererSize, alignof(R));
+    void* alloc = _contextResource.allocate(sizeof(R), alignof(R));
     R* renderer = new (alloc) R{};
 
     const auto context = new Context{ renderer };
@@ -76,7 +75,7 @@ tpd::Context<R>::Context(R* renderer) : _renderer{ renderer } {
     PLOGD << "Available devices (" << devices.size() << "):";
     for (const auto& device : devices) {
         const auto properties = device.getProperties();
-        PLOGD << " - " << properties.deviceName.data() << ": " << rendering::formatDriverVersion(properties.driverVersion);
+        PLOGD << " - " << properties.deviceName.data() << ": " << utils::formatDriverVersion(properties.driverVersion);
     }
 }
 
@@ -143,54 +142,49 @@ void tpd::Context<R>::createDebugMessenger() {
 #endif // NDEBUG - Context::createDebugMessenger
 
 template<tpd::RendererImpl R>
-bool tpd::Context<R>::preInitRenderer() const {
-    if (_renderer->_initialized) [[unlikely]] {
+R* tpd::Context<R>::initRenderer(const uint32_t frameWidth, const uint32_t frameHeight) {
+    if (_renderer->initialized()) [[unlikely]] {
         PLOGW << "Context - A Renderer has already been initialized with the current Context: "
                  "create a new Context if you want to have another Renderer, returning nullptr";
-        return false;
+        return nullptr;
     }
+
     _renderer->_instance = _instance;
-    return true;
-}
+    _renderer->init(frameWidth, frameHeight);
 
-template<tpd::RendererImpl R>
-R* tpd::Context<R>::setupInitRenderer() const {
-    _renderer->_initialized = true;
-
-    // If there's already an Engine bound to this Context, init the Renderer with its Vulkan resources
-    if (_engine) {
-        _renderer->_physicalDevice = _engine->_physicalDevice;
-        _renderer->_device = _engine->_device;
-
-        _renderer->engineInit(_engine->_graphicsFamilyIndex, _engine->_presentFamilyIndex);
-        _renderer->_engineInitialized = true;
+    if (_engine) [[unlikely]] {
+        engineInitRenderer();
     }
-
     return _renderer;
 }
 
 template<tpd::RendererImpl R>
-R* tpd::Context<R>::initRenderer(const uint32_t frameWidth, const uint32_t frameHeight) {
-    if (!preInitRenderer()) [[unlikely]] {
-        return nullptr;
-    }
-    _renderer->init(frameWidth, frameHeight, &_contextPool);
-    return setupInitRenderer();
-}
-
-template<tpd::RendererImpl R>
 R* tpd::Context<R>::initRenderer(const bool fullscreen) {
-    if (!preInitRenderer()) [[unlikely]] {
+    if (_renderer->initialized()) [[unlikely]] {
+        PLOGW << "Context - A Renderer has already been initialized with the current Context: "
+                 "create a new Context if you want to have another Renderer, returning nullptr";
         return nullptr;
     }
-    _renderer->init(fullscreen, &_contextPool);
-    return setupInitRenderer();
+
+    if (!_renderer->supportSurfaceRendering()) [[unlikely]] {
+        PLOGE << "Context - Could NOT full-screen initialize a Renderer with no surface rendering support: "
+                 "use the initRenderer(width, height) overload instead";
+        throw std::runtime_error("Context - Failed to initialize a Renderer");
+    }
+
+    _renderer->_instance = _instance;
+    _renderer->init(fullscreen);
+
+    if (_engine) [[unlikely]] {
+        engineInitRenderer();
+    }
+    return _renderer;
 }
 
 template<tpd::RendererImpl R>
 template<tpd::EngineImpl E>
 std::unique_ptr<E, tpd::Deleter<E>> tpd::Context<R>::bindEngine() {
-    if (!_renderer->_initialized && _renderer->hasSurfaceRenderingSupport()) [[unlikely]] {
+    if (!_renderer->initialized() && _renderer->supportSurfaceRendering()) [[unlikely]] {
         PLOGE << "Context - Danger! Binding an Engine while the associated Renderer has not been initialized: "
                  "the renderer type has surface support, call Context::initRenderer() prior to Engine binding";
         throw std::runtime_error("Context - Renderer must be initialized before binding an Engine with surface support");
@@ -210,7 +204,7 @@ std::unique_ptr<E, tpd::Deleter<E>> tpd::Context<R>::bindEngine() {
         _engine = nullptr;
     }
 
-    void* mem = _contextPool.allocate(sizeof(E), alignof(E));
+    void* mem = _contextResource.allocate(sizeof(E), alignof(E));
     E* engine = new (mem) E{};
     _engine   = engine;
 
@@ -222,24 +216,35 @@ std::unique_ptr<E, tpd::Deleter<E>> tpd::Context<R>::bindEngine() {
     // If the renderer has not been initialized yet, chances are the call site wants to defer the renderer creation to
     // the last minute when the Engine is ready to draw. Therefore, we skip Renderer's initialization here and leave it 
     // to initRenderer. This only ever happens for renderers without surface rendering support.
-    if (_renderer->_initialized) {
-        // Inform the renderer about the selected Vulkan resources
-        _renderer->_physicalDevice = _engine->_physicalDevice;
-        _renderer->_device = _engine->_device;
-
-        // It's the Renderer's turn to initialize its own rendering resources (e.g. swap chain)
-        _renderer->engineInit(_engine->_graphicsFamilyIndex, _engine->_presentFamilyIndex);
-        _renderer->_engineInitialized = true;
+    if (_renderer->initialized()) {
+        engineInitRenderer();
     }
-
-    // This means the Engine is ready to draw frames
-    _engine->_initialized = true;
 
     // Tell Engine's implementations to init their resources. This step should be called after Renderer::engineInit()
     // since downstream may query infos relating to the Renderer's resources (i.e. swap chain resolutions)
     _engine->onInitialized();
 
-    return std::unique_ptr<E, Deleter<E>>(engine, Deleter<E>{ &_contextPool });
+    // This means the Engine is ready to draw frames
+    _engine->_initialized = true;
+
+    return std::unique_ptr<E, Deleter<E>>(engine, Deleter<E>{ &_contextResource });
+}
+
+template<tpd::RendererImpl R>
+void tpd::Context<R>::engineInitRenderer() const {
+    // Inform the renderer about the selected Vulkan resources
+    _renderer->_physicalDevice = _engine->_physicalDevice;
+    _renderer->_device = _engine->_device;
+
+    // It's the Renderer's turn to initialize its own rendering resources (e.g. swap chain)
+    if constexpr (std::is_same_v<R, SurfaceRenderer>) {
+        _renderer->engineInit(_engine->_graphicsFamilyIndex, _engine->_presentFamilyIndex, _engine->getFrameResource());
+    } else if constexpr (std::is_same_v<R, HeadlessRenderer>) {
+        _renderer->engineInit(_engine->_graphicsFamilyIndex, _engine->_transferFamilyIndex, _engine->getFrameResource());
+    } else {
+        throw std::runtime_error("Context - Unrecognized Renderer implementation!");
+    }
+    _renderer->_engineInitialized = true;
 }
 
 template<tpd::RendererImpl R>
@@ -262,7 +267,7 @@ void tpd::Context<R>::destroyEngine(std::unique_ptr<E, Deleter<E>> engine) noexc
 template<tpd::RendererImpl R>
 tpd::Context<R>::~Context() noexcept {
     _renderer->destroy(); // don't call delete here
-    _contextPool.deallocate(_renderer, sizeof(R), alignof(R));
+    _contextResource.deallocate(_renderer, sizeof(R), alignof(R));
     _renderer = nullptr;
 #ifndef NDEBUG
     utils::destroyDebugUtilsMessenger(_instance, _debugMessenger);

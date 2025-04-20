@@ -4,7 +4,7 @@
 
 #include <plog/Log.h>
 
-namespace tpd::rendering {
+namespace tpd::utils {
     void logDebugExtensions(std::string_view extensionType, std::string_view className, const std::vector<const char*>& extensions = {});
 
     [[nodiscard]] std::string formatDriverVersion(uint32_t version);

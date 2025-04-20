@@ -6,7 +6,7 @@ std::vector<const char*> tpd::Renderer::getInstanceExtensions() const {
     auto extensions = std::vector {
         vk::EXTDebugUtilsExtensionName, // for naming Vulkan objects
     };
-    rendering::logDebugExtensions("Instance", "tpd::Renderer", extensions);
+    utils::logDebugExtensions("Instance", "tpd::Renderer", extensions);
     return extensions;
 #else
     return {};
@@ -14,7 +14,7 @@ std::vector<const char*> tpd::Renderer::getInstanceExtensions() const {
 }
 
 std::vector<const char*> tpd::Renderer::getDeviceExtensions() const {
-    rendering::logDebugExtensions("Device", "tpd::Renderer");
+    utils::logDebugExtensions("Device", "tpd::Renderer");
     return {};
 }
 
@@ -37,8 +37,7 @@ void tpd::Renderer::resetEngine() noexcept {
 }
 
 void tpd::Renderer::destroy() noexcept {
-    resetEngine();  // redundant, but still call for completeness
-    _initialized = false;
+    resetEngine(); // redundant, but still call for completeness
     _framebufferResizeListeners.clear();
     _instance = nullptr;
 }

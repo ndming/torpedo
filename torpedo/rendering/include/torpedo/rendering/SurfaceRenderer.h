@@ -2,12 +2,12 @@
 
 #include "torpedo/rendering/Renderer.h"
 
-#include <torpedo/foundation/AllocationUtils.h>
-
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
 namespace tpd {
+    struct SwapImage;
+
     class SurfaceRenderer final : public Renderer {
     public:
         class Window final {
@@ -20,7 +20,7 @@ namespace tpd {
 
             void setTitle(std::string_view title) const;
 
-            void loop(const std::function<void()>&      onRender) const;
+            void loop(const std::function<void()>& onRender) const;
             void loop(const std::function<void(float)>& onRender) const;
 
             ~Window();
@@ -30,78 +30,68 @@ namespace tpd {
             friend class SurfaceRenderer;
         };
 
-        struct Presentable {
-            bool valid{ false };
-            vk::Image image{};
-            uint32_t imageIndex{};
-        };
+        [[nodiscard]] SwapImage launchFrame();
+        void submitFrame(uint32_t imageIndex);
 
-        [[nodiscard]] Presentable launchFrame();
-
-        void submitFrame(
-            uint32_t imageIndex, vk::CommandBuffer buffer,
-            vk::PipelineStageFlags2 waitStage, vk::PipelineStageFlags2 doneStage,
-            const std::vector<std::pair<vk::Semaphore, vk::PipelineStageFlags2>>& waitSemaphores = {});
-
-        [[nodiscard]] const std::unique_ptr<Window, Deleter<Window>>& getWindow() const;
+        [[nodiscard]] const std::unique_ptr<Window>& getWindow() const;
 
         [[nodiscard]] vk::Extent2D getFramebufferSize() const noexcept override;
-        [[nodiscard]] uint32_t getInFlightFramesCount() const noexcept override;
-        [[nodiscard]] uint32_t getCurrentDrawingFrame() const noexcept override;
-        [[nodiscard]] bool hasSurfaceRenderingSupport() const noexcept override;
+        [[nodiscard]] uint32_t getInFlightFrameCount() const noexcept override;
+        [[nodiscard]] bool supportSurfaceRendering() const noexcept override;
+
+        [[nodiscard]] uint32_t getCurrentFrameIndex() const noexcept override;
+        [[nodiscard]] FrameSync getCurrentFrameSync() const noexcept override;
 
         void resetEngine() noexcept override;
         ~SurfaceRenderer() noexcept override;
+
+        static constexpr uint32_t MAX_SWAP_IMAGES = 3;
+        static constexpr uint32_t IN_FLIGHT_FRAME_COUNT = 2;
 
     private:
         [[nodiscard]] std::vector<const char*> getInstanceExtensions() const override;
         [[nodiscard]] std::vector<const char*> getDeviceExtensions() const override;
 
         SurfaceRenderer() = default;
-        void init(uint32_t frameWidth, uint32_t frameHeight, std::pmr::memory_resource* contextPool) override;
-        void init(bool fullscreen, std::pmr::memory_resource* contextPool);
-        std::unique_ptr<Window, Deleter<Window>> _window{};
+        void init(uint32_t frameWidth, uint32_t frameHeight) override;
+        void init(bool fullscreen);
+        [[nodiscard]] bool initialized() const noexcept override;
 
         static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
-        bool _framebufferResized{ false };
-
         [[nodiscard]] vk::SurfaceKHR getVulkanSurface() const override;
         void createSurface();
-        vk::SurfaceKHR _surface{};
 
-        void engineInit(uint32_t graphicsFamilyIndex, uint32_t presentFamilyIndex) override;
-        uint32_t _graphicsFamilyIndex{ 0 };
-        uint32_t _presentFamilyIndex { 0 };
-        vk::Queue _graphicsQueue{};
-        vk::Queue _presentQueue {};
-
+        void engineInit(uint32_t graphicsFamily, uint32_t presentFamily, std::pmr::memory_resource* frameResource) override;
         void createSwapChain();
-        vk::SwapchainKHR _swapChain{};
-        vk::Format _swapChainImageFormat{ vk::Format::eUndefined };
-        vk::Extent2D _swapChainImageExtent{};
-
-        static constexpr uint32_t MAX_SWAP_IMAGES = 5;
-        std::array<vk::Image, MAX_SWAP_IMAGES> _swapChainImages{};
-
-        struct FrameSync {
-            vk::Semaphore imageReady{};
-            vk::Semaphore renderDone{};
-            vk::Fence frameDrawFence{};
-        };
-
-        static constexpr uint32_t IN_FLIGHT_FRAMES{ 2 };
-
-        void createSyncPrimitives();
-        std::array<FrameSync, IN_FLIGHT_FRAMES> _syncs{};
+        void createFrameSyncPrimitives(std::pmr::memory_resource* frameResource);
 
         bool acquireSwapChainImage(vk::Semaphore semaphore, uint32_t* imageIndex);
-        void presentSwapChainImage(uint32_t imageIndex, vk::Semaphore semaphore);
-        uint32_t _currentFrame{ 0 };
+        void presentSwapChainImage(uint32_t imageIndex, vk::Semaphore renderDone);
 
         void refreshSwapChain();
         void cleanupSwapChain() const noexcept;
 
         void destroy() noexcept override;
+
+        /*--------------------*/
+
+        std::unique_ptr<Window> _window{};
+        bool _framebufferResized{ false };
+        vk::SurfaceKHR _surface{};
+        uint32_t _graphicsFamilyIndex{};
+        uint32_t _presentFamilyIndex{};
+
+        vk::SwapchainKHR _swapChain{};
+        vk::Extent2D _swapChainImageExtent{};
+        vk::Queue _presentQueue{};
+        uint32_t _currentFrame{ 0 };
+
+        /*--------------------*/
+
+        std::array<vk::Image, MAX_SWAP_IMAGES> _swapChainImages{};
+        std::pmr::vector<FrameSync> _frameSyncs{};
+
+        /*--------------------*/
 
         template<RendererImpl R>
         friend class Context;
@@ -112,8 +102,8 @@ inline void tpd::SurfaceRenderer::Window::setTitle(const std::string_view title)
     glfwSetWindowTitle(_glfwWindow, title.data());
 }
 
-inline const std::unique_ptr<tpd::SurfaceRenderer::Window, tpd::Deleter<tpd::SurfaceRenderer::Window>>& tpd::SurfaceRenderer::getWindow() const {
-    if (!_initialized) [[unlikely]] {
+inline const std::unique_ptr<tpd::SurfaceRenderer::Window>& tpd::SurfaceRenderer::getWindow() const {
+    if (!initialized()) [[unlikely]] {
         throw std::runtime_error(
             "SurfaceRenderer - getWindow called before initialization: "
             "did you forget to call SurfaceRenderer::init()?");
@@ -121,18 +111,30 @@ inline const std::unique_ptr<tpd::SurfaceRenderer::Window, tpd::Deleter<tpd::Sur
     return _window;
 }
 
-inline uint32_t tpd::SurfaceRenderer::getInFlightFramesCount() const noexcept {
-    return IN_FLIGHT_FRAMES;
+inline bool tpd::SurfaceRenderer::initialized() const noexcept {
+    return _window != nullptr;
 }
 
-inline uint32_t tpd::SurfaceRenderer::getCurrentDrawingFrame() const noexcept {
-    return _currentFrame;
-}
-
-inline bool tpd::SurfaceRenderer::hasSurfaceRenderingSupport() const noexcept {
-    return true;
+inline vk::Extent2D tpd::SurfaceRenderer::getFramebufferSize() const noexcept {
+    return _swapChainImageExtent;
 }
 
 inline vk::SurfaceKHR tpd::SurfaceRenderer::getVulkanSurface() const {
     return _surface;
+}
+
+inline uint32_t tpd::SurfaceRenderer::getInFlightFrameCount() const noexcept {
+    return IN_FLIGHT_FRAME_COUNT;
+}
+
+inline bool tpd::SurfaceRenderer::supportSurfaceRendering() const noexcept {
+    return true;
+}
+
+inline uint32_t tpd::SurfaceRenderer::getCurrentFrameIndex() const noexcept {
+    return _currentFrame;
+}
+
+inline tpd::Renderer::FrameSync tpd::SurfaceRenderer::getCurrentFrameSync() const noexcept {
+    return _frameSyncs[_currentFrame];
 }

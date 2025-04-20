@@ -2,15 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-namespace tpd::foundation {
-    void recordLayoutTransition(
-        vk::CommandBuffer cmd,
-        vk::Image image,
-        vk::ImageAspectFlags aspectMask,
-        uint32_t mipLevelCount,
-        vk::ImageLayout oldLayout,
-        vk::ImageLayout newLayout);
-
+namespace tpd::utils {
     [[nodiscard]] std::string toString(vk::ImageLayout layout);
     [[nodiscard]] std::string toString(vk::Format format);
-}  // namespace tpd::foundation
+} // namespace tpd::utils

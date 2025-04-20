@@ -11,9 +11,10 @@ namespace tpd {
         };
 
         ReadbackBuffer() noexcept = default;
-        ReadbackBuffer(ReadbackBuffer&& other) noexcept;
-
         ReadbackBuffer(void* pMappedData, vk::Buffer buffer, VmaAllocation allocation);
+
+        ReadbackBuffer(ReadbackBuffer&& other) noexcept;
+        ReadbackBuffer& operator=(ReadbackBuffer&& other) noexcept;
 
         template<typename T>
         [[nodiscard]] const T* data() const noexcept;
@@ -25,9 +26,6 @@ namespace tpd {
         [[nodiscard]] std::span<const T> read(uint32_t count) const noexcept;
 
         [[nodiscard]] bool mapped() const noexcept;
-
-        void destroy() noexcept;
-        ~ReadbackBuffer() noexcept { destroy(); }
 
     private:
         void* _pMappedData{ nullptr };
@@ -41,6 +39,18 @@ inline tpd::ReadbackBuffer::ReadbackBuffer(void* pMappedData, const vk::Buffer b
 inline tpd::ReadbackBuffer::ReadbackBuffer(ReadbackBuffer&& other) noexcept
     : Buffer{ std::move(other) }, _pMappedData{ other._pMappedData } {
     other._pMappedData = nullptr;
+}
+
+inline tpd::ReadbackBuffer& tpd::ReadbackBuffer::operator=(ReadbackBuffer&& other) noexcept {
+    if (this == &other || valid()) {
+        return *this;
+    }
+    Buffer::operator=(std::move(other));
+
+    _pMappedData = other._pMappedData;
+    other._pMappedData = nullptr;
+
+    return *this;
 }
 
 template<typename T>

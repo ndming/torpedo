@@ -1,8 +1,8 @@
 #include "torpedo/foundation/RingBuffer.h"
 
 tpd::RingBuffer tpd::RingBuffer::Builder::build(VmaAllocator allocator) const {
-    auto allocation = VmaAllocation{};          // allocation is a pointer
-    auto allocationInfo = VmaAllocationInfo{};  // allocation info is a struct
+    auto allocation = VmaAllocation{};         // allocation is a pointer
+    auto allocationInfo = VmaAllocationInfo{}; // allocation info is a struct
 
     const auto bufferCreateInfo = vk::BufferCreateInfo{ {}, _allocSize * _bufferCount, _usage };
     const auto buffer = vma::allocateMappedBuffer(allocator, bufferCreateInfo, &allocation, &allocationInfo);
@@ -18,7 +18,7 @@ void tpd::RingBuffer::update(const uint32_t bufferIndex, const void* data, const
     // pointer and flush cache after writing to map a pointer. Map/unmap operations don't do that automatically.
     // Windows drivers from all 3 PC GPU vendors (AMD, Intel, NVIDIA) currently provide HOST_COHERENT flag on all
     // memory types that are HOST_VISIBLE, so on PC we may not need to bother.
-    memcpy(_pMappedData + getOffset(bufferIndex), data, size);
+    memcpy(_pMappedData + _allocSizePerBuffer * bufferIndex, data, size);
 }
 
 void tpd::RingBuffer::update(const void* data, const std::size_t size) const {

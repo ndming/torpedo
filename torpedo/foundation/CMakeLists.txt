@@ -3,7 +3,6 @@
 set(TORPEDO_FOUNDATION_SOURCES
         src/Allocation.cpp
         src/Buffer.cpp
-        src/DeviceAllocator.cpp
         src/Image.cpp
         src/ImageUtils.cpp
         src/ReadbackBuffer.cpp
@@ -11,7 +10,6 @@ set(TORPEDO_FOUNDATION_SOURCES
         src/RingBuffer.cpp
         src/ShaderInstance.cpp
         src/StorageBuffer.cpp
-        src/Sync.cpp
         src/Target.cpp
         src/Texture.cpp
         src/VmaUsage.cpp)

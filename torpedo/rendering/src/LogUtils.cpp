@@ -8,7 +8,7 @@
 #include <format>
 #include <iomanip>
 
-void tpd::rendering::logDebugExtensions(
+void tpd::utils::logDebugExtensions(
     const std::string_view extensionType,
     const std::string_view className,
     const std::vector<const char*>& extensions)
@@ -20,7 +20,7 @@ void tpd::rendering::logDebugExtensions(
     }
 }
 
-std::string tpd::rendering::formatDriverVersion(const uint32_t version) {
+std::string tpd::utils::formatDriverVersion(const uint32_t version) {
     const auto major  = version >> 22 & 0x3FF;  // 10 bits
     const auto minor  = version >> 12 & 0x3FF;  // 10 bits
     const auto patch  = version >> 4  &  0xFF;  //  8 bits
@@ -28,7 +28,7 @@ std::string tpd::rendering::formatDriverVersion(const uint32_t version) {
     return std::format("{}.{}.{}.{}", major, minor, patch, branch);
 }
 
-std::string tpd::rendering::toString(const vk::ColorSpaceKHR colorSpace) {
+std::string tpd::utils::toString(const vk::ColorSpaceKHR colorSpace) {
     using enum vk::ColorSpaceKHR;
     switch (colorSpace) {
         case eSrgbNonlinear:            return "sRGB Non Linear";
@@ -50,11 +50,11 @@ std::string tpd::rendering::toString(const vk::ColorSpaceKHR colorSpace) {
     }
 }
 
-std::string tpd::rendering::toString(const vk::Extent2D extent) {
+std::string tpd::utils::toString(const vk::Extent2D extent) {
     return "(" + std::to_string(extent.width) + ", " + std::to_string(extent.height) + ")";
 }
 
-std::string tpd::rendering::toString(const vk::PresentModeKHR presentMode) {
+std::string tpd::utils::toString(const vk::PresentModeKHR presentMode) {
     using enum vk::PresentModeKHR;
     switch (presentMode) {
     case eImmediate:               return "Immediate";
@@ -90,7 +90,7 @@ namespace plog {
     };
 }
 
-void tpd::rendering::plantConsoleLogger() {
+void tpd::utils::plantConsoleLogger() {
     static auto appender = plog::ColorConsoleAppender<plog::Formatter>();
 #ifdef NDEBUG
     init(plog::info, &appender);
@@ -99,18 +99,18 @@ void tpd::rendering::plantConsoleLogger() {
 #endif
 }
 
-void tpd::rendering::logVerbose(const std::string_view message) {
+void tpd::utils::logVerbose(const std::string_view message) {
     PLOGV << message.data();
 }
 
-void tpd::rendering::logInfo(const std::string_view message) {
+void tpd::utils::logInfo(const std::string_view message) {
     PLOGI << message.data();
 }
 
-void tpd::rendering::logDebug(const std::string_view message) {
+void tpd::utils::logDebug(const std::string_view message) {
     PLOGD << message.data();
 }
 
-void tpd::rendering::logError(const std::string_view message) {
+void tpd::utils::logError(const std::string_view message) {
     PLOGE << message.data();
 }

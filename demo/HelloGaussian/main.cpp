@@ -7,7 +7,7 @@
 
 int main() {
     try {
-        tpd::rendering::plantConsoleLogger();
+        tpd::utils::plantConsoleLogger();
         const auto context = tpd::Context<tpd::SurfaceRenderer>::create();
 
         const auto renderer = context->initRenderer(1280, 720);
@@ -17,13 +17,13 @@ int main() {
 
         renderer->getWindow()->loop([&] {
             engine->preFrameCompute();
-            if (const auto [valid, image, imageIndex] = renderer->launchFrame(); valid) {
-                const auto [buffer, waitStage, doneStage, waits] = engine->draw(image);
-                renderer->submitFrame(imageIndex, buffer, waitStage, doneStage, waits);
+            if (const auto swapImage = renderer->launchFrame(); swapImage) {
+                engine->draw(swapImage);
+                renderer->submitFrame(swapImage.index);
             }
         });
         engine->waitIdle();
     } catch (const std::exception& e) {
-        tpd::rendering::logError(e.what());
+        tpd::utils::logError(e.what());
     }
 }

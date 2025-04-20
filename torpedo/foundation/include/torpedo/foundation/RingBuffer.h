@@ -5,7 +5,7 @@
 namespace tpd {
     class RingBuffer final : public Buffer {
     public:
-        class Builder final : Buffer::Builder<Builder, RingBuffer> {
+        class Builder final : public Buffer::Builder<Builder, RingBuffer> {
         public:
             Builder& count(uint32_t bufferCount) noexcept;
 
@@ -16,11 +16,13 @@ namespace tpd {
         };
 
         RingBuffer() noexcept = default;
-        RingBuffer(RingBuffer&& other) noexcept;
 
         RingBuffer(
             std::byte* pMappedData, uint32_t bufferCount, uint32_t allocSizePerBuffer,
             vk::Buffer buffer, VmaAllocation allocation);
+
+        RingBuffer(RingBuffer&& other) noexcept;
+        RingBuffer& operator=(RingBuffer&& other) noexcept;
 
         void update(uint32_t bufferIndex, const void* data, std::size_t size) const;
         void update(const void* data, std::size_t size) const;
@@ -60,4 +62,19 @@ inline tpd::RingBuffer::RingBuffer(RingBuffer&& other) noexcept
     other._pMappedData = nullptr;
     other._bufferCount = 0;
     other._allocSizePerBuffer = 0;
+}
+
+inline tpd::RingBuffer& tpd::RingBuffer::operator=(RingBuffer&& other) noexcept {
+    if (this == &other || valid()) {
+        return *this;
+    }
+    Buffer::operator=(std::move(other));
+    _pMappedData = other._pMappedData;
+    _bufferCount = other._bufferCount;
+    _allocSizePerBuffer = other._allocSizePerBuffer;
+
+    other._pMappedData = nullptr;
+    other._bufferCount = 0;
+    other._allocSizePerBuffer = 0;
+    return *this;
 }

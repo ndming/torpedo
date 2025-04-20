@@ -11,11 +11,9 @@ namespace tpd {
         };
 
         StorageBuffer() noexcept = default;
-        StorageBuffer(StorageBuffer&& other) = default;
-
         StorageBuffer(vk::Buffer buffer, VmaAllocation allocation);
 
-        void recordStagingCopy(vk::CommandBuffer cmd, vk::Buffer stagingBuffer, vk::DeviceSize size = vk::WholeSize) const noexcept;
+        void recordStagingCopy(vk::CommandBuffer cmd, vk::Buffer stagingBuffer, vk::DeviceSize size) const noexcept;
         void recordDstSyncCopy(vk::CommandBuffer cmd, SyncPoint dstSync) const noexcept;
     };
 } // namespace tpd

@@ -23,8 +23,8 @@ namespace tpd::alloc {
     /**
      * Returns the smallest size in bytes that is greater than or equal to `size` and is divisible by `alignment`.
      *
-     * @param byteSize The minimum size in bytes to align up.
-     * @param alignment The alignment boundary, which must be a power of two. When set to 0, `byteSize` is returned as is.
+     * @param size The minimum size in bytes to align up.
+     * @param alignment The alignment boundary, which must be a power of two. When set to 0, `size` is returned as is.
      */
     constexpr std::size_t alignUp(const std::size_t size, const std::size_t alignment = 0) {
         if (alignment == 0) {
