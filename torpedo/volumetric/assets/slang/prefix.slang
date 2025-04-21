@@ -1,11 +1,16 @@
 import splat;
 
 [[vk::push_constant]]
-uniform PointCloud pc;
+uniform RasterInfo info;
 
-StructuredBuffer<Splat> splats;             // set 0, binding 0
-RWStructuredBuffer<uint32_t> prefixOffsets; // set 0, binding 1
-RWStructuredBuffer<uint32_t> tilesRendered; // set 0, binding 2
+[[vk::binding(3)]]
+StructuredBuffer<Splat> splats;
+
+[[vk::binding(4)]]
+RWStructuredBuffer<uint32_t> prefixOffsets;
+
+[[vk::binding(5)]]
+RWStructuredBuffer<uint64_t> tilesRendered; // readback by CPU
 
 // Computes EXCLUSIVE prefix sum over full list of touched tile counts by Gaussians, based on:
 // https://research.nvidia.com/publication/2016-03_single-pass-parallel-prefix-scan-decoupled-look-back
@@ -21,7 +26,7 @@ void main(
     uint3 groupID            : SV_GroupID,
 ) {
     let idx = globalInvocationID.x;
-    if (idx >= pc.count) return;
+    if (idx >= info.pointCount) return;
 
     // TODO: replace with a better prefix scan algorithm
     prefixOffsets[idx] = 0;
@@ -30,7 +35,7 @@ void main(
     }
 
     // Write the total sum of touched tiles to `tilesRendered` for CPU readback
-    if (idx == pc.count - 1) {
+    if (idx == info.pointCount - 1) {
         tilesRendered[0] = prefixOffsets[idx] + splats[idx].tiles;
     }
 }

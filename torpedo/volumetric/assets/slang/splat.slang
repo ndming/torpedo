@@ -9,10 +9,10 @@ public static const uint LINEAR_WORKGROUP_SIZE = 256;
 public static const uint BLOCK_X = 16; // tile size in x
 public static const uint BLOCK_Y = 16; // tile size in y
 
-public struct PointCloud {
-    public uint count;
-    public uint shDegree; // active SH degree
-    public uint2 imgSize; // in pixels
+public struct RasterInfo {
+    public uint pointCount; // number of Gaussian points
+    public uint shDegree;   // active SH degree
+    public uint64_t tilesRendered; // `numRenderer` in the CUDA code
 }
 
 public struct Camera {

@@ -16,7 +16,7 @@
 namespace tpd {
     class GaussianEngine final : public Engine {
     public:
-        void preFrameCompute() const;
+        void preFrameCompute();
         void draw(SwapImage image) override;
 
         ~GaussianEngine() noexcept override { destroy(); }
@@ -29,7 +29,8 @@ namespace tpd {
         [[nodiscard]] vk::Device createDevice(
             const std::vector<const char*>& deviceExtensions,
             std::initializer_list<uint32_t> queueFamilyIndices) const override;
-        
+
+        static vk::PhysicalDeviceFeatures getFeatures();
         static vk::PhysicalDeviceVulkan13Features getVulkan13Features();
 
         [[nodiscard]] const char* getName() const noexcept override;
@@ -45,37 +46,40 @@ namespace tpd {
         void createDrawingCommandPool();
         void createComputeCommandPool(); // only called if async compute is used
 
+        void createGaussianLayout();
+        [[nodiscard]] vk::Pipeline createPipeline(const std::string& slangFile, vk::PipelineLayout layout) const;
+
         void createFrames();
 
         void createRenderTargets(uint32_t width, uint32_t height);
         void cleanupRenderTargets() noexcept;
 
-        void createPointCloudObject(uint32_t width, uint32_t height);
+        void createPointCloudObject();
 
         void createCameraObject(uint32_t width, uint32_t height);
-        void createCameraBuffer();
-        void updateCameraBuffer(uint32_t currentFrame) const;
+        void updateCameraBuffer(uint32_t frameIndex) const;
 
+        void createCameraBuffer();
         void createGaussianBuffer();
         void createSplatBuffer();
         void createPrefixOffsetsBuffer();
         void createTilesRenderedBuffer();
+        void createKeysBuffer();
+        void createValsBuffer();
+        void createSortedKeysBuffer();
+        void createIndicesBuffer();
+        void createRangesBuffer(uint32_t width, uint32_t height);
 
-        void createPreparePipeline();
-        void createPrefixPipeline();
-        void createForwardPipeline();
-
-        [[nodiscard]] vk::Pipeline createPipeline(const std::string& slangFile, vk::PipelineLayout layout) const;
-        void setTargetDescriptors() const;
         void setStorageBufferDescriptors(
-            vk::Buffer buffer, std::size_t size, const ShaderInstance& instance,
+            vk::Buffer buffer, vk::DeviceSize size, const ShaderInstance& instance,
             uint32_t binding, uint32_t set = 0) const;
 
         static constexpr uint32_t LINEAR_WORKGROUP_SIZE = 256; // number of local threads per workgroup in scan passes
         static constexpr uint32_t BLOCK_X = 16; // tile size in x-dimension
         static constexpr uint32_t BLOCK_Y = 16; // tile size in y-dimension
         void recordPreprocess(vk::CommandBuffer cmd, uint32_t frameIndex) const noexcept;
-        void recordFinalBlend(vk::CommandBuffer cmd, uint32_t frameIndex) const noexcept;
+        void reallocateBuffers();
+        void recordPostprocess(vk::CommandBuffer cmd, uint32_t frameIndex) const noexcept;
         void recordTargetCopy(vk::CommandBuffer cmd, SwapImage swapImage, uint32_t frameIndex) const noexcept;
 
         void destroy() noexcept override;
@@ -86,13 +90,14 @@ namespace tpd {
             vk::Semaphore ownership{}; // only initialize if async compute is used
             vk::Fence preFrameFence{};
             vk::Fence readBackFence{};
-            Target renderTarget{};
+            Target outputImage{};
         };
 
+        // This is the immutable part of the RasterInfo struct in splat.slang during frame drawing.
+        // By contrast, the tilesRendered member could change half-way through the pre-frame compute pass.
         struct PointCloud {
             uint32_t count;
             uint32_t shDegree;
-            vsg::uivec2 imgSize;
         };
 
         static constexpr auto NEAR = 0.2f;
@@ -103,18 +108,36 @@ namespace tpd {
             vsg::vec2 tanFov;
         };
 
-        vk::Queue _graphicsQueue;
-        vk::Queue _computeQueue;
+        /*--------------------*/
 
         std::pmr::unsynchronized_pool_resource _frameResource{};
-        std::pmr::vector<Frame> _frames{ &_frameResource };
-        PointCloud _pc{};
-        Camera _camera{};
-        RingBuffer _cameraBuffer{};
-
         vk::CommandPool _drawingCommandPool{};
         vk::CommandPool _computeCommandPool{};
         std::vector<vk::ImageView> _targetViews{};
+
+        /*--------------------*/
+
+        vk::Queue _graphicsQueue;
+        vk::Queue _computeQueue;
+        std::pmr::vector<Frame> _frames{ &_frameResource };
+        uint64_t _currentTilesRendered{};
+
+        /*--------------------*/
+
+        ShaderLayout _shaderLayout{};
+        ShaderInstance _shaderInstance{};
+        vk::PipelineLayout _gaussianLayout{};
+
+        vk::Pipeline _preparePipeline{};
+        vk::Pipeline _prefixPipeline{};
+        vk::Pipeline _keygenPipeline{};
+        vk::Pipeline _radixPipeline{};
+        vk::Pipeline _rangePipeline{};
+        vk::Pipeline _forwardPipeline{};
+
+        PointCloud _pc{};
+        Camera _camera{};
+        RingBuffer _cameraBuffer{};
         std::unique_ptr<TransferWorker> _transferWorker{};
 
         static constexpr uint32_t GAUSSIAN_COUNT = 1;
@@ -134,21 +157,11 @@ namespace tpd {
         StorageBuffer _splatBuffer{};
         StorageBuffer _prefixOffsetsBuffer{};
         ReadbackBuffer _tilesRenderedBuffer{};
-
-        ShaderLayout _prepareLayout{};
-        ShaderInstance _prepareInstance{};
-        vk::Pipeline _preparePipeline{};
-        vk::PipelineLayout _preparePipelineLayout{};
-
-        ShaderLayout _prefixLayout{};
-        ShaderInstance _prefixInstance{};
-        vk::Pipeline _prefixPipeline{};
-        vk::PipelineLayout _prefixPipelineLayout{};
-
-        ShaderLayout _forwardLayout{};
-        ShaderInstance _forwardInstance{};
-        vk::Pipeline _forwardPipeline{};
-        vk::PipelineLayout _forwardPipelineLayout{};
+        StorageBuffer _keysBuffer{};
+        StorageBuffer _valsBuffer{};
+        StorageBuffer _sortedKeysBuffer{};
+        StorageBuffer _indicesBuffer{};
+        StorageBuffer _rangesBuffer{};
     };
 } // namespace tpd
 

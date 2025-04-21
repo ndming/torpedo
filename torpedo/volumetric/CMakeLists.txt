@@ -24,6 +24,8 @@ set(TORPEDO_VOLUMETRIC_SHADERS
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/slang/prepare.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/slang/prefix.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/slang/keygen.slang
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/slang/radix.slang
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/slang/range.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/slang/forward.slang)
 torpedo_compile_slang(${TARGET} "${TORPEDO_VOLUMETRIC_ASSETS_DIR}/slang" "${TORPEDO_VOLUMETRIC_SHADERS}")
 target_link_libraries(${TARGET} PRIVATE "${TARGET}_spirv_binaries")

@@ -1,10 +1,19 @@
 import splat;
 
 [[vk::push_constant]]
-uniform PointCloud pc;
-uniform Camera camera;                // set 0, binding 0
-StructuredBuffer<Gaussian> gaussians; // set 0, binding 1
-RWStructuredBuffer<Splat> splats;     // set 0, binding 2
+uniform RasterInfo info;
+
+[[vk::binding(0)]]
+WTexture2D outputImage;
+
+[[vk::binding(1)]]
+ConstantBuffer<Camera> camera;
+
+[[vk::binding(2)]]
+StructuredBuffer<Gaussian> gaussians;
+
+[[vk::binding(3)]]
+RWStructuredBuffer<Splat> splats;
 
 // Based on: https://github.com/graphdeco-inria/gaussian-splatting
 // Performs initial steps for each Gaussian prior to rasterization
@@ -14,7 +23,7 @@ RWStructuredBuffer<Splat> splats;     // set 0, binding 2
 void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     // Each thread processes one Gaussian point
     let idx = globalInvocationID.x;
-    if (idx >= pc.count) return;
+    if (idx >= info.pointCount) return;
 
     splats[idx].texel.w = 0.0; // reset radius
     splats[idx].tiles = 0;     // reset tile count
@@ -26,8 +35,12 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     float3 viewPos;
     if (!passNearCulling(mean, camera.viewMatrix, viewPos)) return;
 
+    // The image size in pixels
+    uint2 imageSize; uint mipCount;
+    outputImage.GetDimensions(0, imageSize.x, imageSize.y, mipCount);
+
     // Convert R and S to covariance 3D then project it to image space
-    let focal = pc.imgSize / (2.0 * camera.tanHalfFov);
+    let focal = imageSize / (2.0 * camera.tanHalfFov);
     let cov3D = computeCovariance(gaussians[idx].quaternion, gaussians[idx].scale);
     let cov2D = projectCovariance(cov3D, mean, camera.viewMatrix, focal, camera.tanHalfFov);
 
@@ -50,14 +63,14 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     let projPos = clipPos.xyz / (clipPos.w + EPSILON);
 
     // Use extent to compute a bounding rectangle of screen-space tiles that this Gaussian overlaps with
-    let imgPoint = ndc2pix(projPos.xy, pc.imgSize);
+    let imgPoint = ndc2pix(projPos.xy, imageSize);
     uint2 rectMin, rectMax;
-    getBoundingRect(imgPoint, radius, getComputeGrid(pc.imgSize), rectMin, rectMax);
+    getBoundingRect(imgPoint, radius, getComputeGrid(imageSize), rectMin, rectMax);
     if ((rectMax.x - rectMin.x) * (rectMax.y - rectMin.y) == 0) return; // empty tile
 
     // Compute color from spherical harmonics
     let direction = mean - getCameraWorldPosition(camera.viewMatrix);
-    let color = evaluateSphericalHarmonics(gaussians[idx].sh, direction, pc.shDegree);
+    let color = evaluateSphericalHarmonics(gaussians[idx].sh, direction, info.shDegree);
 
     // Store preprocessed Gaussian data as RasterPoint
     splats[idx].color = color;
