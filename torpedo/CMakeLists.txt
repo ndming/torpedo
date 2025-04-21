@@ -109,7 +109,7 @@ function(torpedo_compile_slang TARGET_NAME SPIR_V_OUTPUT_DIR SLANG_SOURCE_FILES)
 
         add_custom_command(
                 OUTPUT ${SPIR_V}
-                COMMAND ${SLANG_COMPILER} ${SLANG_FILE} -profile glsl_450 -target spirv -o ${SPIR_V} -entry main
+                COMMAND ${SLANG_COMPILER} ${SLANG_FILE} -profile glsl_460 -target spirv -o ${SPIR_V} -entry main
                 DEPENDS ${SLANG_FILE}
                 COMMENT "Compiling ${FILE_NAME}")
 
