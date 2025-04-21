@@ -124,21 +124,26 @@ namespace tpd {
 
         /*--------------------*/
 
-        ShaderLayout _shaderLayout{};
         ShaderInstance _shaderInstance{};
-        vk::PipelineLayout _gaussianLayout{};
 
+        /*--------------------*/
+
+        vk::PipelineLayout _gaussianLayout{};
         vk::Pipeline _preparePipeline{};
         vk::Pipeline _prefixPipeline{};
         vk::Pipeline _keygenPipeline{};
         vk::Pipeline _radixPipeline{};
         vk::Pipeline _rangePipeline{};
         vk::Pipeline _forwardPipeline{};
-
         PointCloud _pc{};
+
+        /*--------------------*/
+
         Camera _camera{};
         RingBuffer _cameraBuffer{};
-        std::unique_ptr<TransferWorker> _transferWorker{};
+        ReadbackBuffer _tilesRenderedBuffer{};
+
+        /*--------------------*/
 
         static constexpr uint32_t GAUSSIAN_COUNT = 1;
         static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
@@ -153,10 +158,12 @@ namespace tpd {
             std::array<float, MAX_SH_RGB> sh;
         };
 
+        ShaderLayout _shaderLayout{};
+        std::unique_ptr<TransferWorker> _transferWorker{};
+
         StorageBuffer _gaussianBuffer{};
         StorageBuffer _splatBuffer{};
         StorageBuffer _prefixOffsetsBuffer{};
-        ReadbackBuffer _tilesRenderedBuffer{};
         StorageBuffer _keysBuffer{};
         StorageBuffer _valsBuffer{};
         StorageBuffer _sortedKeysBuffer{};
