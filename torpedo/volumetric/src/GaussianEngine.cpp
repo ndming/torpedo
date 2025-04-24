@@ -321,10 +321,10 @@ void tpd::GaussianEngine::createCameraBuffer() {
 
 void tpd::GaussianEngine::createGaussianBuffer() {
     auto points = std::array<Gaussian, GAUSSIAN_COUNT>{};
-    points[0].position   = vsg::vec3{ 0.0f, 0.0f, 0.0f };
+    points[0].position   = { 0.0f, 0.0f, 0.0f };
     points[0].opacity    = 1.0f;
     points[0].quaternion = vsg::quat{ 0.0f, 0.0f, 0.0f, 1.0f };
-    points[0].scale      = vsg::vec4{ 0.2f, 0.1f, 0.1f, 1.0f };
+    points[0].scale      = { 0.2f, 0.1f, 0.1f, 1.0f };
     // A gray Gaussian
     points[0].sh[0] = 1.5f;
     points[0].sh[1] = 1.5f;

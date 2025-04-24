@@ -10,8 +10,7 @@
 
 #include <vsg/maths/mat4.h>
 #include <vsg/maths/quat.h>
-#include <vsg/maths/vec2.h>
-#include <vsg/maths/vec4.h>
+#include <torpedo/math/vec4.h>
 
 namespace tpd {
     class GaussianEngine final : public Engine {
@@ -151,10 +150,10 @@ namespace tpd {
         // The maximum number of floats for RGB spherical harmonics
         static constexpr uint32_t MAX_SH_RGB = 48;
         struct Gaussian {
-            vsg::vec3 position;
+            vec3 position;
             float opacity;
             vsg::quat quaternion;
-            vsg::vec4 scale;
+            vec4 scale;
             std::array<float, MAX_SH_RGB> sh;
         };
 

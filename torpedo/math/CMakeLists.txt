@@ -3,9 +3,9 @@
 set(TORPEDO_MATH_SOURCES
     include/torpedo/math/mat4.h
     include/torpedo/math/transform.h
-    include/torpedo/math/vec2.h
-    include/torpedo/math/vec3.h
-    include/torpedo/math/vec4.h)
+    src/vec2.cpp
+    src/vec3.cpp
+    src/vec4.cpp)
 
 
 # TORPEDO MATH MODULE
@@ -15,7 +15,6 @@ add_library(${TARGET} STATIC)
 add_library(torpedo::math ALIAS ${TARGET})
 target_sources(${TARGET} PRIVATE ${TORPEDO_MATH_SOURCES})
 set_target_properties(${TARGET} PROPERTIES
-    LINKER_LANGUAGE CXX # header-only module
     CXX_STANDARD 23
     CMAKE_CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
