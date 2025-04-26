@@ -56,7 +56,7 @@ namespace tpd::math {
     constexpr vec3_t<T> cross(const vec3_t<T>& v0, const vec3_t<T>& v1) noexcept;
 
     template<typename T>
-    constexpr float dot(const vec3_t<T>& v0, const vec3_t<T>& v1) noexcept;
+    constexpr T dot(const vec3_t<T>& v0, const vec3_t<T>& v1) noexcept;
 
     template<typename T>
     constexpr float norm(const vec3_t<T>& vec) noexcept;
@@ -216,13 +216,13 @@ constexpr tpd::vec3_t<T> tpd::math::cross(const vec3_t<T>& v0, const vec3_t<T>& 
 }
 
 template<typename T>
-constexpr float tpd::math::dot(const vec3_t<T>& v0, const vec3_t<T>& v1) noexcept {
-    return static_cast<float>(v0.x * v1.x + v0.y * v1.y + v0.z * v1.z);
+constexpr T tpd::math::dot(const vec3_t<T>& v0, const vec3_t<T>& v1) noexcept {
+    return v0.x * v1.x + v0.y * v1.y + v0.z * v1.z;
 }
 
 template<typename T>
 constexpr float tpd::math::norm(const vec3_t<T>& vec) noexcept {
-    return std::sqrtf(dot(vec, vec));
+    return std::sqrtf(static_cast<float>(dot(vec, vec)));
 }
 
 template<typename T>

@@ -58,7 +58,7 @@ namespace tpd {
 
 namespace tpd::math {
     template<typename T>
-    constexpr float dot(const vec4_t<T>& v0, const vec4_t<T>& v1) noexcept;
+    constexpr T dot(const vec4_t<T>& v0, const vec4_t<T>& v1) noexcept;
 
     template<typename T>
     constexpr float norm(const vec4_t<T>& vec) noexcept;
@@ -225,13 +225,13 @@ constexpr tpd::vec4_t<T> operator/(const tpd::vec4_t<T>& vec, const T scalar) no
 }
 
 template<typename T>
-constexpr float tpd::math::dot(const vec4_t<T>& v0, const vec4_t<T>& v1) noexcept {
-    return static_cast<float>(v0.x * v1.x + v0.y * v1.y + v0.z * v1.z);
+constexpr T tpd::math::dot(const vec4_t<T>& v0, const vec4_t<T>& v1) noexcept {
+    return v0.x * v1.x + v0.y * v1.y + v0.z * v1.z + v0.w * v1.w;
 }
 
 template<typename T>
 constexpr float tpd::math::norm(const vec4_t<T>& vec) noexcept {
-    return std::sqrtf(dot(vec, vec));
+    return std::sqrtf(static_cast<float>(dot(vec, vec)));
 }
 
 template<typename T>
