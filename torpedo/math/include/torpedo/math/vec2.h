@@ -14,7 +14,7 @@ namespace tpd {
         constexpr vec2_t(const vec2_t& other) : data{ other.x, other.y } {}
 
         template<typename R>
-        vec2_t& operator=(const vec2_t<R>& other);
+        constexpr vec2_t& operator=(const vec2_t<R>& other);
         constexpr vec2_t& operator=(const vec2_t&) noexcept = default;
 
         [[nodiscard]] constexpr float length() const noexcept { return static_cast<float>(std::sqrt(x * x + y * y)); }
@@ -46,17 +46,19 @@ namespace tpd {
     using dvec2 = vec2_t<double>;
     using uvec2 = vec2_t<uint32_t>;
     using ivec2 = vec2_t<int32_t>;
+} // namespace tpd
 
+namespace tpd::math {
     template<typename T> requires (std::is_trivially_copyable_v<T>)
     constexpr vec2_t<T> normalize(const vec2_t<T>& v);
 
     template<typename T> requires (std::is_trivially_copyable_v<T>)
     constexpr float dot(const vec2_t<T>& lhs, const vec2_t<T>& rhs);
-} // namespace tpd
+} // namespace tpd::math
 
 template<typename T> requires (std::is_trivially_copyable_v<T>)
 template<typename R>
-tpd::vec2_t<T>& tpd::vec2_t<T>::operator=(const vec2_t<R>& other) {
+constexpr tpd::vec2_t<T>& tpd::vec2_t<T>::operator=(const vec2_t<R>& other) {
     x = static_cast<T>(other.x);
     y = static_cast<T>(other.y);
     return *this;
@@ -162,11 +164,11 @@ constexpr tpd::vec2_t<T> operator/(const tpd::vec2_t<T>& v, T scalar) {
 }
 
 template<typename T> requires (std::is_trivially_copyable_v<T>)
-constexpr tpd::vec2_t<T> tpd::normalize(const vec2_t<T>& v) {
+constexpr tpd::vec2_t<T> tpd::math::normalize(const vec2_t<T>& v) {
     return v / v.length();
 }
 
 template<typename T> requires (std::is_trivially_copyable_v<T>)
-constexpr float tpd::dot(const vec2_t<T>& lhs, const vec2_t<T>& rhs) {
+constexpr float tpd::math::dot(const vec2_t<T>& lhs, const vec2_t<T>& rhs) {
     return static_cast<float>(lhs.x * rhs.x + lhs.y * rhs.y);
 }

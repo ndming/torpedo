@@ -17,7 +17,7 @@ namespace tpd {
         constexpr vec3_t(const vec3_t& other) : data{ other.x, other.y, other.z } {}
 
         template<typename R>
-        vec3_t& operator=(const vec3_t<R>& other);
+        constexpr vec3_t& operator=(const vec3_t<R>& other);
         constexpr vec3_t& operator=(const vec3_t&) noexcept = default;
 
         [[nodiscard]] constexpr float length() const noexcept;
@@ -52,7 +52,9 @@ namespace tpd {
     using dvec3 = vec3_t<double>;
     using uvec3 = vec3_t<uint32_t>;
     using ivec3 = vec3_t<int32_t>;
+} // namespace tpd
 
+namespace tpd::math {
     template<typename T> requires (std::is_trivially_copyable_v<T>)
     constexpr vec3_t<T> normalize(const vec3_t<T>& v);
 
@@ -61,7 +63,7 @@ namespace tpd {
 
     template<typename T> requires (std::is_trivially_copyable_v<T>)
     constexpr vec3_t<T> cross(const vec3_t<T>& lhs, const vec3_t<T>& rhs);
-}
+} // namespace tpd::math
 
 template<typename T> requires (std::is_trivially_copyable_v<T>)
 template<typename R>
@@ -70,7 +72,7 @@ constexpr tpd::vec3_t<T>::vec3_t(const vec3_t<R>& other)
 
 template<typename T> requires (std::is_trivially_copyable_v<T>)
 template<typename R>
-tpd::vec3_t<T>& tpd::vec3_t<T>::operator=(const vec3_t<R>& other) {
+constexpr tpd::vec3_t<T>& tpd::vec3_t<T>::operator=(const vec3_t<R>& other) {
     x = static_cast<T>(other.x);
     y = static_cast<T>(other.y);
     z = static_cast<T>(other.z);
@@ -190,17 +192,17 @@ constexpr tpd::vec3_t<T> operator/(const tpd::vec3_t<T>& v, T scalar) {
 }
 
 template<typename T> requires (std::is_trivially_copyable_v<T>)
-constexpr tpd::vec3_t<T> tpd::normalize(const vec3_t<T>& v) {
+constexpr tpd::vec3_t<T> tpd::math::normalize(const vec3_t<T>& v) {
     return v / v.length();
 }
 
 template<typename T> requires (std::is_trivially_copyable_v<T>)
-constexpr float tpd::dot(const vec3_t<T>& lhs, const vec3_t<T>& rhs) {
+constexpr float tpd::math::dot(const vec3_t<T>& lhs, const vec3_t<T>& rhs) {
     return static_cast<float>(lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z);
 }
 
 template<typename T> requires (std::is_trivially_copyable_v<T>)
-constexpr tpd::vec3_t<T> tpd::cross(const vec3_t<T>& lhs, const vec3_t<T>& rhs) {
+constexpr tpd::vec3_t<T> tpd::math::cross(const vec3_t<T>& lhs, const vec3_t<T>& rhs) {
     return tpd::vec3_t<T> {
         lhs.y * rhs.z - lhs.z * rhs.y,
         lhs.z * rhs.x - lhs.x * rhs.z,
