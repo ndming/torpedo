@@ -1,6 +1,6 @@
 #pragma once
 
-#include <type_traits>
+#include "torpedo/math/common.h"
 
 namespace tpd {
     template<typename T> requires (std::is_arithmetic_v<T>)
@@ -45,13 +45,13 @@ namespace tpd {
 } // namespace tpd
 
 namespace tpd::math {
-    template<typename T>
+    template<typename T> requires (std::is_floating_point_v<T>)
     constexpr T dot(const vec2_t<T>& v0, const vec2_t<T>& v1) noexcept;
 
-    template<typename T>
-    constexpr float norm(const vec2_t<T>& vec) noexcept;
+    template<typename T> requires (std::is_floating_point_v<T>)
+    constexpr T norm(const vec2_t<T>& vec) noexcept;
 
-    template<typename T>
+    template<typename T> requires (std::is_floating_point_v<T>)
     constexpr vec2_t<T> normalize(const vec2_t<T>& vec) noexcept;
 } // namespace tpd::math
 
@@ -190,17 +190,22 @@ constexpr tpd::vec2_t<T> operator/(const tpd::vec2_t<T>& vec, const T scalar) {
     }
 }
 
-template<typename T>
+template<typename T> requires (std::is_floating_point_v<T>)
 constexpr T tpd::math::dot(const vec2_t<T>& v0, const vec2_t<T>& v1) noexcept {
-    return v0.x * v1.x + v0.y * v1.y;
+    // See algorithm 6 in: https://doi.org/10.1016/j.cam.2022.114434
+    const auto [xx, err0] = compensated_mul(v0.x, v1.x);
+    const auto [yy, err1] = compensated_mul(v0.y, v1.y);
+    const auto [dot, err] = compensated_add(xx, yy);
+    const T c = err0 + (err + err1);
+    return dot + c;
 }
 
-template<typename T>
-constexpr float tpd::math::norm(const vec2_t<T>& vec) noexcept {
-    return std::sqrtf(static_cast<float>(dot(vec, vec)));
+template<typename T> requires (std::is_floating_point_v<T>)
+constexpr T tpd::math::norm(const vec2_t<T>& vec) noexcept {
+    return std::sqrt(dot(vec, vec));
 }
 
-template<typename T>
+template<typename T> requires (std::is_floating_point_v<T>)
 constexpr tpd::vec2_t<T> tpd::math::normalize(const vec2_t<T>& vec) noexcept {
-    return vec / static_cast<T>(norm(vec));
+    return vec / norm(vec);
 }

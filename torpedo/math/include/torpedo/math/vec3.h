@@ -52,16 +52,16 @@ namespace tpd {
 } // namespace tpd
 
 namespace tpd::math {
-    template<typename T>
+    template<typename T> requires (std::is_floating_point_v<T>)
     constexpr vec3_t<T> cross(const vec3_t<T>& v0, const vec3_t<T>& v1) noexcept;
 
-    template<typename T>
+    template<typename T> requires (std::is_floating_point_v<T>)
     constexpr T dot(const vec3_t<T>& v0, const vec3_t<T>& v1) noexcept;
 
-    template<typename T>
-    constexpr float norm(const vec3_t<T>& vec) noexcept;
+    template<typename T> requires (std::is_floating_point_v<T>)
+    constexpr T norm(const vec3_t<T>& vec) noexcept;
 
-    template<typename T>
+    template<typename T> requires (std::is_floating_point_v<T>)
     constexpr vec3_t<T> normalize(const vec3_t<T>& vec) noexcept;
 } // namespace tpd::math
 
@@ -206,26 +206,37 @@ constexpr tpd::vec3_t<T> operator/(const tpd::vec3_t<T>& vec, const T scalar) no
     }
 }
 
-template<typename T>
+template<typename T> requires (std::is_floating_point_v<T>)
 constexpr tpd::vec3_t<T> tpd::math::cross(const vec3_t<T>& v0, const vec3_t<T>& v1) noexcept {
     return tpd::vec3_t<T> {
-        v0.y * v1.z - v0.z * v1.y,
-        v0.z * v1.x - v0.x * v1.z,
-        v0.x * v1.y - v0.y * v1.x
+        dop(v0.y, v1.z, v0.z, v1.y),
+        dop(v0.z, v1.x, v0.x, v1.z),
+        dop(v0.x, v1.y, v0.y, v1.x),
     };
 }
 
-template<typename T>
+template<typename T> requires (std::is_floating_point_v<T>)
 constexpr T tpd::math::dot(const vec3_t<T>& v0, const vec3_t<T>& v1) noexcept {
-    return v0.x * v1.x + v0.y * v1.y + v0.z * v1.z;
+    // See algorithm 6 in: https://doi.org/10.1016/j.cam.2022.114434
+    const auto [xx, err0] = compensated_mul(v0.x, v1.x);
+
+    const auto [yy, err1] = compensated_mul(v0.y, v1.y);
+    const auto [xy, err3] = compensated_sum(xx, yy);
+    const T err4 = err0 + (err3 + err1);
+
+    const auto [zz, err2] = compensated_mul(v0.z, v1.z);
+    const auto [dot, err] = compensated_sum(xy, zz);
+    const T c = err4 + (err + err2);
+
+    return dot + c;
 }
 
-template<typename T>
-constexpr float tpd::math::norm(const vec3_t<T>& vec) noexcept {
-    return std::sqrtf(static_cast<float>(dot(vec, vec)));
+template<typename T> requires (std::is_floating_point_v<T>)
+constexpr T tpd::math::norm(const vec3_t<T>& vec) noexcept {
+    return std::sqrt(dot(vec, vec));
 }
 
-template<typename T>
+template<typename T> requires (std::is_floating_point_v<T>)
 constexpr tpd::vec3_t<T> tpd::math::normalize(const vec3_t<T>& vec) noexcept {
-    return vec / static_cast<T>(norm(vec));
+    return vec / norm(vec);
 }
