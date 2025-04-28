@@ -13,7 +13,6 @@ target_include_directories(${TARGET} PUBLIC include)
 # Dependencies
 target_link_libraries(${TARGET} PUBLIC torpedo::rendering)
 target_link_libraries(${TARGET} PUBLIC torpedo::math)
-target_link_libraries(${TARGET} PUBLIC vsg::vsg)
 
 
 # SHADER ASSETS

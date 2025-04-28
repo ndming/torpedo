@@ -1,7 +1,6 @@
 # TORPEDO BACKEND AND TOOLS
 # -------------------------
 find_package(Vulkan 1.4 REQUIRED)
-find_package(vsg REQUIRED)
 
 # Find GLSL and Slang compilers
 message(STATUS "Path to shader compilers:")

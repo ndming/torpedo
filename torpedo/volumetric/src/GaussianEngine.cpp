@@ -271,27 +271,28 @@ void tpd::GaussianEngine::createCameraObject(const uint32_t width, const uint32_
     _camera.tanFov.y  = std::numbers::inv_sqrt3_v<float>; // tan(60/2)
     _camera.tanFov.x  = _camera.tanFov.y * aspect;
 
-    // Note that matrices in vsg are column-major, whereas Slang uses row-major
-    _camera.viewMatrix = vsg::mat4{
+    _camera.viewMatrix = mat4{
         1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 0.0f,
-        0.0f, 0.0f, 2.0f, 1.0f,
+        0.0f, 0.0f, 1.0f, 2.0f,
+        0.0f, 0.0f, 0.0f, 1.0f,
     };
+    _camera.viewMatrix = math::transpose(_camera.viewMatrix);
 
     // The projection map to reverse depth (1, 0) range, and the camera orientation is the same as OpenCV
     const auto fy = 1.f / std::tan(fovY / 2.f);
     const auto fx = fy / aspect;
     constexpr auto za = NEAR / (NEAR - FAR);
     constexpr auto zb = NEAR * FAR / (FAR - NEAR);
-    const auto projection = vsg::mat4{
+    const auto projection = mat4{
         fx,  0.f, 0.f, 0.f,
         0.f, fy,  0.f, 0.f,
-        0.f, 0.f, za,  1.f,
-        0.f, 0.f, zb,  0.f,
+        0.f, 0.f, za,  zb,
+        0.f, 0.f, 1.f, 0.f,
     };
 
-    _camera.projMatrix = projection * _camera.viewMatrix;
+    _camera.projMatrix = math::mul(projection, _camera.viewMatrix);
+    _camera.projMatrix = math::transpose(_camera.projMatrix);
 }
 
 void tpd::GaussianEngine::updateCameraBuffer(const uint32_t frameIndex) const {
@@ -323,7 +324,7 @@ void tpd::GaussianEngine::createGaussianBuffer() {
     auto points = std::array<Gaussian, GAUSSIAN_COUNT>{};
     points[0].position   = { 0.0f, 0.0f, 0.0f };
     points[0].opacity    = 1.0f;
-    points[0].quaternion = vsg::quat{ 0.0f, 0.0f, 0.0f, 1.0f };
+    points[0].quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
     points[0].scale      = { 0.2f, 0.1f, 0.1f, 1.0f };
     // A gray Gaussian
     points[0].sh[0] = 1.5f;
@@ -417,7 +418,7 @@ void tpd::GaussianEngine::createIndicesBuffer() {
 void tpd::GaussianEngine::createRangesBuffer(uint32_t width, uint32_t height) {
     const auto tilesX = (width  + BLOCK_X - 1) / BLOCK_X;
     const auto tilesY = (height + BLOCK_Y - 1) / BLOCK_Y;
-    const auto size = sizeof(vsg::uivec2) * tilesX * tilesY;
+    const auto size = sizeof(uvec2) * tilesX * tilesY;
 
     // It's possible we're reallocating a new buffer, in which case the old one must be destroyed
     _rangesBuffer.destroy(_vmaAllocator);

@@ -8,9 +8,7 @@
 #include <torpedo/foundation/ShaderLayout.h>
 #include <torpedo/foundation/StorageBuffer.h>
 
-#include <vsg/maths/mat4.h>
-#include <vsg/maths/quat.h>
-#include <torpedo/math/vec4.h>
+#include <torpedo/math/mat4.h>
 
 namespace tpd {
     class GaussianEngine final : public Engine {
@@ -102,9 +100,9 @@ namespace tpd {
         static constexpr auto NEAR = 0.2f;
         static constexpr auto FAR = 10.0f;
         struct Camera {
-            vsg::mat4 viewMatrix;
-            vsg::mat4 projMatrix;
-            vsg::vec2 tanFov;
+            mat4 viewMatrix{};
+            mat4 projMatrix{};
+            vec2 tanFov{};
         };
 
         /*--------------------*/
@@ -152,7 +150,7 @@ namespace tpd {
         struct Gaussian {
             vec3 position;
             float opacity;
-            vsg::quat quaternion;
+            vec4 quaternion;
             vec4 scale;
             std::array<float, MAX_SH_RGB> sh;
         };
