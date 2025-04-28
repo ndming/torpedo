@@ -24,16 +24,6 @@ tpd::ShaderModuleBuilder& tpd::ShaderModuleBuilder::spirvPath(const std::filesys
     return *this;
 }
 
-tpd::ShaderModuleBuilder& tpd::ShaderModuleBuilder::slang(const std::string_view assetsDir, const std::string& fileName) {
-    const auto path = std::filesystem::path(assetsDir) / "slang" / (fileName + ".spv");
-    return spirvPath(path);
-}
-
-tpd::ShaderModuleBuilder& tpd::ShaderModuleBuilder::glsl(const std::string_view assetsDir, const std::string& fileName) {
-    const auto path = std::filesystem::path(assetsDir) / "glsl" / (fileName + ".spv");
-    return spirvPath(path);
-}
-
 vk::ShaderModule tpd::ShaderModuleBuilder::build(const vk::Device device) const {
     if (_shaderCode.empty()) {
         throw std::runtime_error("ShaderModuleBuilder - Shader code is empty: did you forget to call ShaderModuleBuilder::spirvPath()?");

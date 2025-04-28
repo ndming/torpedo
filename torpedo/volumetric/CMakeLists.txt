@@ -21,11 +21,11 @@ target_link_libraries(${TARGET} PUBLIC torpedo::math)
 torpedo_define_assets_dir(${TARGET} VOLUMETRIC ${CMAKE_CURRENT_BINARY_DIR} TORPEDO_VOLUMETRIC_ASSETS_DIR)
 # Shader assets
 set(TORPEDO_VOLUMETRIC_SHADERS
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/slang/prepare.slang
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/slang/prefix.slang
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/slang/keygen.slang
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/slang/radix.slang
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/slang/range.slang
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/slang/forward.slang)
-torpedo_compile_slang(${TARGET} "${TORPEDO_VOLUMETRIC_ASSETS_DIR}/slang" "${TORPEDO_VOLUMETRIC_SHADERS}")
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/prepare.slang
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/prefix.slang
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/keygen.slang
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/radix.slang
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/range.slang
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/forward.slang)
+torpedo_compile_slang(${TARGET} "${TORPEDO_VOLUMETRIC_ASSETS_DIR}/gaussian" "${TORPEDO_VOLUMETRIC_SHADERS}")
 target_link_libraries(${TARGET} PRIVATE "${TARGET}_spirv_binaries")

@@ -144,7 +144,7 @@ void tpd::GaussianEngine::logDebugInfos() const noexcept {
     // Assets directories
     const auto assetsDir = std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR).make_preferred();
     PLOGD << "Assets directories used by " << getName() << ':';
-    PLOGD << " - " << assetsDir / "slang";
+    PLOGD << " - " << assetsDir / "gaussian";
 }
 
 void tpd::GaussianEngine::framebufferResizeCallback(void* ptr, const uint32_t width, const uint32_t height) {
@@ -203,7 +203,7 @@ void tpd::GaussianEngine::createGaussianLayout() {
 
 vk::Pipeline tpd::GaussianEngine::createPipeline(const std::string& slangFile, const vk::PipelineLayout layout) const {
     const auto shaderModule = ShaderModuleBuilder()
-        .slang(TORPEDO_VOLUMETRIC_ASSETS_DIR, slangFile)
+        .spirvPath(std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR) / "gaussian" / (slangFile + ".spv"))
         .build(_device);
 
     const auto shaderStage = vk::PipelineShaderStageCreateInfo{}
