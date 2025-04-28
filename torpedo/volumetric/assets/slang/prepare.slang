@@ -19,7 +19,7 @@ RWStructuredBuffer<Splat> splats;
 // Performs initial steps for each Gaussian prior to rasterization
 
 [shader("compute")]
-[numthreads(LINEAR_WORKGROUP_SIZE, 1, 1)]
+[numthreads(WORKGROUP_SIZE, 1, 1)]
 void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     // Each thread processes one Gaussian point
     let idx = globalInvocationID.x;

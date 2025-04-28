@@ -14,7 +14,7 @@ RWStructuredBuffer<uint2> ranges;
 // If yes, write start/end of this tile to the `ranges` buffer.
 
 [shader("compute")]
-[numthreads(LINEAR_WORKGROUP_SIZE, 1, 1)]
+[numthreads(WORKGROUP_SIZE, 1, 1)]
 void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     let idx = globalInvocationID.x;
     if (idx >= info.tilesRendered) return;

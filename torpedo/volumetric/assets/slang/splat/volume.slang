@@ -16,7 +16,7 @@ public float2 ndc2pix(float2 ndcPoint, uint2 imageSize) {
 }
 
 /// Returns the screen-space starting tile index `rectMin` and ending tile index `rectMax` (exclusive) thats the image
-/// `point` with `radius` in pixels overlaps with. Tiles are `BLOCK_X` x `BLOCK_Y` making up a `grid` covering the image.
+/// `point` with `radius` in pixels overlaps with. `grid` specifies the number of `BLOCK_X` x `BLOCK_Y` tiles.
 public void getBoundingRect(float2 point, float radius, uint2 grid, out uint2 rectMin, out uint2 rectMax) {
     rectMin.x = min(grid.x, max(0, (int)((point.x - radius) / BLOCK_X)));
     rectMin.y = min(grid.y, max(0, (int)((point.y - radius) / BLOCK_Y)));

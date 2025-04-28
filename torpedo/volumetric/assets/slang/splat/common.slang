@@ -70,7 +70,7 @@ public float3 evaluateSphericalHarmonics(float sh[], float3 direction, uint degr
     return max(result, 0.0f);
 }
 
-/// Returns the number of `BLOCK_X` x `BLOCK_Y` tiles for a `imageW` x `imageH` (pixels) image.
+/// Returns the number of `BLOCK_X` x `BLOCK_Y` tiles for a `imageSize.x` x `imageSize.y` (pixels) image.
 public uint2 getComputeGrid(uint2 imageSize) {
     return uint2((imageSize.x + BLOCK_X - 1) / BLOCK_X, (imageSize.y + BLOCK_Y - 1) / BLOCK_Y);
 }

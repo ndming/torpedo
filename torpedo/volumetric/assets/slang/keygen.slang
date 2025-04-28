@@ -22,7 +22,7 @@ RWStructuredBuffer<uint32_t> vals;
 // Generates one key/value pair for all Gaussian/tile overlaps
 
 [shader("compute")]
-[numthreads(LINEAR_WORKGROUP_SIZE, 1, 1)]
+[numthreads(WORKGROUP_SIZE, 1, 1)]
 void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     // Each thread processes one Gaussian point
     let idx = globalInvocationID.x;

@@ -4,10 +4,9 @@ __include "splat/common.slang";
 __include "splat/surfel.slang";
 __include "splat/volume.slang";
 
-public static const uint LINEAR_WORKGROUP_SIZE = 256;
-
-public static const uint BLOCK_X = 16; // tile size in x
-public static const uint BLOCK_Y = 16; // tile size in y
+public static const uint WORKGROUP_SIZE = 256; // workgroup size for all passes before blending
+public static const uint BLOCK_X = 16; // tile size in x-dimension in blending pass
+public static const uint BLOCK_Y = 16; // tile size in x-dimension in blending pass
 
 public struct RasterInfo {
     public uint pointCount; // number of Gaussian points
@@ -34,6 +33,6 @@ public struct Gaussian {
 public struct Splat {
     public float3 color;
     public uint   tiles; // tiles touched
-    public float4 texel; // texCoord + view depth + radius
+    public float4 texel; // image point + view depth + radius
     public float4 copac; // conic + opacity
 }

@@ -19,7 +19,7 @@ RWStructuredBuffer<uint64_t> tilesRendered; // readback by CPU
 // The total number of touched tiles is written to `tilesRendered` for CPU readback.
 
 [shader("compute")]
-[numthreads(LINEAR_WORKGROUP_SIZE, 1, 1)]
+[numthreads(WORKGROUP_SIZE, 1, 1)]
 void main(
     uint3 globalInvocationID : SV_DispatchThreadID,
     uint3 localInvocationID  : SV_GroupThreadID,

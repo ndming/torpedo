@@ -12,21 +12,85 @@ StructuredBuffer<uint32_t> indices;
 [[vk::binding(10)]]
 StructuredBuffer<uint2> ranges;
 
+static const uint BLOCK_SIZE = BLOCK_X * BLOCK_Y;
+
+groupshared uint groupIndices[BLOCK_SIZE];
+groupshared float2 groupImgPoints[BLOCK_SIZE];
+groupshared float4 groupCopacs[BLOCK_SIZE];
+groupshared uint doneCount;
+
 [shader("compute")]
 [numthreads(BLOCK_X, BLOCK_Y, 1)]
-void main(
-    uint3 globalInvocationID : SV_DispatchThreadID,
-    uint3 localInvocationID  : SV_GroupThreadID,
-) {
-    uint2 texelCoord = globalInvocationID.xy;
+void main(uint3 localInvocationID : SV_GroupThreadID, uint3 tileID : SV_GroupID) {
+    // Thread ID in the workgroup, [0, BLOCK_SIZE - 1]
+    let threadId = localInvocationID.x + localInvocationID.y * BLOCK_X;
+
+    // Image size
     uint2 imageSize; uint mipCount;
     outputImage.GetDimensions(0, imageSize.x, imageSize.y, mipCount);
 
-    if (texelCoord.x < imageSize.x && texelCoord.y < imageSize.y) {
-        float4 color = float4(0.0, 0.0, 0.0, 1.0);
-        if (localInvocationID.x != 0 && localInvocationID.y != 0) {
-            color.xyz = splats[0].color;
+    // Identify the current tile and its min/max pixel coordinates
+    let pixMin = uint2(tileID.x * BLOCK_X, tileID.y * BLOCK_Y);
+    let pixMax = uint2(min(pixMin.x + BLOCK_X, imageSize.x), min(pixMin.y + BLOCK_Y, imageSize.y));
+    let pixel = pixMin + localInvocationID.xy;
+    let pixID = pixel.y * imageSize.x + pixel.x;
+
+    // Check if this thread is associated with a valid pixel or outside the image
+    let inside = pixel.x < imageSize.x && pixel.y < imageSize.y;
+    // Done threads can help with fetching, but don't rasterize
+    var done = !inside;
+
+    // Find the range of Gaussian indices this tile is responsible for
+    let grid = getComputeGrid(imageSize);
+    let range = ranges[tileID.y * grid.x + tileID.x];
+
+    // Rasterization is done in rounds of BLOCK_SIZE threads
+    let rounds = (range.y - range.x + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    var remaining = range.y - range.x; // how many Gaussian left to rasterize
+
+    var T = 1.0;
+    var color = float3(0.0, 0.0, 0.0);
+    for (uint i = 0; i < rounds; i++, remaining -= BLOCK_SIZE) {
+        // End if entire block votes that it is done rasterizing
+        if (done) InterlockedAdd(doneCount, 1u);
+        GroupMemoryBarrierWithGroupSync();
+        if (doneCount >= BLOCK_SIZE) break;
+
+        let progress = i * BLOCK_SIZE + threadId;
+        if (range.x + progress < range.y) {
+            let gaussianID = indices[range.x + progress];
+            groupIndices[threadId] = gaussianID;
+            groupImgPoints[threadId] = splats[gaussianID].texel.xy;
+            groupCopacs[threadId] = splats[gaussianID].copac;
         }
-        outputImage.Store(texelCoord, color);
+        GroupMemoryBarrierWithGroupSync();
+
+        // Rasterize the Gaussians in the current round
+        for (uint j = 0; !done && j < min(BLOCK_SIZE, remaining); j++) {
+            let imgPoint = groupImgPoints[j]; // the splat center in image space
+            let copac = groupCopacs[j];
+
+            // Resample using conic matrix
+            let d = float2(pixel.x, pixel.y) - imgPoint;
+            let power = -0.5 * (copac.x * d.x * d.x + copac.z * d.y * d.y) - copac.y * d.x * d.y;
+            if (power > 0.0) continue;
+
+            // Eq. (2) from 3D Gaussian splatting paper
+            let alpha = min(0.99, copac.w * exp(power));
+            if (alpha < 1.0 / 255.0) continue;
+            if (T * (1.0 - alpha) < 0.0001) {
+                done = true;
+                continue;
+            }
+
+            // Eq. (3) from 3D Gaussian splatting paper
+            color += splats[groupIndices[j]].color * alpha * T;
+            T *= (1.0 - alpha);
+        }
+    }
+
+    // All threads that treat valid pixel write out their final color
+    if (inside) {
+        outputImage.Store(pixel, float4(color, 1.0));
     }
 }
