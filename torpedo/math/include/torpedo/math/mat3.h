@@ -5,14 +5,17 @@
 
 namespace tpd {
     /**
-     * Represents a 3x3 row-major matrix. Each index `i` into the matrix results in a `vec3_t<T>` vector at row `i`.
+     * Represents a 3x3 row-major matrix. Each index `i` into the matrix via the subscript operator
+     * results in a `vec3_t<T>` vector at row `i`, while the `col(i)` method returns a `vec3_t<T>`
+     * containing values at column `i`.
      *
      * @tparam T Numeric type of the matrix elements, must be an arithmetic type.
      */
     template<typename T> requires (std::is_arithmetic_v<T>)
     struct mat3_t {
-        constexpr explicit mat3_t(const T val = 0) noexcept : data{ { val, 0, 0 }, { 0, val, 0 }, { 0, 0, val } } {}
-        constexpr explicit mat3_t(const mat2_t<T>& mat, const vec2_t<T>& vec, T r2c2 = 0) noexcept;
+        constexpr mat3_t() noexcept = default;
+        constexpr explicit mat3_t(const T val) noexcept : data{ { val, 0, 0 }, { 0, val, 0 }, { 0, 0, val } } {}
+        constexpr mat3_t(const mat2_t<T>& mat, const vec2_t<T>& vec, T r2c2 = 0) noexcept;
         constexpr mat3_t(T r0c0, T r0c1, T r0c2, T r1c0, T r1c1, T r1c2, T r2c0, T r2c1, T r2c2) noexcept;
         constexpr mat3_t(const vec3_t<T>& row0, const vec3_t<T>& row1, const vec3_t<T>& row2) noexcept;
 

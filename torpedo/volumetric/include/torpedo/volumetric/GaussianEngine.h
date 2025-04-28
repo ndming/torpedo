@@ -100,9 +100,9 @@ namespace tpd {
         static constexpr auto NEAR = 0.2f;
         static constexpr auto FAR = 10.0f;
         struct Camera {
-            mat4 viewMatrix{};
-            mat4 projMatrix{};
-            vec2 tanFov{};
+            mat4 viewMatrix;
+            mat4 projMatrix;
+            vec2 tanFov;
         };
 
         /*--------------------*/

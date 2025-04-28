@@ -15,7 +15,8 @@ namespace tpd {
      */
     template<typename T> requires (std::is_arithmetic_v<T>)
     struct mat2_t {
-        constexpr explicit mat2_t(const T val = 0) noexcept : data{ { val, 0 }, { 0, val } } {}
+        constexpr mat2_t() noexcept = default;
+        constexpr explicit mat2_t(const T val) noexcept : data{ { val, 0 }, { 0, val } } {}
         constexpr mat2_t(T r0c0, T r0c1, T r1c0, T r1c1) noexcept;
         constexpr mat2_t(const vec2_t<T>& row0, const vec2_t<T>& row1) noexcept;
 

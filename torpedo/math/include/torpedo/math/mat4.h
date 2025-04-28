@@ -5,14 +5,17 @@
 
 namespace tpd {
     /**
-     * Represents a 4x4 row-major matrix. Each index `i` into the matrix results in a `vec4_t<T>` vector at row `i`.
+     * Represents a 4x4 row-major matrix. Each index `i` into the matrix via the subscript operator
+     * results in a `vec4_t<T>` vector at row `i`, while the `col(i)` method returns a `vec4_t<T>`
+     * containing values at column `i`.
      *
      * @tparam T Numeric type of the matrix elements, must be an arithmetic type.
      */
     template<typename T> requires (std::is_arithmetic_v<T>)
     struct mat4_t {
-        constexpr explicit mat4_t(T val = 0) noexcept;
-        constexpr explicit mat4_t(const mat3_t<T>& mat, const vec3_t<T>& vec, T r3c3 = 1) noexcept;
+        constexpr mat4_t() noexcept = default;
+        constexpr explicit mat4_t(T val) noexcept;
+        constexpr mat4_t(const mat3_t<T>& mat, const vec3_t<T>& vec, T r3c3 = 1) noexcept;
         constexpr mat4_t(const vec4_t<T>& row0, const vec4_t<T>& row1, const vec4_t<T>& row2, const vec4_t<T>& row3) noexcept;
         constexpr mat4_t(
             T r0c0, T r0c1, T r0c2, T r0c3,
