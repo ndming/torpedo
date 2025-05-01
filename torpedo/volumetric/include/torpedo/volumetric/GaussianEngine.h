@@ -71,7 +71,7 @@ namespace tpd {
             vk::Buffer buffer, vk::DeviceSize size, const ShaderInstance& instance,
             uint32_t binding, uint32_t set = 0) const;
 
-        static constexpr uint32_t LINEAR_WORKGROUP_SIZE = 256; // number of local threads per workgroup in scan passes
+        static constexpr uint32_t WORKGROUP_SIZE = 256; // number of local threads per workgroup in scan passes
         static constexpr uint32_t BLOCK_X = 16; // tile size in x-dimension
         static constexpr uint32_t BLOCK_Y = 16; // tile size in y-dimension
         void recordPreprocess(vk::CommandBuffer cmd, uint32_t frameIndex) const noexcept;
@@ -144,6 +144,7 @@ namespace tpd {
 
         static constexpr uint32_t GAUSSIAN_COUNT = 1;
         static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
+        using TilesRenderedType = uint32_t;
 
         // The maximum number of floats for RGB spherical harmonics
         static constexpr uint32_t MAX_SH_RGB = 48;

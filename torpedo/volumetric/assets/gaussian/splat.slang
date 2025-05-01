@@ -11,7 +11,7 @@ public static const uint BLOCK_Y = 16; // tile size in x-dimension in blending p
 public struct RasterInfo {
     public uint pointCount; // number of Gaussian points
     public uint shDegree;   // active SH degree
-    public uint64_t tilesRendered; // `numRenderer` in the CUDA code
+    public uint tilesRendered; // `numRendered` in the CUDA code
 }
 
 public struct Camera {

@@ -10,13 +10,11 @@ StructuredBuffer<Splat> splats;
 RWStructuredBuffer<uint32_t> prefixOffsets;
 
 [[vk::binding(5)]]
-RWStructuredBuffer<uint64_t> tilesRendered; // readback by CPU
+RWStructuredBuffer<uint32_t> tilesRendered; // readback by CPU
 
-// Computes EXCLUSIVE prefix sum over full list of touched tile counts by Gaussians, based on:
-// https://research.nvidia.com/publication/2016-03_single-pass-parallel-prefix-scan-decoupled-look-back
-// https://github.com/linebender/vello/blob/custom-hal-archive-with-shaders/tests/shader/prefix.comp
-// https://shi-yan.github.io/webgpuunleashed/Compute/prefix_sum.html
+// Computes EXCLUSIVE prefix sum over full list of touched tile counts by Gaussians.
 // The total number of touched tiles is written to `tilesRendered` for CPU readback.
+// See: https://www.eecs.umich.edu/courses/eecs570/hw/parprefix.pdf
 
 [shader("compute")]
 [numthreads(WORKGROUP_SIZE, 1, 1)]

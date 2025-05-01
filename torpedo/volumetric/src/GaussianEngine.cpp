@@ -183,7 +183,7 @@ void tpd::GaussianEngine::createGaussianLayout() {
     using enum vk::ShaderStageFlagBits;
 
     _shaderLayout = ShaderLayout::Builder()
-        .pushConstantRange(eCompute, 0, sizeof(PointCloud) + sizeof(uint64_t))
+        .pushConstantRange(eCompute, 0, sizeof(PointCloud) + sizeof(TilesRenderedType))
         .descriptorSetCount(1)
         .descriptor(0, 0, eStorageImage,  1, eCompute) // output image
         .descriptor(0, 1, eUniformBuffer, 1, eCompute) // camera
@@ -361,10 +361,10 @@ void tpd::GaussianEngine::createPrefixOffsetsBuffer() {
 void tpd::GaussianEngine::createTilesRenderedBuffer() {
     _tilesRenderedBuffer = ReadbackBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eStorageBuffer)
-        .alloc(sizeof(uint64_t))
+        .alloc(sizeof(TilesRenderedType))
         .build(_vmaAllocator);
 
-    setStorageBufferDescriptors(_tilesRenderedBuffer, sizeof(uint64_t), _shaderInstance, 5);
+    setStorageBufferDescriptors(_tilesRenderedBuffer, sizeof(TilesRenderedType), _shaderInstance, 5);
 }
 
 void tpd::GaussianEngine::createKeysBuffer() {
@@ -463,8 +463,9 @@ void tpd::GaussianEngine::preFrameCompute() {
     preFrameCompute.begin(vk::CommandBufferBeginInfo{});
 
     // Bind once before preprocess passes
+    constexpr auto shaderStage = vk::ShaderStageFlagBits::eCompute;
     using enum vk::PipelineBindPoint;
-    preFrameCompute.pushConstants(_gaussianLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(PointCloud), &_pc);
+    preFrameCompute.pushConstants(_gaussianLayout, shaderStage, 0, sizeof(PointCloud), &_pc);
     preFrameCompute.bindDescriptorSets(eCompute, _gaussianLayout, 0, _shaderInstance.getDescriptorSets(frameIndex), {});
 
     // Transition the render target to the format that can be inspected by the subsequent passes
@@ -489,9 +490,8 @@ void tpd::GaussianEngine::preFrameCompute() {
     _device.resetFences(readBackFence);
 
     // Inspect the number of tiles rendered and reallocate relevant buffers if necessary
-    const auto tilesRendered = _tilesRenderedBuffer.read<uint64_t>();
-    if (tilesRendered > _currentTilesRendered) [[unlikely]] {
-        _currentTilesRendered = tilesRendered;
+    if (const auto tiles = _tilesRenderedBuffer.read<TilesRenderedType>(); tiles > _currentTilesRendered) [[unlikely]] {
+        _currentTilesRendered = tiles;
         reallocateBuffers();
     }
 
@@ -499,9 +499,8 @@ void tpd::GaussianEngine::preFrameCompute() {
     preFrameCompute.begin(vk::CommandBufferBeginInfo{});
 
     // Re-bind the layout and push the number of tiles rendered
-    preFrameCompute.pushConstants(_gaussianLayout, vk::ShaderStageFlagBits::eCompute, 0, sizeof(PointCloud), &_pc);
-    preFrameCompute.pushConstants(
-        _gaussianLayout, vk::ShaderStageFlagBits::eCompute, sizeof(PointCloud), sizeof(uint64_t), &_currentTilesRendered);
+    preFrameCompute.pushConstants(_gaussianLayout, shaderStage, 0,                  sizeof(PointCloud),        &_pc);
+    preFrameCompute.pushConstants(_gaussianLayout, shaderStage, sizeof(PointCloud), sizeof(TilesRenderedType), &_currentTilesRendered);
     preFrameCompute.bindDescriptorSets(eCompute, _gaussianLayout, 0, _shaderInstance.getDescriptorSets(frameIndex), {});
 
     // The remaining passes: keygen, radix, range, forward
@@ -589,7 +588,7 @@ void tpd::GaussianEngine::draw(const SwapImage image) {
 void tpd::GaussianEngine::recordPreprocess(const vk::CommandBuffer cmd, const uint32_t frameIndex) const noexcept {
     // Prepare pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _preparePipeline);
-    cmd.dispatch((GAUSSIAN_COUNT + LINEAR_WORKGROUP_SIZE - 1) / LINEAR_WORKGROUP_SIZE, 1, 1);
+    cmd.dispatch((GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
     // Wait until prepare pass has populated the raster point buffer
     auto barrier = vk::MemoryBarrier2{};
@@ -603,7 +602,7 @@ void tpd::GaussianEngine::recordPreprocess(const vk::CommandBuffer cmd, const ui
 
     // Prefix pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _prefixPipeline);
-    cmd.dispatch((GAUSSIAN_COUNT + LINEAR_WORKGROUP_SIZE - 1) / LINEAR_WORKGROUP_SIZE, 1, 1);
+    cmd.dispatch((GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 }
 
 void tpd::GaussianEngine::reallocateBuffers() {
@@ -627,21 +626,21 @@ void tpd::GaussianEngine::recordPostprocess(const vk::CommandBuffer cmd, const u
 
     // Keygen pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _keygenPipeline);
-    cmd.dispatch((GAUSSIAN_COUNT + LINEAR_WORKGROUP_SIZE - 1) / LINEAR_WORKGROUP_SIZE, 1, 1);
+    cmd.dispatch((GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
     // Wait until keygen pass has populated the keys and vals buffers
     cmd.pipelineBarrier2(dependencyInfo);
 
     // Radix pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixPipeline);
-    cmd.dispatch((_currentTilesRendered + LINEAR_WORKGROUP_SIZE - 1) / LINEAR_WORKGROUP_SIZE, 1, 1);
+    cmd.dispatch((_currentTilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
     // Wait until radix pass has populated the sorted keys buffer
     cmd.pipelineBarrier2(dependencyInfo);
 
     // Range pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _rangePipeline);
-    cmd.dispatch((_currentTilesRendered + LINEAR_WORKGROUP_SIZE - 1) / LINEAR_WORKGROUP_SIZE, 1, 1);
+    cmd.dispatch((_currentTilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
     // Wait until range pass has populated the ranges buffer
     cmd.pipelineBarrier2(dependencyInfo);
