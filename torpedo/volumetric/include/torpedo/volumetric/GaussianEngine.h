@@ -29,6 +29,7 @@ namespace tpd {
 
         static vk::PhysicalDeviceFeatures getFeatures();
         static vk::PhysicalDeviceVulkan13Features getVulkan13Features();
+        static vk::PhysicalDeviceShaderAtomicInt64Features getShaderAtomicInt64Features();
 
         [[nodiscard]] const char* getName() const noexcept override;
         [[nodiscard]] std::pmr::memory_resource* getFrameResource() noexcept override;
@@ -66,6 +67,8 @@ namespace tpd {
         void createSortedKeysBuffer();
         void createIndicesBuffer();
         void createRangesBuffer(uint32_t width, uint32_t height);
+        void createPartitionCountBuffer();
+        void createPartitionDescriptorsBuffer();
 
         void setStorageBufferDescriptors(
             vk::Buffer buffer, vk::DeviceSize size, const ShaderInstance& instance,
@@ -74,7 +77,7 @@ namespace tpd {
         static constexpr uint32_t WORKGROUP_SIZE = 256; // number of local threads per workgroup in scan passes
         static constexpr uint32_t BLOCK_X = 16; // tile size in x-dimension
         static constexpr uint32_t BLOCK_Y = 16; // tile size in y-dimension
-        void recordPreprocess(vk::CommandBuffer cmd, uint32_t frameIndex) const noexcept;
+        void recordPreprocess(vk::CommandBuffer cmd) const noexcept;
         void reallocateBuffers();
         void recordPostprocess(vk::CommandBuffer cmd, uint32_t frameIndex) const noexcept;
         void recordTargetCopy(vk::CommandBuffer cmd, SwapImage swapImage, uint32_t frameIndex) const noexcept;
@@ -142,7 +145,7 @@ namespace tpd {
 
         /*--------------------*/
 
-        static constexpr uint32_t GAUSSIAN_COUNT = 1;
+        static constexpr uint32_t GAUSSIAN_COUNT = 512;
         static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
         using TilesRenderedType = uint32_t;
 
@@ -167,6 +170,8 @@ namespace tpd {
         StorageBuffer _sortedKeysBuffer{};
         StorageBuffer _indicesBuffer{};
         StorageBuffer _rangesBuffer{};
+        StorageBuffer _partitionCountBuffer{};
+        StorageBuffer _partitionDescriptorsBuffer{};
     };
 } // namespace tpd
 

@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <numbers>
+#include <random>
 
 tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
     const std::vector<const char*>& deviceExtensions,
@@ -15,7 +16,8 @@ tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
 {
     auto selector = PhysicalDeviceSelector()
         .features(getFeatures())
-        .featuresVulkan13(getVulkan13Features());
+        .featuresVulkan13(getVulkan13Features())
+        .featuresShaderAtomicInt64(getShaderAtomicInt64Features());
 
     if (_renderer->supportSurfaceRendering()) {
         selector.requestGraphicsQueueFamily();
@@ -35,10 +37,14 @@ vk::Device tpd::GaussianEngine::createDevice(
     auto featuresVulkan13 = getVulkan13Features();
     deviceFeatures.pNext = &featuresVulkan13;
 
+    auto featuresShaderAtomicInt64 = getShaderAtomicInt64Features();
+    featuresVulkan13.pNext = &featuresShaderAtomicInt64;
+
     // Remember to update the count number at the end of the first message should more features are added
     PLOGD << "Device features requested by " << getName() << " (2):";
     PLOGD << " - Features: shaderInt64";
     PLOGD << " - Vulkan13Features: synchronization2";
+    PLOGD << " - ShaderAtomicInt64Features: shaderBufferInt64Atomics";
 
     return DeviceBuilder()
         .deviceFeatures(&deviceFeatures)
@@ -55,6 +61,12 @@ vk::PhysicalDeviceFeatures tpd::GaussianEngine::getFeatures() {
 vk::PhysicalDeviceVulkan13Features tpd::GaussianEngine::getVulkan13Features() {
     auto features = vk::PhysicalDeviceVulkan13Features();
     features.synchronization2 = true;
+    return features;
+}
+
+vk::PhysicalDeviceShaderAtomicInt64Features tpd::GaussianEngine::getShaderAtomicInt64Features() {
+    auto features = vk::PhysicalDeviceShaderAtomicInt64Features{};
+    features.shaderBufferInt64Atomics = true;
     return features;
 }
 
@@ -115,6 +127,8 @@ void tpd::GaussianEngine::onInitialized() {
     createSortedKeysBuffer();
     createIndicesBuffer();
     createRangesBuffer(w, h);
+    createPartitionCountBuffer();
+    createPartitionDescriptorsBuffer();
 }
 
 void tpd::GaussianEngine::logDebugInfos() const noexcept {
@@ -196,6 +210,8 @@ void tpd::GaussianEngine::createGaussianLayout() {
         .descriptor(0, 8, eStorageBuffer, 1, eCompute) // sorted keys
         .descriptor(0, 9, eStorageBuffer, 1, eCompute) // indices
         .descriptor(0,10, eStorageBuffer, 1, eCompute) // ranges
+        .descriptor(0,11, eStorageBuffer, 1, eCompute) // partition count
+        .descriptor(0,12, eStorageBuffer, 1, eCompute) // partition descriptors
         .build(_device, &_gaussianLayout);
 
     _shaderInstance = _shaderLayout.createInstance(_device, _renderer->getInFlightFrameCount());
@@ -322,14 +338,24 @@ void tpd::GaussianEngine::createCameraBuffer() {
 
 void tpd::GaussianEngine::createGaussianBuffer() {
     auto points = std::array<Gaussian, GAUSSIAN_COUNT>{};
-    points[0].position   = { 0.0f, 0.0f, 0.0f };
-    points[0].opacity    = 1.0f;
-    points[0].quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
-    points[0].scale      = { 0.2f, 0.1f, 0.1f, 1.0f };
-    // A gray Gaussian
-    points[0].sh[0] = 1.5f;
-    points[0].sh[1] = 1.5f;
-    points[0].sh[2] = 1.5f;
+
+    std::mt19937 rng{std::random_device{}()};
+    std::uniform_real_distribution dist_pos(-1.0f, 1.0f);
+    std::uniform_real_distribution dist_opacity(0.0f, 1.0f);
+    std::uniform_real_distribution dist_quat(-1.0f, 1.0f);
+    std::uniform_real_distribution dist_scale(0.05f, 0.5f);
+    std::uniform_real_distribution dist_sh(0.5f, 2.0f);
+
+    for (auto& [position, opacity, quaternion, scale, sh] : points) {
+        position = { dist_pos(rng), dist_pos(rng), dist_pos(rng) };
+        opacity = dist_opacity(rng);
+        quaternion = { dist_quat(rng), dist_quat(rng), dist_quat(rng), dist_quat(rng) };
+        quaternion = math::normalize(quaternion);
+        scale = { dist_scale(rng), dist_scale(rng), dist_scale(rng), 1.0f };
+        sh[0] = dist_sh(rng);
+        sh[1] = dist_sh(rng);
+        sh[2] = dist_sh(rng);
+    }
 
     _gaussianBuffer = StorageBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eTransferDst)
@@ -429,6 +455,24 @@ void tpd::GaussianEngine::createRangesBuffer(uint32_t width, uint32_t height) {
     setStorageBufferDescriptors(_rangesBuffer, size, _shaderInstance, 10);
 }
 
+void tpd::GaussianEngine::createPartitionCountBuffer() {
+    _partitionCountBuffer = StorageBuffer::Builder()
+        .alloc(sizeof(uint32_t))
+        .build(_vmaAllocator);
+
+    setStorageBufferDescriptors(_partitionCountBuffer, sizeof(uint32_t), _shaderInstance, 11);
+}
+
+void tpd::GaussianEngine::createPartitionDescriptorsBuffer() {
+    constexpr auto size = sizeof(uint64_t) * (GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+
+    _partitionDescriptorsBuffer = StorageBuffer::Builder()
+        .alloc(size)
+        .build(_vmaAllocator);
+
+    setStorageBufferDescriptors(_partitionDescriptorsBuffer, size, _shaderInstance, 12);
+}
+
 void tpd::GaussianEngine::setStorageBufferDescriptors(
     const vk::Buffer buffer,
     const vk::DeviceSize size,
@@ -477,7 +521,7 @@ void tpd::GaussianEngine::preFrameCompute() {
     _frames[frameIndex].outputImage.recordLayoutTransition(preFrameCompute, eUndefined, eGeneral);
 
     // Preprocess dispatches these passes: prepare, prefix
-    recordPreprocess(preFrameCompute, frameIndex);
+    recordPreprocess(preFrameCompute);
     preFrameCompute.end();
 
     const auto preprocessInfo = vk::CommandBufferSubmitInfo{ preFrameCompute, 0b1 };
@@ -522,15 +566,12 @@ void tpd::GaussianEngine::preFrameCompute() {
     computeDrawSubmitInfo.commandBufferInfoCount = 1;
 
     // Add an acquire semaphore for compute-graphics ownership transfer
-    if (asyncCompute()) {
-        const auto ownershipInfo = vk::SemaphoreSubmitInfo{}
-            .setSemaphore(_frames[frameIndex].ownership)
-            .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)
-            .setValue(1).setDeviceIndex(0);
-
-        computeDrawSubmitInfo.signalSemaphoreInfoCount = 1;
-        computeDrawSubmitInfo.pSignalSemaphoreInfos = &ownershipInfo;
-    }
+    const auto ownershipInfo = vk::SemaphoreSubmitInfo{}
+        .setSemaphore(_frames[frameIndex].ownership)
+        .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)
+        .setValue(1).setDeviceIndex(0);
+    computeDrawSubmitInfo.signalSemaphoreInfoCount = asyncCompute() ? 1 : 0;
+    computeDrawSubmitInfo.pSignalSemaphoreInfos = &ownershipInfo;
 
     preFrameQueue.submit2(computeDrawSubmitInfo, preFrameFence);
 }
@@ -585,7 +626,7 @@ void tpd::GaussianEngine::draw(const SwapImage image) {
     _graphicsQueue.submit2(submitInfo, frameDrawFence);
 }
 
-void tpd::GaussianEngine::recordPreprocess(const vk::CommandBuffer cmd, const uint32_t frameIndex) const noexcept {
+void tpd::GaussianEngine::recordPreprocess(const vk::CommandBuffer cmd) const noexcept {
     // Prepare pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _preparePipeline);
     cmd.dispatch((GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
@@ -665,6 +706,8 @@ void tpd::GaussianEngine::recordTargetCopy(
 
 void tpd::GaussianEngine::destroy() noexcept {
     if (_initialized) {
+        _partitionDescriptorsBuffer.destroy(_vmaAllocator);
+        _partitionCountBuffer.destroy(_vmaAllocator);
         _rangesBuffer.destroy(_vmaAllocator);
         _indicesBuffer.destroy(_vmaAllocator);
         _sortedKeysBuffer.destroy(_vmaAllocator);
