@@ -187,6 +187,7 @@ bool tpd::PhysicalDeviceSelector::checkPhysicalDeviceFeatures(const vk::Physical
     auto timelineSemaphoreFeatures = vk::PhysicalDeviceTimelineSemaphoreFeatures{};
     auto conditionalRenderingFeatures = vk::PhysicalDeviceConditionalRenderingFeaturesEXT{};
     auto vertexInputDynamicStateFeatures = vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT{};
+    auto shaderAtomicInt64Features = vk::PhysicalDeviceShaderAtomicInt64Features{};
 
     auto supportedFeatures = vk::PhysicalDeviceFeatures2{};
     supportedFeatures.features = features;
@@ -203,6 +204,7 @@ bool tpd::PhysicalDeviceSelector::checkPhysicalDeviceFeatures(const vk::Physical
     synchronization2Features.pNext = &timelineSemaphoreFeatures;
     timelineSemaphoreFeatures.pNext = &conditionalRenderingFeatures;
     conditionalRenderingFeatures.pNext = &vertexInputDynamicStateFeatures;
+    vertexInputDynamicStateFeatures.pNext = &shaderAtomicInt64Features;
 
     physicalDevice.getFeatures2(&supportedFeatures);
 
@@ -219,7 +221,8 @@ bool tpd::PhysicalDeviceSelector::checkPhysicalDeviceFeatures(const vk::Physical
         checkSynchronization2Features(synchronization2Features) &&
         checkTimelineSemaphoreFeatures(timelineSemaphoreFeatures) &&
         checkConditionalRenderingFeatures(conditionalRenderingFeatures) &&
-        checkVertexInputDynamicStateFeatures(vertexInputDynamicStateFeatures);
+        checkVertexInputDynamicStateFeatures(vertexInputDynamicStateFeatures) &&
+        checkShaderAtomicInt64Features(shaderAtomicInt64Features);
 }
 
 bool tpd::PhysicalDeviceSelector::checkFeatures(const vk::PhysicalDeviceFeatures& features) const {
@@ -486,5 +489,11 @@ bool tpd::PhysicalDeviceSelector::checkConditionalRenderingFeatures(const vk::Ph
 
 bool tpd::PhysicalDeviceSelector::checkVertexInputDynamicStateFeatures(const vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT& features) const {
     if (_vertexInputDynamicStateFeatures.vertexInputDynamicState && !features.vertexInputDynamicState) [[unlikely]] return false;
+    return true;
+}
+
+bool tpd::PhysicalDeviceSelector::checkShaderAtomicInt64Features(const vk::PhysicalDeviceShaderAtomicInt64Features& features) const {
+    if (_shaderAtomicInt64Features.shaderBufferInt64Atomics && !features.shaderBufferInt64Atomics) [[unlikely]] return false;
+    if (_shaderAtomicInt64Features.shaderSharedInt64Atomics && !features.shaderSharedInt64Atomics) [[unlikely]] return false;
     return true;
 }

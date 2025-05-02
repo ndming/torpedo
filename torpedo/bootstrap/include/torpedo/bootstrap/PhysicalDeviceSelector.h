@@ -37,6 +37,7 @@ namespace tpd {
         PhysicalDeviceSelector& featuresTimelineSemaphore(const vk::PhysicalDeviceTimelineSemaphoreFeatures& features);
         PhysicalDeviceSelector& featuresConditionalRendering(const vk::PhysicalDeviceConditionalRenderingFeaturesEXT& features);
         PhysicalDeviceSelector& featuresVertexInputDynamicState(const vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT& features);
+        PhysicalDeviceSelector& featuresShaderAtomicInt64(const vk::PhysicalDeviceShaderAtomicInt64Features& features);
 
         [[nodiscard]] PhysicalDeviceSelection select(vk::Instance instance, const std::vector<const char*>& extensions = {}) const;
 
@@ -99,6 +100,9 @@ namespace tpd {
 
         vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT _vertexInputDynamicStateFeatures{};
         [[nodiscard]] bool checkVertexInputDynamicStateFeatures(const vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT& features) const;
+
+        vk::PhysicalDeviceShaderAtomicInt64Features _shaderAtomicInt64Features{};
+        [[nodiscard]] bool checkShaderAtomicInt64Features(const vk::PhysicalDeviceShaderAtomicInt64Features& features) const;
     };
 }  // namespace tpd
 
@@ -203,5 +207,11 @@ inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresConditi
 inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresVertexInputDynamicState(
     const vk::PhysicalDeviceVertexInputDynamicStateFeaturesEXT& features) {
     _vertexInputDynamicStateFeatures = features;
+    return *this;
+}
+
+inline tpd::PhysicalDeviceSelector& tpd::PhysicalDeviceSelector::featuresShaderAtomicInt64(
+    const vk::PhysicalDeviceShaderAtomicInt64Features& features) {
+    _shaderAtomicInt64Features = features;
     return *this;
 }
