@@ -180,27 +180,27 @@ constexpr bool operator!=(const tpd::vec4_t<T>& lhs, const tpd::vec4_t<T>& rhs) 
 
 template<typename T>
 constexpr tpd::vec4_t<T> operator+(const tpd::vec4_t<T>& lhs, const tpd::vec4_t<T>& rhs) noexcept {
-    return tpd::vec3_t<T>{ lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z, lhs.w + rhs.w };
+    return tpd::vec4_t<T>{ lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z, lhs.w + rhs.w };
 }
 
 template<typename T>
 constexpr tpd::vec4_t<T> operator-(const tpd::vec4_t<T>& lhs, const tpd::vec4_t<T>& rhs) noexcept {
-    return tpd::vec3_t<T>{ lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z, lhs.w - rhs.w };
+    return tpd::vec4_t<T>{ lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z, lhs.w - rhs.w };
 }
 
 template<typename T>
 constexpr tpd::vec4_t<T> operator-(const tpd::vec4_t<T>& vec) noexcept {
-    return tpd::vec3_t<T>{ -vec.x, -vec.y, -vec.z, -vec.w };
+    return tpd::vec4_t<T>{ -vec.x, -vec.y, -vec.z, -vec.w };
 }
 
 template<typename T>
 constexpr tpd::vec4_t<T> operator*(const tpd::vec4_t<T>& vec, T scalar) noexcept {
-    return tpd::vec3_t<T>{ vec.x * scalar, vec.y * scalar, vec.z * scalar, vec.w * scalar };
+    return tpd::vec4_t<T>{ vec.x * scalar, vec.y * scalar, vec.z * scalar, vec.w * scalar };
 }
 
 template<typename T>
 constexpr tpd::vec4_t<T> operator*(const tpd::vec4_t<T>& lhs, const tpd::vec4_t<T>& rhs) noexcept {
-    return tpd::vec3_t<T>{ lhs.x * rhs.x, lhs.y * rhs.y, lhs.z * rhs.z, lhs.w * rhs.w };
+    return tpd::vec4_t<T>{ lhs.x * rhs.x, lhs.y * rhs.y, lhs.z * rhs.z, lhs.w * rhs.w };
 }
 
 template<typename T>
