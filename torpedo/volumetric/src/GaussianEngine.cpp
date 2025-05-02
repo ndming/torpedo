@@ -108,7 +108,7 @@ void tpd::GaussianEngine::onInitialized() {
     createCameraBuffer();
     createGaussianBuffer();
     createSplatBuffer();
-    createPrefixOffsetsBuffer();
+    createOffsetsBuffer();
     createTilesRenderedBuffer();
     createKeysBuffer();
     createValsBuffer();
@@ -350,12 +350,12 @@ void tpd::GaussianEngine::createSplatBuffer() {
     setStorageBufferDescriptors(_splatBuffer, SPLAT_SIZE * GAUSSIAN_COUNT, _shaderInstance, 3);
 }
 
-void tpd::GaussianEngine::createPrefixOffsetsBuffer() {
-    _prefixOffsetsBuffer = StorageBuffer::Builder()
+void tpd::GaussianEngine::createOffsetsBuffer() {
+    _offsetsBuffer = StorageBuffer::Builder()
         .alloc(sizeof(uint32_t) * GAUSSIAN_COUNT)
         .build(_vmaAllocator);
 
-    setStorageBufferDescriptors(_prefixOffsetsBuffer, sizeof(uint32_t) * GAUSSIAN_COUNT, _shaderInstance, 4);
+    setStorageBufferDescriptors(_offsetsBuffer, sizeof(uint32_t) * GAUSSIAN_COUNT, _shaderInstance, 4);
 }
 
 void tpd::GaussianEngine::createTilesRenderedBuffer() {
@@ -671,7 +671,7 @@ void tpd::GaussianEngine::destroy() noexcept {
         _valsBuffer.destroy(_vmaAllocator);
         _keysBuffer.destroy(_vmaAllocator);
         _tilesRenderedBuffer.destroy(_vmaAllocator);
-        _prefixOffsetsBuffer.destroy(_vmaAllocator);
+        _offsetsBuffer.destroy(_vmaAllocator);
         _splatBuffer.destroy(_vmaAllocator);
         _gaussianBuffer.destroy(_vmaAllocator);
         _cameraBuffer.destroy(_vmaAllocator);

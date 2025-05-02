@@ -7,7 +7,7 @@ uniform RasterInfo info;
 StructuredBuffer<Splat> splats;
 
 [[vk::binding(4)]]
-RWStructuredBuffer<uint32_t> prefixOffsets;
+RWStructuredBuffer<uint> offsets;
 
 [[vk::binding(5)]]
 RWStructuredBuffer<uint32_t> tilesRendered; // readback by CPU

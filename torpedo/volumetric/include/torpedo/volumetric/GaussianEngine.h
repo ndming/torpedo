@@ -59,7 +59,7 @@ namespace tpd {
         void createCameraBuffer();
         void createGaussianBuffer();
         void createSplatBuffer();
-        void createPrefixOffsetsBuffer();
+        void createOffsetsBuffer();
         void createTilesRenderedBuffer();
         void createKeysBuffer();
         void createValsBuffer();
@@ -161,7 +161,7 @@ namespace tpd {
 
         StorageBuffer _gaussianBuffer{};
         StorageBuffer _splatBuffer{};
-        StorageBuffer _prefixOffsetsBuffer{};
+        StorageBuffer _offsetsBuffer{};
         StorageBuffer _keysBuffer{};
         StorageBuffer _valsBuffer{};
         StorageBuffer _sortedKeysBuffer{};

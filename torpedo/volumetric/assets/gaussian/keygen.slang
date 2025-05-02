@@ -10,7 +10,7 @@ WTexture2D outputImage;
 StructuredBuffer<Splat> splats;
 
 [[vk::binding(4)]]
-StructuredBuffer<uint32_t> prefixOffsets;
+StructuredBuffer<uint> offsets;
 
 [[vk::binding(6)]]
 RWStructuredBuffer<uint64_t> keys;
@@ -45,7 +45,7 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
 
     // Unlike the original CUDA code, we perform exclusive prefix sum,
     // thus the correct offset directly locates at the Gaussian index.
-    var offset = prefixOffsets[idx];
+    var offset = offsets[idx];
 
     for (uint y = rectMin.y; y < rectMax.y; y++) {
         for (uint x = rectMin.x; x < rectMax.x; x++) {
