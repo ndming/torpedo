@@ -5,8 +5,11 @@
 #include "torpedo/rendering/LogUtils.h"
 
 #include <torpedo/bootstrap/InstanceBuilder.h>
-#include <torpedo/bootstrap/DebugUtils.h>
 #include <torpedo/foundation/Allocation.h>
+
+#ifndef NDEBUG
+#include <torpedo/bootstrap/DebugUtils.h>
+#endif
 
 namespace tpd {
     class SurfaceRenderer;
