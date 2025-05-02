@@ -83,10 +83,10 @@ function(torpedo_compile_glsl TARGET_NAME SPIR_V_OUTPUT_DIR GLSL_SOURCE_FILES)
         set(SPIR_V "${SPIR_V_OUTPUT_DIR}/${FILE_NAME}.spv")
 
         add_custom_command(
-                OUTPUT ${SPIR_V}
-                COMMAND ${GLSL_COMPILER} -o ${SPIR_V} ${GLSL_FILE}
-                DEPENDS ${GLSL_FILE}
-                COMMENT "Compiling ${FILE_NAME}")
+            OUTPUT ${SPIR_V}
+            COMMAND ${GLSL_COMPILER} -o ${SPIR_V} ${GLSL_FILE}
+            DEPENDS ${GLSL_FILE}
+            COMMENT "Compiling ${FILE_NAME}")
 
         list(APPEND SPIR_V_BINARY_FILES ${SPIR_V})
     endforeach(GLSL_FILE)
@@ -105,12 +105,13 @@ function(torpedo_compile_slang TARGET_NAME SPIR_V_OUTPUT_DIR SLANG_SOURCE_FILES)
     foreach(SLANG_FILE ${SLANG_SOURCE_FILES})
         get_filename_component(FILE_NAME ${SLANG_FILE} NAME)
         set(SPIR_V "${SPIR_V_OUTPUT_DIR}/${FILE_NAME}.spv")
+        set(PROFILE "glsl_460+spvGroupNonUniformBallot+spvGroupNonUniformArithmetic")
 
         add_custom_command(
-                OUTPUT ${SPIR_V}
-                COMMAND ${SLANG_COMPILER} ${SLANG_FILE} -profile glsl_460 -target spirv -o ${SPIR_V} -entry main
-                DEPENDS ${SLANG_FILE}
-                COMMENT "Compiling ${FILE_NAME}")
+            OUTPUT ${SPIR_V}
+            COMMAND ${SLANG_COMPILER} ${SLANG_FILE} -profile ${PROFILE} -target spirv -o ${SPIR_V} -entry main -O3
+            DEPENDS ${SLANG_FILE}
+            COMMENT "Compiling ${FILE_NAME}")
 
         list(APPEND SPIR_V_BINARY_FILES ${SPIR_V})
     endforeach(SLANG_FILE)
