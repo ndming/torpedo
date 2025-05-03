@@ -45,10 +45,10 @@ function(torpedo_define_module TARGET_NAME MODULE_SOURCES)
 
     # Compiler and linker options when compiling with Clang
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        if (LIBCXX AND LIBABI)
+        if (TORPEDO_LIBCXX_PATH AND TORPEDO_LIBABI_PATH)
             # Link to libc++
             target_compile_options(${TARGET_NAME} PRIVATE -stdlib=libc++)
-            target_link_libraries(${TARGET_NAME} PRIVATE ${LIBCXX} ${LIBCXXABI})
+            target_link_libraries(${TARGET_NAME} PRIVATE ${TORPEDO_LIBCXX_PATH} ${TORPEDO_LIBABI_PATH})
         elseif (WIN32 AND TORPEDO_MSVCRT_PATH)
             # The current Vulkan-Hpp implementation internally uses strncpy which is marked deprecated for Clang that
             # targets MSVC. This would trigger a warning which is treated as compilation error, so we disable it here
@@ -75,9 +75,9 @@ function(torpedo_define_interface TARGET_NAME)
 
     # Compiler and linker options when compiling with Clang
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        if (LIBCXX AND LIBABI)
+        if (TORPEDO_LIBCXX_PATH AND TORPEDO_LIBABI_PATH)
             target_compile_options(${TARGET_NAME} INTERFACE -stdlib=libc++)
-            target_link_libraries(${TARGET_NAME} INTERFACE ${LIBCXX} ${LIBCXXABI})
+            target_link_libraries(${TARGET_NAME} INTERFACE ${TORPEDO_LIBCXX_PATH} ${TORPEDO_LIBABI_PATH})
         endif()
     endif()
 endfunction()
