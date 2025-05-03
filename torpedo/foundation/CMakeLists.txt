@@ -26,9 +26,15 @@ target_include_directories(${TARGET} PUBLIC ${Vulkan_INCLUDE_DIRS})
 target_link_libraries(${TARGET} PUBLIC ${Vulkan_LIBRARIES})
 
 
-# CLANG SPECIFICS
-# ---------------
+# Some issues with VMA
+# --------------------
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # The VMA library does not use nullability completeness annotations
     target_compile_options(${TARGET} PRIVATE -Wno-nullability-completeness)
+endif()
+
+if(DEFINED ENV{CONDA_PREFIX})
+    # The way the VMA header is included is different on Linux without using a Conda environment
+    # This macro will tell us if the module is being built in a Conda environment
+    target_compile_definitions(${TARGET} PRIVATE TORPEDO_CONDA_BUILD)
 endif()

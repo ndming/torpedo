@@ -44,7 +44,7 @@ if (CMAKE_HOST_WIN32)
                 list(SORT versions COMPARE NATURAL ORDER DESCENDING)
                 list(GET  versions 0 version.dir)
                 # Set TORPEDO_MSVCRT_PATH to the found msvcrt.lib
-                find_library(MSVCRT NAMES msvcrt PATHS "${candidate.install.path}/VC/Tools/MSVC/${version.dir}/lib/x64")
+                find_library(MSVCRT NAMES msvcrt PATHS "${candidate.install.path}/VC/Tools/MSVC/${version.dir}/lib/x64" NO_CACHE)
                 set(TORPEDO_MSVCRT_PATH ${MSVCRT} CACHE INTERNAL "Path to MSVC runtime components")
             endif()
         endif()
@@ -57,11 +57,11 @@ if (DEFINED ENV{CONDA_PREFIX})
 
     # Find if the environment has libc++ and libc++abi
     if (CMAKE_HOST_UNIX)  # Linux, macOS, Cygwin
-        find_library(LIBCXX NAMES c++    PATHS $ENV{CONDA_PREFIX}/lib)
-        find_library(LIBABI NAMES c++abi PATHS $ENV{CONDA_PREFIX}/lib)
+        find_library(LIBCXX NAMES c++    PATHS $ENV{CONDA_PREFIX}/lib NO_CACHE)
+        find_library(LIBABI NAMES c++abi PATHS $ENV{CONDA_PREFIX}/lib NO_CACHE)
     else()                # assuming win64 and MinGW
-        find_library(LIBCXX NAMES c++    PATHS $ENV{CONDA_PREFIX}/Library/lib)
-        find_library(LIBABI NAMES c++abi PATHS $ENV{CONDA_PREFIX}/Library/lib)
+        find_library(LIBCXX NAMES c++    PATHS $ENV{CONDA_PREFIX}/Library/lib NO_CACHE)
+        find_library(LIBABI NAMES c++abi PATHS $ENV{CONDA_PREFIX}/Library/lib NO_CACHE)
     endif()
 
     # Report the path to libc++ if found
@@ -92,12 +92,8 @@ if (DEFINED ENV{CONDA_PREFIX})
 # When not inside a conda environment, we resort to the default search path for libc++/libc++abi on Unix/Cygwin systems.
 # On Windows, CMake knows how to find MSVC runtime components, and we don't have to report the path in these cases.
 elseif (CMAKE_HOST_UNIX)
-    find_library(LIBCXX NAMES c++)
-    find_library(LIBABI NAMES c++abi)
-    if (LIBCXX AND LIBABI)
-        set(TORPEDO_LIBCXX_PATH :libc++.a    CACHE INTERNAL "Default search path for libc++")
-        set(TORPEDO_LIBABI_PATH :libc++abi.a CACHE INTERNAL "Default search path for libc++abi")
-    endif()
+    set(TORPEDO_LIBCXX_PATH :libc++.a    CACHE INTERNAL "Default search path for libc++")
+    set(TORPEDO_LIBABI_PATH :libc++abi.a CACHE INTERNAL "Default search path for libc++abi")
 endif()
 
 # If no library components found, back out immediately

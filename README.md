@@ -28,6 +28,22 @@ To build with Clang (targeting MSVC), install and ensure LLVM version is `>=19.1
 The library only supports building with Clang on Linux:
 - `Clang` version `19.1.7` or greater
 
+Additionally, GLFW requires extra packages to be available, see their [docs](https://www.glfw.org/docs/latest/compile.html)
+for more information:
+```shell
+# Debian
+sudo apt install libwayland-dev libxkbcommon-dev xorg-dev
+
+# Fedora
+sudo dnf install wayland-devel libxkbcommon-devel libXcursor-devel libXi-devel libXinerama-devel libXrandr-devel
+
+# FreeBSD
+pkg install wayland libxkbcommon evdev-proto xorgproto
+
+# Cygwin (no Wayland support)
+sudo apt install libXcursor-devel, libXi-devel, libXinerama-devel, libXrandr-devel and libXrender-devel
+```
+
 #### Build using a Conda environment
 Clang-build is the only option for conda-managed dependencies where required tools are already included in `.yml` files.
 

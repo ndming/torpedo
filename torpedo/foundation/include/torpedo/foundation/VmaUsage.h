@@ -1,6 +1,11 @@
 #pragma once
 
+#if !defined(TORPEDO_CONDA_BUILD) && defined(__linux__)
+#include <vk_mem_alloc.h>
+#else
 #include <vma/vk_mem_alloc.h>
+#endif
+
 #include <vulkan/vulkan.hpp>
 
 namespace tpd::vma {
@@ -62,7 +67,7 @@ namespace tpd {
         OpaqueResource(OpaqueResource&& other) noexcept;
         OpaqueResource& operator=(OpaqueResource&& other) noexcept;
 
-        [[nodiscard]] operator T() const noexcept { return _resource; }
+        [[nodiscard]] operator T() const noexcept { return _resource; } // NOLINT(*-explicit-constructor)
         [[nodiscard]] bool valid() const noexcept { return _allocation != nullptr; }
         [[nodiscard]] std::string toString() const noexcept;
 

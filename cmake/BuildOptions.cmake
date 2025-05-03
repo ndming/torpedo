@@ -23,7 +23,7 @@ set(GLFW_BUILD_DOCS OFF CACHE BOOL "Don't build the docs")
 set(GLFW_INSTALL    OFF CACHE BOOL "Don't generate install targets")
 
 # Turn off GLFW's X11 support on Linux/WSL for now until we find a solution to build with X11 entirely in conda
-if (CMAKE_HOST_LINUX AND NOT GLFW_BUILD_X11)
+if (CMAKE_HOST_LINUX AND DEFINED ENV{CONDA_PREFIX} AND NOT GLFW_BUILD_X11)
     set(GLFW_BUILD_X11 OFF CACHE BOOL "Disable X11 support for GLFW")
     message(STATUS "Disabled X11 support for GLFW")
 endif()
