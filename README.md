@@ -3,63 +3,59 @@ The default [Release build](#release-build) is generally recommended for consumi
 is suitable for experiments and extensions.
 
 ### Build environment
-It is highly recommended to use Clang for optimal compatibility and performance. While other toolchains may work,
-they have not been carefully tested and may cause issues during compilation.
-
-There are two options to prepare a build environment for `torpedo`:
-- Using tools and dependencies already available on your system, as long as they can be detected by CMake.
+There are two options for preparing a build environment:
+- Using tools and dependencies already available on your system.
 - Using a Conda environment to manage dependencies, including Vulkan and build tools like CMake, Ninja, etc.
 
-Using Conda to manage dependencies is preferred as it ensures `torpedo` is well-contained and avoids the need for admin
-privileges when installing tools or dependencies. The repo provides `.yml` files to set up a Conda environment with
-all necessary packages for each OS, and they assume no prerequisites on the host system.
+Using Conda to manage dependencies ensures `torpedo` is well-contained and avoids the need for extra admin privileges 
+when installing tools or packages. The repo provides `.yml` files to help set up a Conda environment with all necessary
+dependencies for each OS, and they assume minimal prerequisites on the host system.
 
-#### Windows
-Currently on Windows, Visual Studio version `>=17.9.7` is required for **both** build options. The library only needs
-the VS [BuildTools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with the following components in *Desktop development with C++*:
-- MSVC v143 - VS2022 C++ x86/64 build tools (MSVC `>=19.39`)
-- Windows SDK (either 10 or 11)
+#### Build using system-wide packages
+Required components for all operating systems:
+- `CMake` version `3.25` or greater
+- `Ninja`
+- `VulkanSDK` version `1.4.304` or greater, including: `glslangValidator`, `slangc`, and `VMA`
 
-###### Using Conda environment
-Set up the environment with `conda`/`mamba`:
+###### Windows
+Visual Studio version `>=17.12.7`, including:
+- MSVC v143 - VS2022 C++ x86/64 build tools (MSVC `>=19.42`)
+- Windows SDK (10/11)
+
+To build with Clang (targeting MSVC), install and ensure LLVM version is `>=19.1.7`.
+
+###### Linux
+The library only supports building with Clang on Linux:
+- `Clang` version `19.1.7` or greater
+
+#### Build using a Conda environment
+Clang-build is the only option for conda-managed dependencies where required tools are already included in `.yml` files.
+
+The only exception is the [Slang](https://github.com/shader-slang/slang/releases/tag/v2024.17) compiler, for which 
+version `2024.17` needs to be downloaded and extracted to a location whose path is specified during CMake configuration.
+
+###### Windows
 ```shell
 conda env create --file env-win64.yml
 conda activate torpedo
 ```
 
-Additionally, the [Slang](https://github.com/shader-slang/slang/releases/tag/v2024.17) compiler version `2024.17` needs
-to be downloaded and extracted to a location whose path is specified during CMake configuration.
+As Clang-build on Windows targets MSVC (unless working in Cygwin), Visual Studio is still required, for which the VS
+[BuildTools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) is already sufficient.
 
-###### Using system packages
-The following components are required:
-- `CMake` version `3.25` or greater
-- `Ninja`
-- `Clang` version `19.1.7` or greater
-- `VulkanSDK` version `1.4.304` or greater with the following components: `glslangValidator`, `slangc`, and `VMA`
+Make sure Visual Studio version is `17.9.7` or greater, with the following components selected:
+- MSVC v143 - VS2022 C++ x86/64 build tools (MSVC `>=19.39`)
+- Windows SDK (10/11)
 
-#### Linux
-There is no need for GCC on Linux, as the build favors Clang by default.
-
-###### Using Conda environment
-Set up the environment with `conda`/`mamba`:
+###### Linux
 ```shell
 conda env create --file env-linux.yml
 conda activate torpedo
 ```
 
-Additionally, the [Slang](https://github.com/shader-slang/slang/releases/tag/v2024.17) compiler version `2024.17` needs
-to be downloaded and extracted to a location whose path is specified during CMake configuration.
-
 There is a small limitation when setting up Conda environment on Linux: the `xorg-dev` library, which provides support
 for X11, is not well maintained on `conda-forge`. This only causes issues when performing surface rendering on systems
-using X11. As long as `tpd::SurfaceRenderer` is not used, the Conda environment works fine at runtimes.
-
-###### Using system packages
-The following components are required:
-- `CMake` version `3.25` or greater
-- `Ninja`
-- `Clang` version `19.1.7` or greater
-- `VulkanSDK` version `1.4.304` or greater with the following components: `glslangValidator`, `slangc`, and `VMA`
+using X11. As long as `tpd::SurfaceRenderer` is not used, the Conda environment works fine at runtimes on such hosts.
 
 ### Release build
 Configure and build the project:
@@ -74,16 +70,11 @@ cmake --build build
 - `-DTORPEDO_BUILD_DEMO` (`BOOL`): build demo targets, enabled automatically for Debug build if not explicitly set on
 the CLI. For other builds, the default option is `OFF` unless explicitly set otherwise on the CLI.
 - `-DSLANG_COMPILER_DIR` (`PATH`): path to the directory containing the `slangc` compiler. This option is necessary when
-building `torpedo` within the Conda environment if the compiler is not installed in default search paths.
+building `torpedo` using a Conda environment if the compiler is not installed in default search paths.
 - `-DCMAKE_INSTALL_PREFIX` (`PATH`): automatically set to `CONDA_PREFIX` if the variable is defined and the option is not
 explicitly set on the CLI. Note that `CONDA_PREFIX` is automatically defined when a `conda`/`mamba` environment activated.
 
 </details>
-
-Install the library:
-```shell
-cmake --install build
-```
 
 <details>
 <summary><span style="font-weight: bold;">Notes when using Conda environment</span></summary>
@@ -94,7 +85,7 @@ CMake configuration.
 - The `-DSLANG_COMPILER_DIR` may need to be explicitly set to the **directory** containing `slangc` to help CMake find it
 if the compiler is not installed in system's default search paths (i.e. when not using a VulkanSDK):
 ```shell
-cmake -B build -G Ninja -DSLANG_COMPILER_DIR=path/to/dir
+cmake -B build -G Ninja -DSLANG_COMPILER_DIR=path/to/slangc/dir
 ```
 
 - If the system already has VulkanSDK installed but building `torpedo` from within Conda is desirable, the `VULKAN_SDK`
@@ -102,15 +93,10 @@ environment variable must be set to `CONDA_PREFIX` (Linux) or `CONDA_PREFIX/Libr
 
 - Additionally, if your system already installs a default compiler, it may be necessary to specify Clang for CMake:
 ```shell
-# Replace with the full path to clang/clang++ in the conda environment
-# if the system also has Clang installed
 cmake -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-```
 
-- The C/C++ compilers detected by CMake should ideally be like the following:
-```
--- The C compiler identification is Clang 19.1.7
--- The CXX compiler identification is Clang 19.1.7
+# Or, if the system also has Clang installed
+cmake -B build -G Ninja -DCMAKE_C_COMPILER=path/to/clang/in/conda/env -DCMAKE_CXX_COMPILER=path/to/clang++/in/conda/env
 ```
 
 </details>
@@ -126,7 +112,7 @@ cmake --build build
 <summary><span style="font-weight: bold;">Notes when using Conda environment</span></summary>
 
 - For debug runs, the library requests and enables the `VK_LAYER_KHRONOS_validation` layer. This was not included in the
-provided `.yml` files must be installed from `conda-forge`:
+provided `.yml` files and must be installed from `conda-forge`:
 ```shell
 conda install -c conda-forge lldb=19.1.7 vulkan-validation-layers=1.4.304
 ```
@@ -140,8 +126,9 @@ $env:VK_LAYER_PATH="$env:CONDA_PREFIX/Library/bin"
 export VK_LAYER_PATH=$CONDA_PREFIX/share/vulkan/explicit_layer.d
 ```
 
-> The `VK_LAYER_PATH` environment variable is ignored if the library is being consumed inside a shell WITH elevated privileges,
-> see the [docs](https://github.com/KhronosGroup/Vulkan-Loader/blob/main/docs/LoaderLayerInterface.md) for more information.
+- Note that the `VK_LAYER_PATH` environment variable is ignored if the library is being consumed inside a shell WITH 
+elevated privileges, see the [docs](https://github.com/KhronosGroup/Vulkan-Loader/blob/main/docs/LoaderLayerInterface.md) 
+for more information.
 
 - To set this variable each time the `torpedo` environment is activated and unset it when exiting the environment,
 an activate/deactivate script can be set up to automate the process:
