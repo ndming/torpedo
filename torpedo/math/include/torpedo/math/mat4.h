@@ -38,7 +38,13 @@ namespace tpd {
         T& operator[](const std::size_t row, const std::size_t col) noexcept { return data[row][col]; }
         T operator[](const std::size_t row, const std::size_t col) const noexcept { return data[row][col]; }
 
-        constexpr explicit operator mat3_t<T>() const noexcept;
+        constexpr explicit operator mat3_t<T>() const noexcept {
+            return mat3_t<T>{
+                data[0][0], data[0][1], data[0][2],
+                data[1][0], data[1][1], data[1][2],
+                data[2][0], data[2][1], data[2][2],
+            };
+        }
 
         mat4_t& operator+=(const mat4_t& mat) noexcept;
         mat4_t& operator-=(const mat4_t& mat) noexcept;
@@ -110,15 +116,6 @@ constexpr tpd::mat4_t<T>& tpd::mat4_t<T>::operator=(const mat4_t<R>& other) noex
     data[2] = other[2];
     data[3] = other[3];
     return *this;
-}
-
-template<typename T> requires (std::is_arithmetic_v<T>)
-constexpr tpd::mat4_t<T>::operator mat3_t<T>() const noexcept {
-    return mat3_t<T>{
-        data[0][0], data[0][1], data[0][2],
-        data[1][0], data[1][1], data[1][2],
-        data[2][0], data[2][1], data[2][2],
-    };
 }
 
 template<typename T> requires (std::is_arithmetic_v<T>)
