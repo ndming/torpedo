@@ -1,12 +1,5 @@
-cmake_minimum_required(VERSION 3.22...3.30)
-
-# General compiler flags
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
 # Copy resources to build directory
-function(tordemo_copy_resource TARGET_NAME RESOURCE_OUTPUT_DIR RESOURCE_FILES)
+function(torpedo_demo_copy_resource TARGET_NAME RESOURCE_OUTPUT_DIR RESOURCE_FILES)
     foreach(RESOURCE_FILE ${RESOURCE_FILES})
         # Get the file name from the full path
         get_filename_component(FILE_NAME ${RESOURCE_FILE} NAME)
@@ -25,6 +18,21 @@ function(tordemo_copy_resource TARGET_NAME RESOURCE_OUTPUT_DIR RESOURCE_FILES)
     string(RANDOM LENGTH 6 ALPHABET "0123456789abcdef" suffix)
     add_custom_target(${TARGET_NAME}_resource_copy_${suffix} ALL DEPENDS ${RESOURCE_DST_FILES})
     add_dependencies(${TARGET_NAME} ${TARGET_NAME}_resource_copy_${suffix})
+endfunction()
+
+# Clang specifics
+function(torpedo_demo_clang_setup TARGET_NAME)
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        if (LIBCXX AND LIBABI)
+            # Link to libc++
+            target_compile_options(${TARGET_NAME} PRIVATE -stdlib=libc++)
+            target_link_libraries(${TARGET_NAME} PRIVATE ${LIBCXX} ${LIBCXXABI})
+        elseif (WIN32 AND TORPEDO_MSVCRT_PATH)
+            # The current Vulkan-Hpp implementation internally uses strncpy which is marked deprecated for Clang that
+            # targets MSVC. This would trigger a warning which is treated as compilation error, so we disable it here
+            target_compile_options(${TARGET_NAME} PRIVATE -Wno-deprecated-declarations)
+        endif()
+    endif()
 endfunction()
 
 # Demo targets

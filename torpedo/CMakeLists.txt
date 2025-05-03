@@ -25,7 +25,7 @@ endif()
 
 # UTILITY FUNCTION FOR DEFINING A SUB-PROJECT MODULE
 # --------------------------------------------------
-function(torpedo_define_module TARGET_NAME MODULE_SOURCES CLANG_SET_VISIBILITY)
+function(torpedo_define_module TARGET_NAME MODULE_SOURCES)
     # Working with static libraries
     add_library(${TARGET_NAME} STATIC)
 
@@ -47,12 +47,37 @@ function(torpedo_define_module TARGET_NAME MODULE_SOURCES CLANG_SET_VISIBILITY)
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         if (LIBCXX AND LIBABI)
             # Link to libc++
-            target_compile_options(${TARGET_NAME} ${CLANG_SET_VISIBILITY} -stdlib=libc++)
-            target_link_libraries(${TARGET_NAME} ${CLANG_SET_VISIBILITY} ${LIBCXX} ${LIBCXXABI})
+            target_compile_options(${TARGET_NAME} PRIVATE -stdlib=libc++)
+            target_link_libraries(${TARGET_NAME} PRIVATE ${LIBCXX} ${LIBCXXABI})
         elseif (WIN32 AND TORPEDO_MSVCRT_PATH)
             # The current Vulkan-Hpp implementation internally uses strncpy which is marked deprecated for Clang that
             # targets MSVC. This would trigger a warning which is treated as compilation error, so we disable it here
-            target_compile_options(${TARGET_NAME} ${CLANG_SET_VISIBILITY} -Wno-deprecated-declarations)
+            target_compile_options(${TARGET_NAME} PRIVATE -Wno-deprecated-declarations)
+        endif()
+    endif()
+endfunction()
+
+
+# UTILITY FUNCTION FOR DEFINING A SUB-PROJECT INTERFACE
+# -----------------------------------------------------
+function(torpedo_define_interface TARGET_NAME)
+    # Header-only module
+    add_library(${TARGET_NAME} INTERFACE)
+
+    # Extract and define alias (namespace) target
+    string(REPLACE "_" ";" PARTS ${TARGET_NAME}) # Split at '_'
+    list(GET PARTS 0 NAMESPACE)
+    list(GET PARTS 1 MODULE_NAME)
+    add_library("${NAMESPACE}::${MODULE_NAME}" ALIAS ${TARGET_NAME})
+
+    target_compile_features(${TARGET_NAME} INTERFACE cxx_std_23)
+    target_compile_options(${TARGET_NAME} INTERFACE $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Werror> $<$<CXX_COMPILER_ID:MSVC>:/WX>)
+
+    # Compiler and linker options when compiling with Clang
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        if (LIBCXX AND LIBABI)
+            target_compile_options(${TARGET_NAME} INTERFACE -stdlib=libc++)
+            target_link_libraries(${TARGET_NAME} INTERFACE ${LIBCXX} ${LIBCXXABI})
         endif()
     endif()
 endfunction()
@@ -122,8 +147,8 @@ function(torpedo_compile_slang TARGET_NAME SPIR_V_OUTPUT_DIR SLANG_SOURCE_FILES)
 endfunction()
 
 
-# SUB-PROJECT MODULES
-# -------------------
+# SUB-PROJECT MODULES/INTERFACES
+# ------------------------------
 set(TORPEDO_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 add_subdirectory(${TORPEDO_SOURCE_DIR}/bootstrap)
 add_subdirectory(${TORPEDO_SOURCE_DIR}/foundation)

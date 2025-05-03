@@ -7,7 +7,7 @@ set(TORPEDO_VOLUMETRIC_SOURCES
 # TORPEDO VOLUMETRIC MODULE
 # ------------------------
 set(TARGET torpedo_volumetric)
-torpedo_define_module(${TARGET} "${TORPEDO_VOLUMETRIC_SOURCES}" PUBLIC)
+torpedo_define_module(${TARGET} "${TORPEDO_VOLUMETRIC_SOURCES}")
 # Where to look for header files
 target_include_directories(${TARGET} PUBLIC include)
 # Dependencies

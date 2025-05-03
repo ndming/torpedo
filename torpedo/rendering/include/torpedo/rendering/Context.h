@@ -7,10 +7,6 @@
 #include <torpedo/bootstrap/InstanceBuilder.h>
 #include <torpedo/foundation/Allocation.h>
 
-#ifndef NDEBUG
-#include <torpedo/bootstrap/DebugUtils.h>
-#endif
-
 namespace tpd {
     class SurfaceRenderer;
     class HeadlessRenderer;
@@ -83,6 +79,8 @@ tpd::Context<R>::Context(R* renderer) : _renderer{ renderer } {
 }
 
 #ifndef NDEBUG
+#include <torpedo/bootstrap/DebugUtils.h>
+
 VKAPI_ATTR inline vk::Bool32 VKAPI_CALL torpedoDebugMessengerCallback(
     const vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     [[maybe_unused]] const vk::DebugUtilsMessageTypeFlagsEXT messageType,
@@ -91,11 +89,11 @@ VKAPI_ATTR inline vk::Bool32 VKAPI_CALL torpedoDebugMessengerCallback(
 {
     using enum vk::DebugUtilsMessageSeverityFlagBitsEXT;
     switch (messageSeverity) {
-    case eVerbose: PLOGV << pCallbackData->pMessage; break;
-    case eInfo:    PLOGI << pCallbackData->pMessage; break;
-    case eWarning: PLOGW << pCallbackData->pMessage; break;
-    case eError:   PLOGE << pCallbackData->pMessage; throw std::runtime_error("Vulkan in panic!");
-    default:
+        case eVerbose: PLOGV << pCallbackData->pMessage; break;
+        case eInfo:    PLOGI << pCallbackData->pMessage; break;
+        case eWarning: PLOGW << pCallbackData->pMessage; break;
+        case eError:   PLOGE << pCallbackData->pMessage; throw std::runtime_error("Vulkan in panic!");
+        default: break;
     }
     return vk::False;
 }

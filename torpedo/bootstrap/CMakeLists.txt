@@ -13,7 +13,7 @@ set(TORPEDO_BOOTSTRAP_SOURCES
 # TORPEDO BOOTSTRAP MODULE
 # ------------------------
 set(TARGET torpedo_bootstrap)
-torpedo_define_module(${TARGET} "${TORPEDO_BOOTSTRAP_SOURCES}" PRIVATE)
+torpedo_define_module(${TARGET} "${TORPEDO_BOOTSTRAP_SOURCES}")
 # Where to look for header files
 target_include_directories(${TARGET} PUBLIC include)
 target_include_directories(${TARGET} PUBLIC ${Vulkan_INCLUDE_DIRS})

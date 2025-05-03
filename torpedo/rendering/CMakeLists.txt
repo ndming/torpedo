@@ -19,6 +19,7 @@ FetchContent_MakeAvailable(plog)
 # MODULE SOURCE FILES
 # -------------------
 set(TORPEDO_RENDERING_SOURCES
+        src/Camera.cpp
         src/Context.cpp
         src/Engine.cpp
         src/HeadlessRenderer.cpp
@@ -31,7 +32,7 @@ set(TORPEDO_RENDERING_SOURCES
 # TORPEDO RENDERING MODULE
 # ------------------------
 set(TARGET torpedo_rendering)
-torpedo_define_module(${TARGET} "${TORPEDO_RENDERING_SOURCES}" PRIVATE)
+torpedo_define_module(${TARGET} "${TORPEDO_RENDERING_SOURCES}")
 # Where to look for header files
 target_include_directories(${TARGET} PUBLIC include)
 # Dependencies
