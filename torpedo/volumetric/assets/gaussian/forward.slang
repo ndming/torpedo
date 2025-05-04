@@ -48,6 +48,10 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 tileID : SV_GroupID)
     let rounds = (range.y - range.x + BLOCK_SIZE - 1) / BLOCK_SIZE;
     var remaining = range.y - range.x; // how many Gaussian left to rasterize
 
+    // Initialize the done count
+    if (threadId == 0) doneCount = 0;
+    GroupMemoryBarrierWithGroupSync();
+
     var T = 1.0;
     var color = float3(0.0, 0.0, 0.0);
     for (uint i = 0; i < rounds; i++, remaining -= BLOCK_SIZE) {
