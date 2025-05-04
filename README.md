@@ -1,4 +1,4 @@
-## Build instructions
+## Build Instructions
 The default [Release build](#release-build) is generally recommended for consuming the library, while the [Debug build](#debug-build)
 is suitable for experiments and extensions.
 
@@ -11,7 +11,7 @@ Using Conda to manage dependencies ensures `torpedo` is well-contained and avoid
 when installing tools or packages. The repo provides `.yml` files to help set up a Conda environment with all necessary
 dependencies for each OS, and they assume minimal prerequisites on the host system.
 
-#### Build using system-wide packages
+#### 🖥️ Build using system-wide packages
 Required components for all operating systems:
 - `CMake` version `3.25` or greater
 - `Ninja`
@@ -27,28 +27,18 @@ To build with Clang (targeting MSVC), install and ensure LLVM version is `>=19.1
 ###### Linux
 The library only supports building with Clang on Linux:
 - `Clang` version `19.1.7` or greater
-
-Additionally, GLFW requires extra packages to be available, see their [docs](https://www.glfw.org/docs/latest/compile.html)
-for more information:
+- Additional packages for GLFW, see their [docs](https://www.glfw.org/docs/latest/compile.html) for more information:
 ```shell
-# Debian
+# Debian, for example:
 sudo apt install libwayland-dev libxkbcommon-dev xorg-dev
-
-# Fedora
-sudo dnf install wayland-devel libxkbcommon-devel libXcursor-devel libXi-devel libXinerama-devel libXrandr-devel
-
-# FreeBSD
-pkg install wayland libxkbcommon evdev-proto xorgproto
-
-# Cygwin (no Wayland support)
-sudo apt install libXcursor-devel, libXi-devel, libXinerama-devel, libXrandr-devel and libXrender-devel
 ```
 
-#### Build using a Conda environment
-Clang-build is the only option for conda-managed dependencies where required tools are already included in `.yml` files.
+#### 🐍 Build using a Conda environment
+Clang-build is the only option for conda-managed dependencies.
 
-The only exception is the [Slang](https://github.com/shader-slang/slang/releases/tag/v2024.17) compiler, for which 
-version `2024.17` needs to be downloaded and extracted to a location whose path is specified during CMake configuration.
+All required packages for each OS are included in their respective `.yml` files, with the only exception is the 
+[Slang](https://github.com/shader-slang/slang/releases/tag/v2024.17) compiler, for which version `2024.17` needs 
+to be downloaded and extracted to a location whose path is specified during CMake configuration.
 
 ###### Windows
 ```shell
