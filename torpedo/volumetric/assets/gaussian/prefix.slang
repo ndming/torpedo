@@ -29,7 +29,9 @@ groupshared uint64_t value; // partition descriptor from other workgroups are re
 static const uint FLAG_X = 0u; // invalid
 static const uint FLAG_A = 1u; // aggregate available
 static const uint FLAG_P = 2u; // prefix available
-static const uint64_t DUMMY = 0xFFFFFFFF00000000u; // for atomic read
+
+// For atomic read of partition descriptor
+static const uint64_t DUMMY = uint64_t::maxValue;
 
 // Performs EXCLUSIVE prefix scan over the `tiles` touched by each Gaussian in `splats` and writes to `offsets`.
 // The total number of touched tiles, i.e. the global reduction, is written to `tilesRendered` for CPU readback.

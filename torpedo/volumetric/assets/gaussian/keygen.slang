@@ -49,10 +49,8 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
 
     for (uint y = rectMin.y; y < rectMax.y; y++) {
         for (uint x = rectMin.x; x < rectMax.x; x++) {
-            // Compute the key: uint64_t(uint32_t(tile index)-uint32_t(depth))
-            uint64_t key = y * grid.x + x;
-            key <<= 32;
-            key |= reinterpret<uint32_t>(depth);
+            // Compute the key: uint64_t(uint32_t(tile index) | uint32_t(depth))
+            let key = (uint64_t(y * grid.x + x) << 32) | reinterpret<uint32_t>(depth);
             keys[offset] = key;
             vals[offset] = idx;
             ++offset;
