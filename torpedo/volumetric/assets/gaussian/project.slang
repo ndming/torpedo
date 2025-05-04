@@ -15,8 +15,8 @@ StructuredBuffer<Gaussian> gaussians;
 [[vk::binding(3)]]
 RWStructuredBuffer<Splat> splats;
 
+// Projects Gaussian points to Splat points on image space
 // Based on: https://github.com/graphdeco-inria/gaussian-splatting
-// Performs initial steps for each Gaussian prior to rasterization
 
 [shader("compute")]
 [numthreads(WORKGROUP_SIZE, 1, 1)]

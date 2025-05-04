@@ -1,6 +1,6 @@
 #pragma once
 
-#include "torpedo/rendering/Engine.h"
+#include <torpedo/rendering/Engine.h>
 
 #include <torpedo/foundation/Target.h>
 #include <torpedo/foundation/ReadbackBuffer.h>
@@ -87,14 +87,14 @@ namespace tpd {
         struct Frame {
             vk::CommandBuffer drawing{};
             vk::CommandBuffer compute{};
-            vk::Semaphore ownership{}; // only initialize if async compute is used
+            vk::Semaphore ownership{}; // only initialize if async compute is being used
             vk::Fence preFrameFence{};
             vk::Fence readBackFence{};
             Target outputImage{};
         };
 
-        // This is the immutable part of the RasterInfo struct in splat.slang during frame drawing.
-        // By contrast, the tilesRendered member could change half-way through the pre-frame compute pass.
+        // This is the immutable part of the RasterInfo struct in splat.slang during frame drawing. This separation is
+        // due to the fact that the tilesRendered member could change half-way through the pre-frame compute pass.
         struct PointCloud {
             uint32_t count;
             uint32_t shDegree;
@@ -129,7 +129,7 @@ namespace tpd {
         /*--------------------*/
 
         vk::PipelineLayout _gaussianLayout{};
-        vk::Pipeline _preparePipeline{};
+        vk::Pipeline _projectPipeline{};
         vk::Pipeline _prefixPipeline{};
         vk::Pipeline _keygenPipeline{};
         vk::Pipeline _radixPipeline{};

@@ -21,7 +21,7 @@ target_link_libraries(${TARGET} PUBLIC torpedo::math)
 torpedo_define_assets_dir(${TARGET} VOLUMETRIC ${CMAKE_CURRENT_BINARY_DIR} TORPEDO_VOLUMETRIC_ASSETS_DIR)
 # Shader assets
 set(TORPEDO_VOLUMETRIC_SHADERS
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/prepare.slang
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/project.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/prefix.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/keygen.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/radix.slang

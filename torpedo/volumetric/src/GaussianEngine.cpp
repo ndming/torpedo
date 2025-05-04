@@ -92,7 +92,7 @@ void tpd::GaussianEngine::onInitialized() {
     }
 
     createGaussianLayout();
-    _preparePipeline = createPipeline("prepare.slang", _gaussianLayout);
+    _projectPipeline = createPipeline("project.slang", _gaussianLayout);
     _prefixPipeline = createPipeline("prefix.slang", _gaussianLayout);
     _keygenPipeline = createPipeline("keygen.slang", _gaussianLayout);
     _radixPipeline = createPipeline("radix.slang", _gaussianLayout);
@@ -224,13 +224,13 @@ vk::Pipeline tpd::GaussianEngine::createPipeline(const std::string& slangFile, c
         .build(_device);
 
     const auto shaderStage = vk::PipelineShaderStageCreateInfo{}
-    .setModule(shaderModule)
-    .setStage(vk::ShaderStageFlagBits::eCompute)
-    .setPName("main");
+        .setModule(shaderModule)
+        .setStage(vk::ShaderStageFlagBits::eCompute)
+        .setPName("main");
 
     const auto pipelineInfo = vk::ComputePipelineCreateInfo{}
-    .setStage(shaderStage)
-    .setLayout(layout);
+        .setStage(shaderStage)
+        .setLayout(layout);
     const auto pipeline = _device.createComputePipeline(nullptr, pipelineInfo).value;
 
     _device.destroyShaderModule(shaderModule);
@@ -512,7 +512,7 @@ void tpd::GaussianEngine::preFrameCompute() {
     using enum vk::ImageLayout;
     _frames[frameIndex].outputImage.recordLayoutTransition(preFrameCompute, eUndefined, eGeneral);
 
-    // Preprocess dispatches these passes: prepare, prefix
+    // Preprocess dispatches these passes: project, prefix
     recordPreprocess(preFrameCompute);
     preFrameCompute.end();
 
@@ -557,11 +557,12 @@ void tpd::GaussianEngine::preFrameCompute() {
     computeDrawSubmitInfo.pCommandBufferInfos = &computeDrawInfo;
     computeDrawSubmitInfo.commandBufferInfoCount = 1;
 
-    // Add an acquire semaphore for compute-graphics ownership transfer
+    // Acquire semaphore for compute-graphics ownership transfer, ...
     const auto ownershipInfo = vk::SemaphoreSubmitInfo{}
         .setSemaphore(_frames[frameIndex].ownership)
         .setStageMask(vk::PipelineStageFlagBits2::eAllCommands)
         .setValue(1).setDeviceIndex(0);
+    // ... only add it if under async compute
     computeDrawSubmitInfo.signalSemaphoreInfoCount = asyncCompute() ? 1 : 0;
     computeDrawSubmitInfo.pSignalSemaphoreInfos = &ownershipInfo;
 
@@ -619,11 +620,11 @@ void tpd::GaussianEngine::draw(const SwapImage image) {
 }
 
 void tpd::GaussianEngine::recordPreprocess(const vk::CommandBuffer cmd) const noexcept {
-    // Prepare pass
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _preparePipeline);
+    // Project pass
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _projectPipeline);
     cmd.dispatch((GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
-    // Wait until prepare pass has populated the raster point buffer
+    // Wait until project pass has populated the raster point buffer
     auto barrier = vk::MemoryBarrier2{};
     barrier.srcStageMask = vk::PipelineStageFlagBits2::eComputeShader;
     barrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
@@ -735,7 +736,7 @@ void tpd::GaussianEngine::destroy() noexcept {
         _device.destroyPipeline(_radixPipeline);
         _device.destroyPipeline(_keygenPipeline);
         _device.destroyPipeline(_prefixPipeline);
-        _device.destroyPipeline(_preparePipeline);
+        _device.destroyPipeline(_projectPipeline);
 
         _shaderInstance.destroy(_device);
         _shaderLayout.destroy(_device);
