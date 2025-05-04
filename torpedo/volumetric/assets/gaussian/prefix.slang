@@ -4,10 +4,7 @@ import splat;
 uniform RasterInfo info;
 
 [[vk::binding(3)]]
-StructuredBuffer<Splat> splats;
-
-[[vk::binding(4)]]
-RWStructuredBuffer<uint> offsets;
+RWStructuredBuffer<Splat> splats;
 
 [[vk::binding(5)]]
 RWStructuredBuffer<uint> tilesRendered; // readback by CPU
@@ -33,8 +30,8 @@ static const uint FLAG_P = 2u; // prefix available
 // For atomic read of partition descriptor
 static const uint64_t DUMMY = uint64_t::maxValue;
 
-// Performs EXCLUSIVE prefix scan over the `tiles` touched by each Gaussian in `splats` and writes to `offsets`.
-// The total number of touched tiles, i.e. the global reduction, is written to `tilesRendered` for CPU readback.
+// Performs in-place EXCLUSIVE prefix scan over the `tiles` touched by each Gaussian in the `splats` buffer.
+// The total number of touched tiles (global reduction) is written to `tilesRendered` for CPU readback.
 // Reduce-then-scan without bank conflicts: https://www.eecs.umich.edu/courses/eecs570/hw/parprefix.pdf
 // Decoupled lookback: https://research.nvidia.com/sites/default/files/pubs/2016-03_Single-pass-Parallel-Prefix/nvr-2016-002.pdf
 
@@ -156,6 +153,6 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
 
     // Make sure all shared memory writes are visible before writing to global memory
     GroupMemoryBarrierWithGroupSync();
-    if (begin + aj < info.pointCount) offsets[begin + aj] = tiles[aj + bankOffsetA];
-    if (begin + bj < info.pointCount) offsets[begin + bj] = tiles[bj + bankOffsetB];
+    if (begin + aj < info.pointCount) splats[begin + aj].tiles = tiles[aj + bankOffsetA];
+    if (begin + bj < info.pointCount) splats[begin + aj].tiles = tiles[bj + bankOffsetB];
 }

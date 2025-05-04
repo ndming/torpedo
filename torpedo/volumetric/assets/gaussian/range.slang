@@ -3,8 +3,8 @@ import splat;
 [[vk::push_constant]]
 uniform RasterInfo info;
 
-[[vk::binding(8)]]
-StructuredBuffer<uint64_t> sortedKeys;
+[[vk::binding(6)]]
+StructuredBuffer<uint64_t> keys;
 
 [[vk::binding(10)]]
 RWStructuredBuffer<uint2> ranges;
@@ -19,11 +19,11 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     let idx = globalInvocationID.x;
     if (idx >= info.tilesRendered) return;
 
-    let currTile = uint(sortedKeys[idx] >> 32);
+    let currTile = uint(keys[idx] >> 32);
     if (idx == 0) {
         ranges[currTile].x = 0;
     } else {
-        let prevTile = uint(sortedKeys[idx - 1] >> 32);
+        let prevTile = uint(keys[idx - 1] >> 32);
         if (currTile != prevTile) {
             ranges[prevTile].y = idx;
             ranges[currTile].x = idx;

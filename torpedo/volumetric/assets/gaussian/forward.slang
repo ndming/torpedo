@@ -6,17 +6,17 @@ WTexture2D outputImage;
 [[vk::binding(3)]]
 StructuredBuffer<Splat> splats;
 
-[[vk::binding(9)]]
-StructuredBuffer<uint32_t> indices;
+[[vk::binding(7)]]
+StructuredBuffer<uint> splatIndices;
 
 [[vk::binding(10)]]
 StructuredBuffer<uint2> ranges;
 
 static const uint BLOCK_SIZE = BLOCK_X * BLOCK_Y;
 
-groupshared uint groupIndices[BLOCK_SIZE];
-groupshared float2 groupImgPoints[BLOCK_SIZE];
-groupshared float4 groupCopacs[BLOCK_SIZE];
+groupshared uint indices[BLOCK_SIZE];
+groupshared float2 imagePoints[BLOCK_SIZE];
+groupshared float4 copacs[BLOCK_SIZE];
 groupshared uint doneCount;
 
 [shader("compute")]
@@ -62,17 +62,17 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 tileID : SV_GroupID)
 
         let progress = i * BLOCK_SIZE + threadId;
         if (range.x + progress < range.y) {
-            let gaussianID = indices[range.x + progress];
-            groupIndices[threadId] = gaussianID;
-            groupImgPoints[threadId] = splats[gaussianID].texel.xy;
-            groupCopacs[threadId] = splats[gaussianID].copac;
+            let splatIdx = splatIndices[range.x + progress];
+            indices[threadId] = splatIdx;
+            imagePoints[threadId] = splats[splatIdx].texel.xy;
+            copacs[threadId] = splats[splatIdx].copac;
         }
         GroupMemoryBarrierWithGroupSync();
 
         // Rasterize the Gaussians in the current round
         for (uint j = 0; !done && j < min(BLOCK_SIZE, remaining); j++) {
-            let imgPoint = groupImgPoints[j]; // the splat center in image space
-            let copac = groupCopacs[j];
+            let imgPoint = imagePoints[j]; // the splat center in image space
+            let copac = copacs[j];
 
             // Resample using conic matrix
             let d = float2(pixel.x, pixel.y) - imgPoint;
@@ -88,7 +88,7 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 tileID : SV_GroupID)
             }
 
             // Eq. (3) from 3D Gaussian splatting paper
-            color += splats[groupIndices[j]].color * alpha * T;
+            color += splats[indices[j]].color * alpha * T;
             T *= (1.0 - alpha);
         }
     }

@@ -60,15 +60,12 @@ namespace tpd {
         void createCameraBuffer();
         void createGaussianBuffer();
         void createSplatBuffer();
-        void createOffsetsBuffer();
         void createTilesRenderedBuffer();
-        void createKeysBuffer();
-        void createValsBuffer();
-        void createSortedKeysBuffer();
-        void createIndicesBuffer();
-        void createRangesBuffer(uint32_t width, uint32_t height);
+        void createKeyBuffer();
+        void createSplatIndexBuffer();
+        void createRangeBuffer(uint32_t width, uint32_t height);
         void createPartitionCountBuffer();
-        void createPartitionDescriptorsBuffer();
+        void createPartitionDescriptorBuffer();
 
         void setStorageBufferDescriptors(
             vk::Buffer buffer, vk::DeviceSize size, const ShaderInstance& instance,
@@ -77,9 +74,9 @@ namespace tpd {
         static constexpr uint32_t WORKGROUP_SIZE = 256; // number of local threads per workgroup in scan passes
         static constexpr uint32_t BLOCK_X = 16; // tile size in x-dimension
         static constexpr uint32_t BLOCK_Y = 16; // tile size in y-dimension
-        void recordPreprocess(vk::CommandBuffer cmd) const noexcept;
+        void recordSplat(vk::CommandBuffer cmd) const noexcept;
         void reallocateBuffers();
-        void recordPostprocess(vk::CommandBuffer cmd, uint32_t frameIndex) const noexcept;
+        void recordBlend(vk::CommandBuffer cmd) const noexcept;
         void recordTargetCopy(vk::CommandBuffer cmd, SwapImage swapImage, uint32_t frameIndex) const noexcept;
 
         void destroy() noexcept override;
@@ -120,7 +117,7 @@ namespace tpd {
         vk::Queue _graphicsQueue;
         vk::Queue _computeQueue;
         std::pmr::vector<Frame> _frames{ &_frameResource };
-        uint64_t _currentTilesRendered{};
+        uint64_t _currentTilesRendered{ 1 };
 
         /*--------------------*/
 
@@ -148,7 +145,6 @@ namespace tpd {
 
         static constexpr uint32_t GAUSSIAN_COUNT = 1;
         static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
-        using TilesRenderedType = uint32_t;
 
         // The maximum number of floats for RGB spherical harmonics
         static constexpr uint32_t MAX_SH_RGB = 48;
@@ -165,14 +161,11 @@ namespace tpd {
 
         StorageBuffer _gaussianBuffer{};
         StorageBuffer _splatBuffer{};
-        StorageBuffer _offsetsBuffer{};
-        StorageBuffer _keysBuffer{};
-        StorageBuffer _valsBuffer{};
-        StorageBuffer _sortedKeysBuffer{};
-        StorageBuffer _indicesBuffer{};
-        StorageBuffer _rangesBuffer{};
+        StorageBuffer _keyBuffer{};
+        StorageBuffer _splatIndexBuffer{};
+        StorageBuffer _rangeBuffer{};
         StorageBuffer _partitionCountBuffer{};
-        StorageBuffer _partitionDescriptorsBuffer{};
+        StorageBuffer _partitionDescriptorBuffer{};
     };
 } // namespace tpd
 

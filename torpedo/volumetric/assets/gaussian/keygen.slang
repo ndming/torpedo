@@ -9,14 +9,11 @@ WTexture2D outputImage;
 [[vk::binding(3)]]
 StructuredBuffer<Splat> splats;
 
-[[vk::binding(4)]]
-StructuredBuffer<uint> offsets;
-
 [[vk::binding(6)]]
 RWStructuredBuffer<uint64_t> keys;
 
 [[vk::binding(7)]]
-RWStructuredBuffer<uint32_t> vals;
+RWStructuredBuffer<uint> splatIndices;
 
 // Based on: https://github.com/graphdeco-inria/gaussian-splatting
 // Generates one key/value pair for all Gaussian/tile overlaps
@@ -43,16 +40,15 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     uint2 rectMin, rectMax;
     getBoundingRect(imgPoint, radius, getComputeGrid(imageSize), rectMin, rectMax);
 
-    // Unlike the original CUDA code, we perform exclusive prefix sum,
-    // thus the correct offset directly locates at the Gaussian index.
-    var offset = offsets[idx];
+    // Unlike the original CUDA code, we performed in-place exclusive prefix sum in the prefix pass,
+    // so the correct offset directly locates at the Gaussian index.
+    var offset = splats[idx].tiles;
 
     for (uint y = rectMin.y; y < rectMax.y; y++) {
         for (uint x = rectMin.x; x < rectMax.x; x++) {
-            // Compute the key: uint64_t(uint32_t(tile index) | uint32_t(depth))
-            let key = (uint64_t(y * grid.x + x) << 32) | reinterpret<uint32_t>(depth);
-            keys[offset] = key;
-            vals[offset] = idx;
+            // Compute the key: uint64_t(uint32_t(tile index) - uint32_t(depth))
+            keys[offset] = (uint64_t(y * grid.x + x) << 32) | reinterpret<uint32_t>(depth);
+            splatIndices[offset] = idx;
             ++offset;
         }
     }
