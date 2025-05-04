@@ -19,11 +19,11 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     let idx = globalInvocationID.x;
     if (idx >= info.tilesRendered) return;
 
-    let currTile = (uint)(sortedKeys[idx] >> 32);
+    let currTile = uint(sortedKeys[idx] >> 32);
     if (idx == 0) {
         ranges[currTile].x = 0;
     } else {
-        let prevTile = (uint)(sortedKeys[idx - 1] >> 32);
+        let prevTile = uint(sortedKeys[idx - 1] >> 32);
         if (currTile != prevTile) {
             ranges[prevTile].y = idx;
             ranges[currTile].x = idx;

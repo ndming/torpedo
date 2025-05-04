@@ -96,6 +96,7 @@ void tpd::GaussianEngine::onInitialized() {
     _prefixPipeline = createPipeline("prefix.slang", _gaussianLayout);
     _keygenPipeline = createPipeline("keygen.slang", _gaussianLayout);
     _radixPipeline = createPipeline("radix.slang", _gaussianLayout);
+    _clearPipeline = createPipeline("clear.slang", _gaussianLayout);
     _rangePipeline = createPipeline("range.slang", _gaussianLayout);
     _forwardPipeline = createPipeline("forward.slang", _gaussianLayout);
 
@@ -108,8 +109,8 @@ void tpd::GaussianEngine::onInitialized() {
     _frames.resize(frameCount);
     _targetViews.resize(frameCount);
 
-    // Estimate the initial tiles rendered number with the number of Gaussian points
-    _currentTilesRendered = GAUSSIAN_COUNT;
+    // Set the current tiles rendered as minimal as possible
+    _currentTilesRendered = 1;
 
     createFrames();
     createRenderTargets(w, h);
@@ -339,23 +340,14 @@ void tpd::GaussianEngine::createCameraBuffer() {
 void tpd::GaussianEngine::createGaussianBuffer() {
     auto points = std::array<Gaussian, GAUSSIAN_COUNT>{};
 
-    std::mt19937 rng{std::random_device{}()};
-    std::uniform_real_distribution dist_pos(-1.0f, 1.0f);
-    std::uniform_real_distribution dist_opacity(0.0f, 1.0f);
-    std::uniform_real_distribution dist_quat(-1.0f, 1.0f);
-    std::uniform_real_distribution dist_scale(0.05f, 0.5f);
-    std::uniform_real_distribution dist_sh(0.5f, 2.0f);
-
-    for (auto& [position, opacity, quaternion, scale, sh] : points) {
-        position = { dist_pos(rng), dist_pos(rng), dist_pos(rng) };
-        opacity = dist_opacity(rng);
-        quaternion = { dist_quat(rng), dist_quat(rng), dist_quat(rng), dist_quat(rng) };
-        quaternion = math::normalize(quaternion);
-        scale = { dist_scale(rng), dist_scale(rng), dist_scale(rng), 1.0f };
-        sh[0] = dist_sh(rng);
-        sh[1] = dist_sh(rng);
-        sh[2] = dist_sh(rng);
-    }
+    points[0].position   = { 0.0f, 0.0f, 0.0f };
+    points[0].opacity    = 1.0f;
+    points[0].quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
+    points[0].scale      = { 0.2f, 0.1f, 0.1f, 1.0f };
+    // A gray Gaussian
+    points[0].sh[0] = 1.5f;
+    points[0].sh[1] = 1.5f;
+    points[0].sh[2] = 1.5f;
 
     _gaussianBuffer = StorageBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eTransferDst)
@@ -676,7 +668,15 @@ void tpd::GaussianEngine::recordPostprocess(const vk::CommandBuffer cmd, const u
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixPipeline);
     cmd.dispatch((_currentTilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
-    // Wait until radix pass has populated the sorted keys buffer
+    // Range clear pass
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _clearPipeline);
+    const auto [w, h] = _renderer->getFramebufferSize();
+    const auto tilesX = (w + BLOCK_X - 1) / BLOCK_X;
+    const auto tilesY = (h + BLOCK_Y - 1) / BLOCK_Y;
+    cmd.dispatch((tilesX * tilesY + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
+
+    // Wait until radix pass has populated the sorted keys buffer,
+    // and clear pass has cleared the ranges buffer
     cmd.pipelineBarrier2(dependencyInfo);
 
     // Range pass
@@ -688,8 +688,7 @@ void tpd::GaussianEngine::recordPostprocess(const vk::CommandBuffer cmd, const u
 
     // Alpha blending pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _forwardPipeline);
-    const auto [w, h] = _renderer->getFramebufferSize();
-    cmd.dispatch((w + BLOCK_X - 1) / BLOCK_X, (h + BLOCK_Y - 1) / BLOCK_Y, 1);
+    cmd.dispatch(tilesX, tilesY, 1);
 }
 
 void tpd::GaussianEngine::recordTargetCopy(
@@ -732,6 +731,7 @@ void tpd::GaussianEngine::destroy() noexcept {
 
         _device.destroyPipeline(_forwardPipeline);
         _device.destroyPipeline(_rangePipeline);
+        _device.destroyPipeline(_clearPipeline);
         _device.destroyPipeline(_radixPipeline);
         _device.destroyPipeline(_keygenPipeline);
         _device.destroyPipeline(_prefixPipeline);

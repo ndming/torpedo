@@ -133,19 +133,20 @@ namespace tpd {
         vk::Pipeline _prefixPipeline{};
         vk::Pipeline _keygenPipeline{};
         vk::Pipeline _radixPipeline{};
+        vk::Pipeline _clearPipeline{};
         vk::Pipeline _rangePipeline{};
         vk::Pipeline _forwardPipeline{};
-        PointCloud _pc{};
 
         /*--------------------*/
 
-        Camera _camera{};
+        PointCloud _pc{};
         RingBuffer _cameraBuffer{};
         ReadbackBuffer _tilesRenderedBuffer{};
+        Camera _camera{};
 
         /*--------------------*/
 
-        static constexpr uint32_t GAUSSIAN_COUNT = 512;
+        static constexpr uint32_t GAUSSIAN_COUNT = 1;
         static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
         using TilesRenderedType = uint32_t;
 
