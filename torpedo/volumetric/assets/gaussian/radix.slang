@@ -9,6 +9,9 @@ RWStructuredBuffer<uint64_t> keys;
 [[vk::binding(7)]]
 RWStructuredBuffer<uint> splatIndices;
 
+[[vk::binding(8)]]
+RWStructuredBuffer<uint> blockSums;
+
 struct LocalOffset {
     uint data[WORKGROUP_SIZE];
 }
@@ -68,6 +71,15 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID
 
     if (localID == 0) {
         let n = WORKGROUP_SIZE;
+
+        // Pack 4 radix sums into a single 32-bit integer
+        let s0 = offsets[0].data[n - 1];
+        let s1 = offsets[1].data[n - 1] << 8;
+        let s2 = offsets[2].data[n - 1] << 16;
+        let s3 = offsets[3].data[n - 1] << 24;
+        blockSums[groupID.x] = s3 | s2 | s1 | s0;
+
+        // Set the last element of each offset array to the sum of the preceding radix combination
         offsets[3].data[n - 1] = offsets[2].data[n - 1] + offsets[1].data[n - 1] + offsets[0].data[n - 1];
         offsets[2].data[n - 1] = offsets[1].data[n - 1] + offsets[0].data[n - 1];
         offsets[1].data[n - 1] = offsets[0].data[n - 1];
