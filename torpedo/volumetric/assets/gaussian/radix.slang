@@ -10,10 +10,16 @@ RWStructuredBuffer<uint64_t> keys;
 RWStructuredBuffer<uint> vals;
 
 [[vk::binding(9)]]
-RWStructuredBuffer<uint> blockSums;
+RWStructuredBuffer<uint64_t> blockSums;
 
 [[vk::binding(10)]]
 RWStructuredBuffer<uint> localSums;
+
+[[vk::binding(11)]]
+StructuredBuffer<uint64_t> sortedKeys;
+
+[[vk::binding(12)]]
+StructuredBuffer<uint> splatIndices;
 
 struct LocalOffset {
     uint data[WORKGROUP_SIZE];
@@ -31,8 +37,6 @@ groupshared LocalOffset offsets[4];
 [numthreads(WORKGROUP_SIZE / 2, 1, 1)] // each thread (invocation) processes 2 items
 void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID) {
     let localID = localInvocationID.x; // [0, WORKGROUP_SIZE / 2 - 1]
-    // let laneID = WaveGetLaneIndex();
-    // let subgroupID = localID / WaveGetLaneCount();
 
     // The starting index in the global array for this partition
     let begin = groupID.x * WORKGROUP_SIZE;
@@ -40,10 +44,10 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID
     // Load global data into shared memory, each thread grabs 2 items seprated by WORKGROUP_SIZE / 2 stride
     let aj = localID;
     let bj = localID + WORKGROUP_SIZE / 2;
-    localKeys[aj] = begin + aj < info.tilesRendered ? keys[begin + aj] : uint64_t::maxValue;
-    localKeys[bj] = begin + bj < info.tilesRendered ? keys[begin + bj] : uint64_t::maxValue;
-    bufferIndices[aj] = begin + aj < info.tilesRendered ? vals[begin + aj] : 0;
-    bufferIndices[bj] = begin + bj < info.tilesRendered ? vals[begin + bj] : 0;
+    localKeys[aj] = begin + aj < info.tilesRendered ? sortedKeys[begin + aj] : uint64_t::maxValue;
+    localKeys[bj] = begin + bj < info.tilesRendered ? sortedKeys[begin + bj] : uint64_t::maxValue;
+    bufferIndices[aj] = begin + aj < info.tilesRendered ? splatIndices[begin + aj] : 0;
+    bufferIndices[bj] = begin + bj < info.tilesRendered ? splatIndices[begin + bj] : 0;
 
     // Generate mask for each 2-bit radix
     let shift = 2 * info.radixPass;
@@ -75,17 +79,17 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID
     if (localID == 0) {
         let n = WORKGROUP_SIZE;
 
-        // Pack 4 radix sums into a single 32-bit integer
-        let s0 = offsets[0].data[n - 1];
-        let s1 = offsets[1].data[n - 1] << 8;
-        let s2 = offsets[2].data[n - 1] << 16;
-        let s3 = offsets[3].data[n - 1] << 24;
-        blockSums[groupID.x] = s3 | s2 | s1 | s0;
+        // Pack 4 radix sums into a single 64-bit integer
+        var s = uint64_t(offsets[0].data[n - 1]);
+        s |= uint64_t(offsets[1].data[n - 1]) << 16;
+        s |= uint64_t(offsets[2].data[n - 1]) << 32;
+        s |= uint64_t(offsets[3].data[n - 1]) << 48;
+        blockSums[groupID.x] = s;
 
-        // Set the last element of each offset array to the sum of the preceding radix combination
-        offsets[3].data[n - 1] = offsets[2].data[n - 1] + offsets[1].data[n - 1] + offsets[0].data[n - 1];
-        offsets[2].data[n - 1] = offsets[1].data[n - 1] + offsets[0].data[n - 1];
-        offsets[1].data[n - 1] = offsets[0].data[n - 1];
+        // Clear the last element of each offset array
+        offsets[3].data[n - 1] = 0;
+        offsets[2].data[n - 1] = 0;
+        offsets[1].data[n - 1] = 0;
         offsets[0].data[n - 1] = 0;
     }
 
@@ -116,21 +120,18 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID
         }
     }
 
-    // Shuffle local keys and indices and write to global memory
     GroupMemoryBarrierWithGroupSync();
     let idxA = offsets[keyA].data[aj];
     let idxB = offsets[keyB].data[bj];
 
-    if (begin + idxA < info.tilesRendered) {
-        keys[begin + idxA] = localKeys[aj];
-        vals[begin + idxA] = bufferIndices[aj];
+    if (begin + aj < info.tilesRendered) {
+        keys[begin + aj] = localKeys[aj];
+        vals[begin + aj] = bufferIndices[aj];
+        localSums[begin + aj] = idxA;
     }
-    if (begin + idxB < info.tilesRendered) {
-        keys[begin + idxB] = localKeys[bj];
-        vals[begin + idxB] = bufferIndices[bj];
+    if (begin + bj < info.tilesRendered) {
+        keys[begin + bj] = localKeys[bj];
+        vals[begin + bj] = bufferIndices[bj];
+        localSums[begin + bj] = idxB;
     }
-
-    // Per-block local prefix sums are also written for each radix combination
-    if (begin + aj < info.tilesRendered) localSums[begin + aj] = idxA;
-    if (begin + bj < info.tilesRendered) localSums[begin + bj] = idxB;
 }

@@ -10,7 +10,7 @@ StructuredBuffer<uint64_t> keys;
 StructuredBuffer<uint> vals;
 
 [[vk::binding(9)]]
-StructuredBuffer<uint> blockSums;
+StructuredBuffer<uint64_t> blockSums;
 
 [[vk::binding(10)]]
 StructuredBuffer<uint> localSums;
@@ -21,54 +21,60 @@ RWStructuredBuffer<uint64_t> sortedKeys;
 [[vk::binding(12)]]
 RWStructuredBuffer<uint> splatIndices;
 
-groupshared uint globalPrefixes[4]; // global exclusive prefix of each radix combination
+groupshared uint globalPrefixes[4]; // global exclusive prefix of each key value
+groupshared uint globalSums[4];     // global reductions of each radix combination
 
 [shader("compute")]
-[numthreads(WORKGROUP_SIZE / 2, 1, 1)] // each thread (invocation) processes 2 items
+[numthreads(WORKGROUP_SIZE, 1, 1)]
 void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID) {
-    let localID = localInvocationID.x; // [0, WORKGROUP_SIZE / 2 - 1]
+    let localID = localInvocationID.x; // [0, WORKGROUP_SIZE - 1]
 
     // The starting index in the global array for this partition
     let begin = groupID.x * WORKGROUP_SIZE;
+    if (begin + localID >= info.tilesRendered) return;
 
-    // Each thread grabs 2 adjacent items
-    let aj = 2 * localID + 0;
-    let bj = 2 * localID + 1;
-    let kA = begin + aj < info.tilesRendered ? keys[begin + aj] : uint64_t::maxValue;
-    let kB = begin + bj < info.tilesRendered ? keys[begin + bj] : uint64_t::maxValue;
-    let vA = begin + aj < info.tilesRendered ? vals[begin + aj] : 0;
-    let vB = begin + bj < info.tilesRendered ? vals[begin + bj] : 0;
+    let k = keys[begin + localID];
+    let v = vals[begin + localID];
 
-    let keyA = uint((kA >> (2 * info.radixPass)) & 0x3ULL);
-    let keyB = uint((kB >> (2 * info.radixPass)) & 0x3ULL);
+    let shift = 2 * info.radixPass;
+    let key = uint((k >> shift) & 0x3ULL);
 
     if (localID < 4) {
-        // Initialize the global prefix for each radix combination
-        if (localID == 0) globalPrefixes[0] = 0;
-        if (localID == 1) globalPrefixes[1] = 0;
-        if (localID == 2) globalPrefixes[2] = 0;
-        if (localID == 3) globalPrefixes[3] = 0;
+        // Initialize global reductions
+        if (localID == 0) globalSums[0] = 0;
+        if (localID == 1) globalSums[1] = 0;
+        if (localID == 2) globalSums[2] = 0;
+        if (localID == 3) globalSums[3] = 0;
 
-        // Compute global exclusive prefix of each radix combination
-        for (uint i = 0; i < groupID.x; ++i) {
-            if (localID == 0) globalPrefixes[0] += blockSums[i] & 0xFFu;
-            if (localID == 1) globalPrefixes[1] += (blockSums[i] >> 8) & 0xFFu;
-            if (localID == 2) globalPrefixes[2] += (blockSums[i] >> 16) & 0xFFu;
-            if (localID == 3) globalPrefixes[3] += (blockSums[i] >> 24) & 0xFFu;
+        let workgroupCount = (info.tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+        for (uint i = 0; i < workgroupCount; ++i) {
+            if (localID == 0) {
+                if (i == groupID.x) globalPrefixes[0] = globalSums[0];
+                globalSums[0] += uint(blockSums[i] & 0xFFFFULL);
+            }
+            if (localID == 1) {
+                if (i == groupID.x) globalPrefixes[1] = globalSums[1];
+                globalSums[1] += uint((blockSums[i] >> 16) & 0xFFFFULL);
+            }
+            if (localID == 2) {
+                if (i == groupID.x) globalPrefixes[2] = globalSums[2];
+                globalSums[2] += uint((blockSums[i] >> 32) & 0xFFFFULL);
+            }
+            if (localID == 3) {
+                if (i == groupID.x) globalPrefixes[3] = globalSums[3];
+                globalSums[3] += uint((blockSums[i] >> 48) & 0xFFFFULL);
+            }
         }
+
+        GroupMemoryBarrierWithGroupSync();
+        if (localID == 1) globalPrefixes[1] += globalSums[0];
+        if (localID == 2) globalPrefixes[2] += globalSums[0] + globalSums[1];
+        if (localID == 3) globalPrefixes[3] += globalSums[0] + globalSums[1] + globalSums[2];
     }
 
     // Global mapping
     GroupMemoryBarrierWithGroupSync();
-    let idxA = globalPrefixes[keyA] + localSums[aj];
-    let idxB = globalPrefixes[keyB] + localSums[bj];
-
-    if (idxA < info.tilesRendered) {
-        sortedKeys[idxA] = kA;
-        splatIndices[idxA] = vA;
-    }
-    if (idxB < info.tilesRendered) {
-        sortedKeys[idxB] = kB;
-        splatIndices[idxB] = vB;
-    }
+    let idx = globalPrefixes[key] + localSums[begin + localID];
+    sortedKeys[idx] = k;
+    splatIndices[idx] = v;
 }
