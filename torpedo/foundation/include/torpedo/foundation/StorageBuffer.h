@@ -14,7 +14,7 @@ namespace tpd {
         StorageBuffer(vk::Buffer buffer, VmaAllocation allocation);
 
         void recordStagingCopy(vk::CommandBuffer cmd, vk::Buffer stagingBuffer, vk::DeviceSize size) const noexcept;
-        void recordDstSyncCopy(vk::CommandBuffer cmd, SyncPoint dstSync) const noexcept;
+        void recordTransferDst(vk::CommandBuffer cmd, SyncPoint dstSync) const noexcept;
     };
 } // namespace tpd
 

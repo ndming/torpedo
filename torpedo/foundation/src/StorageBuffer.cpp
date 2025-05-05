@@ -22,7 +22,7 @@ void tpd::StorageBuffer::recordStagingCopy(
     cmd.copyBuffer(stagingBuffer, _resource, bufferCopyInfo);
 }
 
-void tpd::StorageBuffer::recordDstSyncCopy(const vk::CommandBuffer cmd, const SyncPoint dstSync) const noexcept {
+void tpd::StorageBuffer::recordTransferDst(const vk::CommandBuffer cmd, const SyncPoint dstSync) const noexcept {
     auto barrier = vk::BufferMemoryBarrier2{};
     barrier.buffer = _resource;
     barrier.offset = 0;

@@ -1,13 +1,13 @@
 #include "torpedo/volumetric/GaussianEngine.h"
-#include "torpedo/rendering/LogUtils.h"
 
 #include <torpedo/bootstrap/DeviceBuilder.h>
 #include <torpedo/bootstrap/ShaderModuleBuilder.h>
 #include <torpedo/bootstrap/PhysicalDeviceSelector.h>
 
+#include <plog/Log.h>
+
 #include <filesystem>
 #include <numbers>
-#include <random>
 
 tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
     const std::vector<const char*>& deviceExtensions,
@@ -41,7 +41,7 @@ vk::Device tpd::GaussianEngine::createDevice(
     featuresVulkan13.pNext = &featuresShaderAtomicInt64;
 
     // Remember to update the count number at the end of the first message should more features are added
-    PLOGD << "Device features requested by " << getName() << " (2):";
+    PLOGD << "Device features requested by " << getName() << " (3):";
     PLOGD << " - Features: shaderInt64";
     PLOGD << " - Vulkan13Features: synchronization2";
     PLOGD << " - ShaderAtomicInt64Features: shaderBufferInt64Atomics";
@@ -71,9 +71,8 @@ vk::PhysicalDeviceShaderAtomicInt64Features tpd::GaussianEngine::getShaderAtomic
 }
 
 void tpd::GaussianEngine::onInitialized() {
-#ifndef NDEBUG
+    // Log relevant physical device characteristics
     logDebugInfos();
-#endif
 
     // We're going to need a transfer worker for data transfer
     _transferWorker = std::make_unique<TransferWorker>(
@@ -169,9 +168,8 @@ void tpd::GaussianEngine::onFramebufferResize(const uint32_t width, const uint32
     createCameraObject(width, height);
     createRangeBuffer(width, height);
 
-#ifndef NDEBUG
     PLOGD << "GaussianEngine - Recreated render targets and ranges buffer";
-#endif
+
 }
 
 void tpd::GaussianEngine::createDrawingCommandPool() {
@@ -614,9 +612,8 @@ void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcep
 }
 
 void tpd::GaussianEngine::reallocateBuffers() {
-#ifndef NDEBUG
     PLOGD << "GaussianEngine - Reallocating with new tiles rendered: " << _currentTilesRendered;
-#endif
+
     createKeyBuffer();
     createSplatIndexBuffer();
     createBlockSumBuffer();
@@ -654,26 +651,13 @@ void tpd::GaussianEngine::recordBlend(const vk::CommandBuffer cmd) const noexcep
 
     // Clear the range buffer before populating it
     cmd.fillBuffer(_rangeBuffer, 0, vk::WholeSize, 0);
-
-    // Wait for the clear to finish
-    auto bufferBarrier = vk::BufferMemoryBarrier2{};
-    bufferBarrier.buffer = _rangeBuffer;
-    bufferBarrier.offset = 0;
-    bufferBarrier.size = vk::WholeSize;
-    bufferBarrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
-    bufferBarrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
-    bufferBarrier.srcStageMask  = vk::PipelineStageFlagBits2::eTransfer;
-    bufferBarrier.srcAccessMask = vk::AccessFlagBits2::eTransferWrite;
-    bufferBarrier.dstStageMask  = vk::PipelineStageFlagBits2::eComputeShader;
-    bufferBarrier.dstAccessMask = vk::AccessFlagBits2::eShaderStorageWrite;
-    const auto bufferDependency = vk::DependencyInfo{}.setBufferMemoryBarriers(bufferBarrier);
-    cmd.pipelineBarrier2(bufferDependency);
+    _rangeBuffer.recordTransferDst(cmd, { vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite });
 
     // Range pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _rangePipeline);
     cmd.dispatch((_currentTilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
-    // Wait until range pass has populated the ranges buffer
+    // Wait until range pass has populated the range buffer
     cmd.pipelineBarrier2(dependencyInfo);
 
     // Alpha blending pass
