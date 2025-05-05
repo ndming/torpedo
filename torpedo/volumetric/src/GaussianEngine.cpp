@@ -338,36 +338,36 @@ void tpd::GaussianEngine::createCameraBuffer() {
 void tpd::GaussianEngine::createGaussianBuffer() {
     auto points = std::array<Gaussian, GAUSSIAN_COUNT>{};
 
-    // points[0].position   = { 0.0f, 0.0f, 0.0f };
-    // points[0].opacity    = 1.0f;
-    // points[0].quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
-    // points[0].scale      = { 0.2f, 0.1f, 0.1f, 1.0f };
-    // // A gray Gaussian
-    // points[0].sh[0] = 1.5f;
-    // points[0].sh[1] = 1.5f;
-    // points[0].sh[2] = 1.5f;
+    points[0].position   = { 0.0f, 0.0f, 0.0f };
+    points[0].opacity    = 1.0f;
+    points[0].quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
+    points[0].scale      = { 0.2f, 0.1f, 0.1f, 1.0f };
+    // A gray Gaussian
+    points[0].sh[0] = 1.5f;
+    points[0].sh[1] = 1.5f;
+    points[0].sh[2] = 1.5f;
 
-    // points[1].position   = { 0.1f, 0.2f, 1.0f };
-    // points[1].opacity    = 1.0f;
-    // points[1].quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
-    // points[1].scale      = { 0.1f, 0.5f, 0.1f, 1.0f };
-    // // A red Gaussian
-    // points[1].sh[0] = 1.5f;
-    // points[1].sh[1] = 0.5f;
-    // points[1].sh[2] = 0.5f;
+    points[1].position   = { 0.2f, 0.2f, 2.0f };
+    points[1].opacity    = 1.0f;
+    points[1].quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
+    points[1].scale      = { 0.1f, 0.5f, 0.1f, 1.0f };
+    // A red Gaussian
+    points[1].sh[0] = 1.5f;
+    points[1].sh[1] = 0.5f;
+    points[1].sh[2] = 0.5f;
 
-    std::mt19937 rng{std::random_device{}()};
-    std::uniform_real_distribution dist_pos(-0.5f, 0.5f);
-
-    for (auto& [position, opacity, quaternion, scale, sh] : points) {
-        position = { dist_pos(rng), dist_pos(rng), dist_pos(rng) + 1.0f };
-        opacity = 1.0f;
-        quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
-        scale = { 0.2f, 0.1f, 0.1f, 1.0f };
-        sh[0] = 1.5f;
-        sh[1] = 1.5f;
-        sh[2] = 1.5f;
-    }
+    // std::mt19937 rng{std::random_device{}()};
+    // std::uniform_real_distribution dist_pos(-0.5f, 0.5f);
+    //
+    // for (auto& [position, opacity, quaternion, scale, sh] : points) {
+    //     position = { dist_pos(rng), dist_pos(rng), dist_pos(rng) + 1.0f };
+    //     opacity = 1.0f;
+    //     quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
+    //     scale = { 0.2f, 0.1f, 0.1f, 1.0f };
+    //     sh[0] = 1.5f;
+    //     sh[1] = 1.5f;
+    //     sh[2] = 1.5f;
+    // }
 
     _gaussianBuffer = StorageBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eTransferDst)
@@ -416,7 +416,7 @@ void tpd::GaussianEngine::createPartitionDescriptorBuffer() {
 }
 
 void tpd::GaussianEngine::createKeyBuffer() {
-    const auto size = sizeof(uint64_t) * _currentTilesRendered;
+    const auto size = sizeof(uint64_t) * _maxTilesRendered;
 
     // It's possible we're reallocating a new buffer, in which case the old one must be destroyed
     _keyBuffer.destroy(_vmaAllocator);
@@ -428,7 +428,7 @@ void tpd::GaussianEngine::createKeyBuffer() {
 }
 
 void tpd::GaussianEngine::createValBuffer() {
-    const auto size = sizeof(uint32_t) * _currentTilesRendered;
+    const auto size = sizeof(uint32_t) * _maxTilesRendered;
 
     // It's possible we're reallocating a new buffer, in which case the old one must be destroyed
     _valBuffer.destroy(_vmaAllocator);
@@ -440,7 +440,7 @@ void tpd::GaussianEngine::createValBuffer() {
 }
 
 void tpd::GaussianEngine::createBlockSumBuffer() {
-    const auto size = sizeof(uint64_t) * (_currentTilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+    const auto size = sizeof(uint64_t) * (_maxTilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
 
     // It's possible we're reallocating a new buffer, in which case the old one must be destroyed
     _blockSumBuffer.destroy(_vmaAllocator);
@@ -452,7 +452,7 @@ void tpd::GaussianEngine::createBlockSumBuffer() {
 }
 
 void tpd::GaussianEngine::createLocalSumBuffer() {
-    const auto size = sizeof(uint32_t) * _currentTilesRendered;
+    const auto size = sizeof(uint32_t) * _maxTilesRendered;
 
     // It's possible we're reallocating a new buffer, in which case the old one must be destroyed
     _localSumBuffer.destroy(_vmaAllocator);
@@ -464,7 +464,7 @@ void tpd::GaussianEngine::createLocalSumBuffer() {
 }
 
 void tpd::GaussianEngine::createSortedKeyBuffer() {
-    const auto size = sizeof(uint64_t) * _currentTilesRendered;
+    const auto size = sizeof(uint64_t) * _maxTilesRendered;
 
     // It's possible we're reallocating a new buffer, in which case the old one must be destroyed
     _sortedKeyBuffer.destroy(_vmaAllocator);
@@ -476,7 +476,7 @@ void tpd::GaussianEngine::createSortedKeyBuffer() {
 }
 
 void tpd::GaussianEngine::createSplatIndexBuffer() {
-    const auto size = sizeof(uint32_t) * _currentTilesRendered;
+    const auto size = sizeof(uint32_t) * _maxTilesRendered;
 
     // It's possible we're reallocating a new buffer, in which case the old one must be destroyed
     _splatIndexBuffer.destroy(_vmaAllocator);
@@ -566,8 +566,9 @@ void tpd::GaussianEngine::preFrameCompute() {
     _device.resetFences(readBackFence);
 
     // Inspect the number of tiles rendered and reallocate relevant buffers if necessary
-    if (const auto tiles = _tilesRenderedBuffer.read<uint32_t>(); tiles > _currentTilesRendered) [[unlikely]] {
-        _currentTilesRendered = tiles;
+    const auto tilesRendered = _tilesRenderedBuffer.read<uint32_t>();
+    if (tilesRendered > _maxTilesRendered) [[unlikely]] {
+        _maxTilesRendered = tilesRendered;
         reallocateBuffers();
     }
 
@@ -576,11 +577,11 @@ void tpd::GaussianEngine::preFrameCompute() {
 
     // Re-bind the layout and push the number of tiles rendered
     preFrameCompute.pushConstants(_gaussianLayout, shaderStage, 0,                  sizeof(PointCloud), &_pc);
-    preFrameCompute.pushConstants(_gaussianLayout, shaderStage, sizeof(PointCloud), sizeof(uint32_t),   &_currentTilesRendered);
+    preFrameCompute.pushConstants(_gaussianLayout, shaderStage, sizeof(PointCloud), sizeof(uint32_t),   &tilesRendered);
     preFrameCompute.bindDescriptorSets(eCompute, _gaussianLayout, 0, _shaderInstance.getDescriptorSets(frameIndex), {});
 
     // The remaining passes: keygen, radix, range, forward
-    recordBlend(preFrameCompute);
+    recordBlend(preFrameCompute, tilesRendered);
 
     // Transfer ownership to graphics before submitting if working with async compute
     if (asyncCompute()) {
@@ -680,7 +681,7 @@ void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcep
 }
 
 void tpd::GaussianEngine::reallocateBuffers() {
-    PLOGD << "GaussianEngine - Reallocating with new tiles rendered: " << _currentTilesRendered;
+    PLOGD << "GaussianEngine - Reallocating with new tiles rendered: " << _maxTilesRendered;
 
     createKeyBuffer();
     createValBuffer();
@@ -690,7 +691,7 @@ void tpd::GaussianEngine::reallocateBuffers() {
     createSplatIndexBuffer();
 }
 
-void tpd::GaussianEngine::recordBlend(const vk::CommandBuffer cmd) const noexcept {
+void tpd::GaussianEngine::recordBlend(const vk::CommandBuffer cmd, const uint32_t tilesRendered) const noexcept {
     // Reusable barrier
     auto barrier = vk::MemoryBarrier2{};
     barrier.srcStageMask = vk::PipelineStageFlagBits2::eComputeShader;
@@ -712,11 +713,11 @@ void tpd::GaussianEngine::recordBlend(const vk::CommandBuffer cmd) const noexcep
         cmd.pushConstants(_gaussianLayout, eCompute, sizeof(PointCloud) + sizeof(uint32_t), sizeof(uint32_t), &radixPass);
 
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixPipeline);
-        cmd.dispatch((_currentTilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
+        cmd.dispatch((tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
         cmd.pipelineBarrier2(dependencyInfo);
 
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _coalescePipeline);
-        cmd.dispatch((_currentTilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
+        cmd.dispatch((tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
         cmd.pipelineBarrier2(dependencyInfo);
     }
 
@@ -726,7 +727,7 @@ void tpd::GaussianEngine::recordBlend(const vk::CommandBuffer cmd) const noexcep
 
     // Range pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _rangePipeline);
-    cmd.dispatch((_currentTilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
+    cmd.dispatch((tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
     // Wait until range pass has populated the range buffer
     cmd.pipelineBarrier2(dependencyInfo);

@@ -80,7 +80,7 @@ namespace tpd {
         static constexpr uint32_t BLOCK_Y = 16; // tile size in y-dimension
         void recordSplat(vk::CommandBuffer cmd) const noexcept;
         void reallocateBuffers();
-        void recordBlend(vk::CommandBuffer cmd) const noexcept;
+        void recordBlend(vk::CommandBuffer cmd, uint32_t tilesRendered) const noexcept;
         void recordTargetCopy(vk::CommandBuffer cmd, SwapImage swapImage, uint32_t frameIndex) const noexcept;
 
         void destroy() noexcept override;
@@ -121,7 +121,7 @@ namespace tpd {
         vk::Queue _graphicsQueue;
         vk::Queue _computeQueue;
         std::pmr::vector<Frame> _frames{ &_frameResource };
-        uint32_t _currentTilesRendered{ 1 };
+        uint32_t _maxTilesRendered{ 1 };
 
         /*--------------------*/
 
@@ -150,7 +150,7 @@ namespace tpd {
 
         /*--------------------*/
 
-        static constexpr uint32_t GAUSSIAN_COUNT = 16;
+        static constexpr uint32_t GAUSSIAN_COUNT = 2;
         static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
 
         // The maximum number of floats for RGB spherical harmonics
