@@ -5,11 +5,16 @@ std::vector<const char*> tpd::Renderer::getInstanceExtensions() const {
 #ifndef NDEBUB
     auto extensions = std::vector {
         vk::EXTDebugUtilsExtensionName, // for naming Vulkan objects
+        vk::KHRGetPhysicalDeviceProperties2ExtensionName, // for VMA budget query
     };
     utils::logDebugExtensions("Instance", "tpd::Renderer", extensions);
     return extensions;
 #else
-    return {};
+    auto extensions = std::vector {
+        vk::KHRGetPhysicalDeviceProperties2ExtensionName, // for VMA budget query
+    };
+    utils::logDebugExtensions("Instance", "tpd::Renderer", extensions);
+    return extensions;
 #endif
 }
 

@@ -500,6 +500,9 @@ void tpd::GaussianEngine::preFrameCompute() {
     const auto preFrameQueue = asyncCompute() ? _computeQueue : _graphicsQueue;
 
     const auto frameIndex = _renderer->getCurrentFrameIndex();
+    vmaSetCurrentFrameIndex(_vmaAllocator, frameIndex);
+
+    // Set uniform buffers for camera
     updateCameraBuffer(frameIndex);
 
     // Wait until the GPU has done with the pre-frame compute buffer for this frame

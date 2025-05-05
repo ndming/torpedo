@@ -8,7 +8,6 @@
 #include <torpedo/foundation/ImageUtils.h>
 
 #include <chrono>
-#include <ranges>
 
 tpd::SurfaceRenderer::Window::Window(const vk::Extent2D initialFramebufferSize) {
     glfwInit();
