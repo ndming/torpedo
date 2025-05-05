@@ -9,11 +9,11 @@ WTexture2D outputImage;
 [[vk::binding(3)]]
 StructuredBuffer<Splat> splats;
 
-[[vk::binding(6)]]
+[[vk::binding(7)]]
 RWStructuredBuffer<uint64_t> keys;
 
-[[vk::binding(7)]]
-RWStructuredBuffer<uint> splatIndices;
+[[vk::binding(8)]]
+RWStructuredBuffer<uint> vals;
 
 // Based on: https://github.com/graphdeco-inria/gaussian-splatting
 // Generates one key/value pair for all Gaussian/tile overlaps
@@ -48,7 +48,7 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
         for (uint x = rectMin.x; x < rectMax.x; x++) {
             // Compute the key: uint64_t(uint32_t(tile index) - uint32_t(depth))
             keys[offset] = (uint64_t(y * grid.x + x) << 32) | reinterpret<uint32_t>(depth);
-            splatIndices[offset] = idx;
+            vals[offset] = idx;
             ++offset;
         }
     }

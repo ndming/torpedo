@@ -6,10 +6,10 @@ WTexture2D outputImage;
 [[vk::binding(3)]]
 StructuredBuffer<Splat> splats;
 
-[[vk::binding(7)]]
+[[vk::binding(12)]]
 StructuredBuffer<uint> splatIndices;
 
-[[vk::binding(10)]]
+[[vk::binding(13)]]
 StructuredBuffer<uint2> ranges;
 
 static const uint BLOCK_SIZE = BLOCK_X * BLOCK_Y;

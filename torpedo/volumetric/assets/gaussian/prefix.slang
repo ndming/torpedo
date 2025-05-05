@@ -6,13 +6,13 @@ uniform RasterInfo info;
 [[vk::binding(3)]]
 RWStructuredBuffer<Splat> splats;
 
-[[vk::binding(5)]]
+[[vk::binding(4)]]
 RWStructuredBuffer<uint> tilesRendered; // readback by CPU
 
-[[vk::binding(11)]]
+[[vk::binding(5)]]
 RWStructuredBuffer<uint> partitionCount; // atomic counter for partitioning items between workgroups
 
-[[vk::binding(12)]]
+[[vk::binding(6)]]
 RWStructuredBuffer<uint64_t> partitionDescriptors; // fence-free descriptor (flag + value)
 
 groupshared uint tiles[WORKGROUP_SIZE]; // each workgroup loads global tile values into shared memory for faster access

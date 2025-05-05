@@ -3,14 +3,17 @@ import splat;
 [[vk::push_constant]]
 uniform RasterInfo info;
 
-[[vk::binding(6)]]
+[[vk::binding(7)]]
 RWStructuredBuffer<uint64_t> keys;
 
-[[vk::binding(7)]]
-RWStructuredBuffer<uint> splatIndices;
-
 [[vk::binding(8)]]
+RWStructuredBuffer<uint> vals;
+
+[[vk::binding(9)]]
 RWStructuredBuffer<uint> blockSums;
+
+[[vk::binding(10)]]
+RWStructuredBuffer<uint> localSums;
 
 struct LocalOffset {
     uint data[WORKGROUP_SIZE];
@@ -39,8 +42,8 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID
     let bj = localID + WORKGROUP_SIZE / 2;
     localKeys[aj] = begin + aj < info.tilesRendered ? keys[begin + aj] : uint64_t::maxValue;
     localKeys[bj] = begin + bj < info.tilesRendered ? keys[begin + bj] : uint64_t::maxValue;
-    bufferIndices[aj] = begin + aj < info.tilesRendered ? splatIndices[begin + aj] : 0;
-    bufferIndices[bj] = begin + bj < info.tilesRendered ? splatIndices[begin + bj] : 0;
+    bufferIndices[aj] = begin + aj < info.tilesRendered ? vals[begin + aj] : 0;
+    bufferIndices[bj] = begin + bj < info.tilesRendered ? vals[begin + bj] : 0;
 
     // Generate mask for each 2-bit radix
     let shift = 2 * info.radixPass;
@@ -113,17 +116,21 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID
         }
     }
 
-    // Shuffle local keys and indices
+    // Shuffle local keys and indices and write to global memory
     GroupMemoryBarrierWithGroupSync();
     let idxA = offsets[keyA].data[aj];
     let idxB = offsets[keyB].data[bj];
 
     if (begin + idxA < info.tilesRendered) {
         keys[begin + idxA] = localKeys[aj];
-        splatIndices[begin + idxA] = bufferIndices[aj];
+        vals[begin + idxA] = bufferIndices[aj];
     }
     if (begin + idxB < info.tilesRendered) {
         keys[begin + idxB] = localKeys[bj];
-        splatIndices[begin + idxB] = bufferIndices[bj];
+        vals[begin + idxB] = bufferIndices[bj];
     }
+
+    // Per-block local prefix sums are also written for each radix combination
+    if (begin + aj < info.tilesRendered) localSums[begin + aj] = idxA;
+    if (begin + bj < info.tilesRendered) localSums[begin + bj] = idxB;
 }

@@ -61,12 +61,15 @@ namespace tpd {
         void createGaussianBuffer();
         void createSplatBuffer();
         void createTilesRenderedBuffer();
-        void createKeyBuffer();
-        void createSplatIndexBuffer();
-        void createBlockSumBuffer();
-        void createRangeBuffer(uint32_t width, uint32_t height);
         void createPartitionCountBuffer();
         void createPartitionDescriptorBuffer();
+        void createKeyBuffer();
+        void createValBuffer();
+        void createBlockSumBuffer();
+        void createLocalSumBuffer();
+        void createSortedKeyBuffer();
+        void createSplatIndexBuffer();
+        void createRangeBuffer(uint32_t width, uint32_t height);
 
         void setStorageBufferDescriptors(
             vk::Buffer buffer, vk::DeviceSize size, const ShaderInstance& instance,
@@ -165,12 +168,15 @@ namespace tpd {
 
         StorageBuffer _gaussianBuffer{};
         StorageBuffer _splatBuffer{};
-        StorageBuffer _keyBuffer{};
-        StorageBuffer _splatIndexBuffer{};
-        StorageBuffer _blockSumBuffer{};
-        StorageBuffer _rangeBuffer{};
         StorageBuffer _partitionCountBuffer{};
         StorageBuffer _partitionDescriptorBuffer{};
+        StorageBuffer _keyBuffer{};
+        StorageBuffer _valBuffer{};
+        StorageBuffer _blockSumBuffer{};
+        StorageBuffer _localSumBuffer{};
+        StorageBuffer _sortedKeyBuffer{};
+        StorageBuffer _splatIndexBuffer{};
+        StorageBuffer _rangeBuffer{};
     };
 } // namespace tpd
 
