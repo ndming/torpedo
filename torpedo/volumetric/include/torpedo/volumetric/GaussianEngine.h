@@ -63,6 +63,7 @@ namespace tpd {
         void createTilesRenderedBuffer();
         void createKeyBuffer();
         void createSplatIndexBuffer();
+        void createBlockSumBuffer();
         void createRangeBuffer(uint32_t width, uint32_t height);
         void createPartitionCountBuffer();
         void createPartitionDescriptorBuffer();
@@ -117,7 +118,7 @@ namespace tpd {
         vk::Queue _graphicsQueue;
         vk::Queue _computeQueue;
         std::pmr::vector<Frame> _frames{ &_frameResource };
-        uint64_t _currentTilesRendered{ 1 };
+        uint32_t _currentTilesRendered{ 1 };
 
         /*--------------------*/
 
@@ -130,7 +131,7 @@ namespace tpd {
         vk::Pipeline _prefixPipeline{};
         vk::Pipeline _keygenPipeline{};
         vk::Pipeline _radixPipeline{};
-        vk::Pipeline _clearPipeline{};
+        vk::Pipeline _coalescePipeline{};
         vk::Pipeline _rangePipeline{};
         vk::Pipeline _forwardPipeline{};
 
@@ -139,6 +140,9 @@ namespace tpd {
         PointCloud _pc{};
         RingBuffer _cameraBuffer{};
         ReadbackBuffer _tilesRenderedBuffer{};
+
+        /*--------------------*/
+
         Camera _camera{};
 
         /*--------------------*/
@@ -163,6 +167,7 @@ namespace tpd {
         StorageBuffer _splatBuffer{};
         StorageBuffer _keyBuffer{};
         StorageBuffer _splatIndexBuffer{};
+        StorageBuffer _blockSumBuffer{};
         StorageBuffer _rangeBuffer{};
         StorageBuffer _partitionCountBuffer{};
         StorageBuffer _partitionDescriptorBuffer{};

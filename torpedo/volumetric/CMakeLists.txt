@@ -25,7 +25,7 @@ set(TORPEDO_VOLUMETRIC_SHADERS
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/prefix.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/keygen.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/radix.slang
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/clear.slang
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/coalesce.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/range.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/forward.slang)
 torpedo_compile_slang(${TARGET} "${TORPEDO_VOLUMETRIC_ASSETS_DIR}/gaussian" "${TORPEDO_VOLUMETRIC_SHADERS}")
