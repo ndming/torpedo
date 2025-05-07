@@ -39,37 +39,30 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID
     let shift = 2 * info.radixPass;
     let key = uint((k >> shift) & 0x3ULL);
 
-    if (localID < 4) {
+    if (localID == 0) {
         // Initialize global reductions
-        if (localID == 0) globalSums[0] = 0;
-        if (localID == 1) globalSums[1] = 0;
-        if (localID == 2) globalSums[2] = 0;
-        if (localID == 3) globalSums[3] = 0;
+        globalSums[0] = 0;
+        globalSums[1] = 0;
+        globalSums[2] = 0;
+        globalSums[3] = 0;
 
         let workgroupCount = (info.tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
         for (uint i = 0; i < workgroupCount; ++i) {
-            if (localID == 0) {
-                if (i == groupID.x) globalPrefixes[0] = globalSums[0];
-                globalSums[0] += uint(blockSums[i] & 0xFFFFULL);
+            if (i == groupID.x) {
+                globalPrefixes[0] = globalSums[0];
+                globalPrefixes[1] = globalSums[1];
+                globalPrefixes[2] = globalSums[2];
+                globalPrefixes[3] = globalSums[3];
             }
-            if (localID == 1) {
-                if (i == groupID.x) globalPrefixes[1] = globalSums[1];
-                globalSums[1] += uint((blockSums[i] >> 16) & 0xFFFFULL);
-            }
-            if (localID == 2) {
-                if (i == groupID.x) globalPrefixes[2] = globalSums[2];
-                globalSums[2] += uint((blockSums[i] >> 32) & 0xFFFFULL);
-            }
-            if (localID == 3) {
-                if (i == groupID.x) globalPrefixes[3] = globalSums[3];
-                globalSums[3] += uint((blockSums[i] >> 48) & 0xFFFFULL);
-            }
+            globalSums[0] += uint(blockSums[i] & 0xFFFFULL);
+            globalSums[1] += uint((blockSums[i] >> 16) & 0xFFFFULL);
+            globalSums[2] += uint((blockSums[i] >> 32) & 0xFFFFULL);
+            globalSums[3] += uint((blockSums[i] >> 48) & 0xFFFFULL);
         }
 
-        GroupMemoryBarrierWithGroupSync();
-        if (localID == 1) globalPrefixes[1] += globalSums[0];
-        if (localID == 2) globalPrefixes[2] += globalSums[0] + globalSums[1];
-        if (localID == 3) globalPrefixes[3] += globalSums[0] + globalSums[1] + globalSums[2];
+        globalPrefixes[1] += globalSums[0];
+        globalPrefixes[2] += globalSums[0] + globalSums[1];
+        globalPrefixes[3] += globalSums[0] + globalSums[1] + globalSums[2];
     }
 
     // Global mapping
