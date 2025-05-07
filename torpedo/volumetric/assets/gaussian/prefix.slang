@@ -154,5 +154,5 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
     // Make sure all shared memory writes are visible before writing to global memory
     GroupMemoryBarrierWithGroupSync();
     if (begin + aj < info.pointCount) splats[begin + aj].tiles = tiles[aj + bankOffsetA];
-    if (begin + bj < info.pointCount) splats[begin + aj].tiles = tiles[bj + bankOffsetB];
+    if (begin + bj < info.pointCount) splats[begin + bj].tiles = tiles[bj + bankOffsetB];
 }

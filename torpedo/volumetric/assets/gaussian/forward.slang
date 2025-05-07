@@ -23,16 +23,14 @@ groupshared uint doneCount;
 [numthreads(BLOCK_X, BLOCK_Y, 1)]
 void main(uint3 localInvocationID : SV_GroupThreadID, uint3 tileID : SV_GroupID) {
     // Thread ID in the workgroup, [0, BLOCK_SIZE - 1]
-    let threadId = localInvocationID.x + localInvocationID.y * BLOCK_X;
+    let localID = localInvocationID.x + localInvocationID.y * BLOCK_X;
 
     // Image size
     uint2 imageSize; uint mipCount;
     outputImage.GetDimensions(0, imageSize.x, imageSize.y, mipCount);
 
-    // Identify the current tile and its min/max pixel coordinates
-    let pixMin = uint2(tileID.x * BLOCK_X, tileID.y * BLOCK_Y);
-    let pixMax = uint2(min(pixMin.x + BLOCK_X, imageSize.x), min(pixMin.y + BLOCK_Y, imageSize.y));
-    let pixel = pixMin + localInvocationID.xy;
+    // Identify this thread's current tile and pixel coordinates
+    let pixel = uint2(tileID.x * BLOCK_X, tileID.y * BLOCK_Y) + localInvocationID.xy;
     let pixID = pixel.y * imageSize.x + pixel.x;
 
     // Check if this thread is associated with a valid pixel or outside the image
@@ -49,7 +47,7 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 tileID : SV_GroupID)
     var remaining = range.y - range.x; // how many Gaussian left to rasterize
 
     // Initialize the done count
-    if (threadId == 0) doneCount = 0;
+    if (localID == 0) doneCount = 0;
     GroupMemoryBarrierWithGroupSync();
 
     var T = 1.0;
@@ -60,27 +58,29 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 tileID : SV_GroupID)
         GroupMemoryBarrierWithGroupSync();
         if (doneCount >= BLOCK_SIZE) break;
 
-        let progress = i * BLOCK_SIZE + threadId;
+        let progress = i * BLOCK_SIZE + localID;
         if (range.x + progress < range.y) {
             let splatIdx = splatIndices[range.x + progress];
-            indices[threadId] = splatIdx;
-            imagePoints[threadId] = splats[splatIdx].texel.xy;
-            copacs[threadId] = splats[splatIdx].copac;
+            indices[localID] = splatIdx;
+            imagePoints[localID] = splats[splatIdx].texel.xy;
+            copacs[localID] = splats[splatIdx].copac;
         }
         GroupMemoryBarrierWithGroupSync();
 
         // Rasterize the Gaussians in the current round
-        for (uint j = 0; !done && j < min(BLOCK_SIZE, remaining); j++) {
+        let limit = min(BLOCK_SIZE, remaining);
+        for (uint j = 0; !done && j < limit; j++) {
             let imgPoint = imagePoints[j]; // the splat center in image space
-            let copac = copacs[j];
+            let conic = copacs[j].xyz;
+            let opacity = copacs[j].w;
 
             // Resample using conic matrix
-            let d = float2(pixel.x, pixel.y) - imgPoint;
-            let power = -0.5 * (copac.x * d.x * d.x + copac.z * d.y * d.y) - copac.y * d.x * d.y;
+            let d = imgPoint - float2(pixel.x, pixel.y);
+            let power = -0.5 * (conic.x * d.x * d.x + conic.z * d.y * d.y) - conic.y * d.x * d.y;
             if (power > 0.0) continue;
 
             // Eq. (2) from 3D Gaussian splatting paper
-            let alpha = min(0.99, copac.w * exp(power));
+            let alpha = min(0.99, opacity * exp(power));
             if (alpha < 1.0 / 255.0) continue;
             if (T * (1.0 - alpha) < 0.0001) {
                 done = true;
@@ -94,7 +94,5 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 tileID : SV_GroupID)
     }
 
     // All threads that treat valid pixel write out their final color
-    if (inside) {
-        outputImage.Store(pixel, float4(color, 1.0));
-    }
+    if (inside) outputImage.Store(pixel, float4(color, 1.0));
 }
