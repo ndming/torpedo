@@ -150,7 +150,7 @@ namespace tpd {
 
         /*--------------------*/
 
-        static constexpr uint32_t GAUSSIAN_COUNT = 128;
+        static constexpr uint32_t GAUSSIAN_COUNT = 2048;
         static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
 
         // The maximum number of floats for RGB spherical harmonics
@@ -177,6 +177,18 @@ namespace tpd {
         StorageBuffer _sortedKeyBuffer{};
         StorageBuffer _splatIndexBuffer{};
         StorageBuffer _rangeBuffer{};
+
+        using PipelineStage = vk::PipelineStageFlagBits2;
+        using AccessMask = vk::AccessFlagBits2;
+
+        static constexpr auto RAW_BARRIER = vk::MemoryBarrier2{
+            PipelineStage::eComputeShader,   // src stage
+            AccessMask::eShaderStorageWrite, // src access
+            PipelineStage::eComputeShader,   // dst stage
+            AccessMask::eShaderStorageRead,  // dst access
+        };
+
+        static constexpr auto RAW_DEPENDENCY = vk::DependencyInfo{ {}, 1, &RAW_BARRIER };
     };
 } // namespace tpd
 

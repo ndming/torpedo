@@ -669,10 +669,17 @@ void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcep
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _projectPipeline);
     cmd.dispatch((GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
-    // Make sure splat contents written by project are visible
-    // We're going to modify the tiles members in this buffer
-    using AccessMask = vk::AccessFlagBits2;
-    _splatBuffer.recordComputeDstAccess(cmd, AccessMask::eShaderStorageRead | AccessMask::eShaderStorageWrite);
+    // Make sure splat contents written by project pass are visible (read),
+    // and we're going to modify the tiles members in this buffer (write)
+    // Global memory barrier covers all resources, generally considered 
+    // more efficient to do a global memory barrier than per-resource barriers
+    auto barrier = vk::MemoryBarrier2{};
+    barrier.srcStageMask = vk::PipelineStageFlagBits2::eComputeShader;
+    barrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
+    barrier.srcAccessMask = AccessMask::eShaderStorageWrite;
+    barrier.dstAccessMask = AccessMask::eShaderStorageRead | AccessMask::eShaderStorageWrite;
+    const auto dependency = vk::DependencyInfo{}.setMemoryBarriers(barrier);
+    cmd.pipelineBarrier2(dependency);
 
     // Prefix pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _prefixPipeline);
@@ -692,32 +699,27 @@ void tpd::GaussianEngine::reallocateBuffers() {
 
 void tpd::GaussianEngine::recordBlend(const vk::CommandBuffer cmd, const uint32_t tilesRendered) const noexcept {
     // Even with a fence staying in between, make sure prefix sums computed by prefix pass are visible
-    using AccessMask = vk::AccessFlagBits2;
-    _splatBuffer.recordComputeDstAccess(cmd, AccessMask::eShaderStorageRead);
+    cmd.pipelineBarrier2(RAW_DEPENDENCY);
 
     // Keygen pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _keygenPipeline);
     cmd.dispatch((GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
     // Radix sort + coalesce mapping passes
-    const auto partialSortBuffers = std::vector<vk::Buffer>{ _sortedKeyBuffer, _splatIndexBuffer };
-    const auto radixBuffers = std::vector<vk::Buffer>{ _keyBuffer, _valBuffer, _blockSumBuffer, _localSumBuffer };
     using enum vk::ShaderStageFlagBits;
     for (auto radixPass = 0; radixPass < 32; ++radixPass) {
         cmd.pushConstants(_gaussianLayout, eCompute, sizeof(PointCloud) + sizeof(uint32_t), sizeof(uint32_t), &radixPass);
 
         // Make sure contents written to the partial sorted keys and indices are visible to radix pass
-        StorageBuffer::recordComputeDstAccess(partialSortBuffers, cmd, AccessMask::eShaderStorageRead);
-        // Ensure coalesce has finished reading radix buffers before writing
-        StorageBuffer::recordComputeExecution(radixBuffers, cmd);
+        // WAR hazard are already taken care of by read-after-write dependency
+        cmd.pipelineBarrier2(RAW_DEPENDENCY);
 
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixPipeline);
         cmd.dispatch((tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
         // Make sure radix sort data is visible to coalesce pass
-        StorageBuffer::recordComputeDstAccess(radixBuffers, cmd, AccessMask::eShaderStorageRead);
-        // Ensure radix has finished reading the partial sorted keys and indices before writing
-        StorageBuffer::recordComputeExecution(partialSortBuffers, cmd);
+        // WAR hazard are already taken care of by read-after-write dependency
+        cmd.pipelineBarrier2(RAW_DEPENDENCY);
 
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _coalescePipeline);
         cmd.dispatch((tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
@@ -727,15 +729,15 @@ void tpd::GaussianEngine::recordBlend(const vk::CommandBuffer cmd, const uint32_
     cmd.fillBuffer(_rangeBuffer, 0, vk::WholeSize, 0);
     _rangeBuffer.recordTransferDstPoint(cmd, { vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite });
 
-    // Make sure sorted keys written by coalesce are visible to range pass
-    _sortedKeyBuffer.recordComputeDstAccess(cmd, AccessMask::eShaderStorageRead);
+    // Make sure sorted keys written by coalesce pass are visible to range pass
+    cmd.pipelineBarrier2(RAW_DEPENDENCY);
 
     // Range pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _rangePipeline);
     cmd.dispatch((tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
-    // Make sure both range values and splat indices written by range pass are visible to forward pass
-    StorageBuffer::recordComputeDstAccess({ _rangeBuffer, _splatIndexBuffer }, cmd, AccessMask::eShaderStorageRead);
+    // Make sure range values written by range pass are visible to forward pass
+    cmd.pipelineBarrier2(RAW_DEPENDENCY);
 
     // Forward alpha blending pass
     const auto [w, h] = _renderer->getFramebufferSize();
