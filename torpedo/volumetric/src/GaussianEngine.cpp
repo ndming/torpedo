@@ -336,7 +336,7 @@ void tpd::GaussianEngine::createCameraBuffer() {
 }
 
 void tpd::GaussianEngine::createGaussianBuffer() {
-    auto points = std::array<Gaussian, GAUSSIAN_COUNT>{};
+    auto points = std::vector<Gaussian>(GAUSSIAN_COUNT);
 
     // points[0].position   = { 0.0f, 0.0f, 0.0f };
     // points[0].opacity    = 1.0f;
