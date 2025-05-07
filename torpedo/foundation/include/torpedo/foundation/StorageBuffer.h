@@ -14,7 +14,12 @@ namespace tpd {
         StorageBuffer(vk::Buffer buffer, VmaAllocation allocation);
 
         void recordStagingCopy(vk::CommandBuffer cmd, vk::Buffer stagingBuffer, vk::DeviceSize size) const noexcept;
-        void recordTransferDst(vk::CommandBuffer cmd, SyncPoint dstSync) const noexcept;
+        void recordTransferDstPoint(vk::CommandBuffer cmd, SyncPoint dstSync) const noexcept;
+        void recordComputeDstAccess(vk::CommandBuffer cmd, vk::AccessFlags2 dstAccess) const noexcept;
+        void recordComputeExecution(vk::CommandBuffer cmd) const noexcept;
+
+        static void recordComputeDstAccess(const std::vector<vk::Buffer>& buffers, vk::CommandBuffer cmd, vk::AccessFlags2 dstAccess) noexcept;
+        static void recordComputeExecution(const std::vector<vk::Buffer>& buffers, vk::CommandBuffer cmd) noexcept;
     };
 } // namespace tpd
 

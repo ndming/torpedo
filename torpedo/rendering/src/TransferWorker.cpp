@@ -146,7 +146,7 @@ void tpd::TransferWorker::transfer(
             { { getPool(dstFamily), acquireCommand }, { _releasePool, releaseCommand } });
     } else {
         // Ensure subsequent commands don't access the buffer during copy
-        buffer.recordTransferDst(releaseCommand, dstSync);
+        buffer.recordTransferDstPoint(releaseCommand, dstSync);
         endTransfer(releaseCommand, deletionFence);
         _deletionWorker.submit(deletionFence, stagingBuffer, stagingAllocation, {}, {{ _releasePool, releaseCommand }});
     }
