@@ -31,9 +31,9 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     // The Gaussian's center in world space
     let mean = gaussians[idx].position;
 
-    // Perform near culling, quit if outside the frustum
-    float3 viewPos;
-    if (!passNearCulling(mean, camera.viewMatrix, viewPos)) return;
+    // Quit if outside the frustum
+    float depth; float3 projPos; // depth z in view space and projected position in NDC
+    if (!passFrustumClipping(mean, camera.viewMatrix, camera.projMatrix, depth, projPos)) return;
 
     // The image size in pixels
     uint2 imageSize; uint mipCount;
@@ -58,10 +58,6 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     let lambda_2 = mid - sqrt(max(0.1, mid * mid - det));
     let radius = ceil(3.0 * sqrt(max(lambda_1, lambda_2))); // in pixels
 
-    // Bring Gaussian to NDC, note that projMatrix brings point from world all the way to NDC
-    let clipPos = mul(camera.projMatrix, float4(mean, 1.0));
-    let projPos = clipPos.xyz / (clipPos.w + EPSILON);
-
     // Use extent to compute a bounding rectangle of screen-space tiles that this Gaussian overlaps with
     let imgPoint = ndc2pix(projPos.xy, imageSize);
     uint2 rectMin, rectMax;
@@ -74,7 +70,7 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
 
     // Store preprocessed Gaussian data as RasterPoint
     splats[idx].color = color;
-    splats[idx].texel = float4(imgPoint, viewPos.z, radius);
+    splats[idx].texel = float4(imgPoint, depth, radius);
     splats[idx].copac = float4(conic, gaussians[idx].opacity);
     splats[idx].tiles = (rectMax.x - rectMin.x) * (rectMax.y - rectMin.y);
 }

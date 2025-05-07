@@ -1,8 +1,5 @@
 implementing splat;
 
-/// Avoid zero division in perspective projection
-public static const float EPSILON = 1e-7;
-
 static const float SH_C0 = 0.28209479177387814;
 static const float SH_C1 = 0.4886025119029199;
 static const float SH_C2[] = {
@@ -80,4 +77,31 @@ public float3 getCameraWorldPosition(float4x4 viewMatrix) {
     // The 4th column of the view matrix is -R^T*t
     let R = transpose((float3x3)viewMatrix);
     return -mul(R, viewMatrix[3].xyz);
+}
+
+/// Performs frustum clipping of the given `point` using the provided camera matrices
+/// and returns view space depth and the projected position in NDC as out parameters.
+/// The view space `depth` is gauranteed to be valid regardless of the clipping result,
+/// while `projPos` is only valid if the function returns `true`.
+public bool passFrustumClipping(float3 point, float4x4 viewMat, float4x4 projMat, out float depth, out float3 projPos) {
+    // Initialize out parameters to silent compiler warnings
+    projPos = float3(0.0, 0.0, 0.0);
+
+    let viewPos = mul(viewMat, float4(point, 1.0));
+    depth = viewPos.z;
+    if (depth <= 0.0) return false; // behind the camera
+
+    // Note that the projection matrix brings points from world all the way to NDC
+    let clipPos = mul(projMat, float4(point, 1.0));
+
+    // Frustum clipping
+    if (clipPos.x < -clipPos.w || clipPos.x > clipPos.w) return false; // outside left/right frustum planes
+    if (clipPos.y < -clipPos.w || clipPos.y > clipPos.w) return false; // outside top/bottom frustum planes
+
+    // Note that we're working with reversed z-mapping, i.e. [near, far] are mapped to [1, 0]
+    // See: https://developer.nvidia.com/content/depth-precision-visualized
+    if (clipPos.z < 0 || clipPos.z > clipPos.w) return false; // outside near/far frustum planes
+
+    projPos = clipPos.xyz / clipPos.w; // should we add EPSILON here?
+    return true;
 }

@@ -358,12 +358,13 @@ void tpd::GaussianEngine::createGaussianBuffer() {
 
     std::mt19937 rng{std::random_device{}()};
     std::uniform_real_distribution dist_pos(-0.5f, 0.5f);
+    std::uniform_real_distribution dist_depth(-1.0f, 20.0f);
     std::uniform_real_distribution dist_opacity(0.1f, 1.0f);
     std::uniform_real_distribution dist_scale(0.1f, 0.3f);
     std::uniform_real_distribution dist_sh(0.0f, 1.5f);
 
     for (auto& [position, opacity, quaternion, scale, sh] : points) {
-        position = { dist_pos(rng), dist_pos(rng), dist_pos(rng) + 0.5f };
+        position = { dist_pos(rng), dist_pos(rng), dist_depth(rng) };
         opacity = dist_opacity(rng);
         quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
         scale = { dist_scale(rng), dist_scale(rng), dist_scale(rng), 1.0f };
@@ -726,17 +727,17 @@ void tpd::GaussianEngine::recordBlend(const vk::CommandBuffer cmd, const uint32_
     cmd.fillBuffer(_rangeBuffer, 0, vk::WholeSize, 0);
     _rangeBuffer.recordTransferDstPoint(cmd, { vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite });
 
-    // Wait until coalesce has done written to the sorted key buffer
+    // Make sure sorted keys written by coalesce are visible to range pass
     _sortedKeyBuffer.recordComputeDstAccess(cmd, AccessMask::eShaderStorageRead);
 
     // Range pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _rangePipeline);
     cmd.dispatch((tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
-    // Wait until range pass has populated the range buffer
-    _rangeBuffer.recordComputeDstAccess(cmd, AccessMask::eShaderStorageRead);
+    // Make sure both range values and splat indices written by range pass are visible to forward pass
+    StorageBuffer::recordComputeDstAccess({ _rangeBuffer, _splatIndexBuffer }, cmd, AccessMask::eShaderStorageRead);
 
-    // Alpha blending pass
+    // Forward alpha blending pass
     const auto [w, h] = _renderer->getFramebufferSize();
     const auto tilesX = (w + BLOCK_X - 1) / BLOCK_X;
     const auto tilesY = (h + BLOCK_Y - 1) / BLOCK_Y;

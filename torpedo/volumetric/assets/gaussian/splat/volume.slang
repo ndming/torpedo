@@ -1,13 +1,5 @@
 implementing splat;
 
-static const float NEAR_CULL = 0.2;
-
-public bool passNearCulling(float3 point, float4x4 viewMatrix, out float3 viewPos) {
-    viewPos = mul(viewMatrix, float4(point, 1.0)).xyz;
-    if (viewPos.z <= NEAR_CULL) return false;
-    return true;
-}
-
 public float2 ndc2pix(float2 ndcPoint, uint2 imageSize) {
     // The orignial CUDA code follows the old convention of rounding continuous coordinates to the nearest integer to
     // find the pixel center, hence the mapping [-1, 1] to [-0.5, size - 0.5] in this following code
