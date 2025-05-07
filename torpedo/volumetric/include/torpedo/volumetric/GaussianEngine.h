@@ -150,7 +150,7 @@ namespace tpd {
 
         /*--------------------*/
 
-        static constexpr uint32_t GAUSSIAN_COUNT = 2;
+        static constexpr uint32_t GAUSSIAN_COUNT = 128;
         static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
 
         // The maximum number of floats for RGB spherical harmonics

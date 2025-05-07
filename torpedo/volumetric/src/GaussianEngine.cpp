@@ -338,36 +338,39 @@ void tpd::GaussianEngine::createCameraBuffer() {
 void tpd::GaussianEngine::createGaussianBuffer() {
     auto points = std::array<Gaussian, GAUSSIAN_COUNT>{};
 
-    points[0].position   = { 0.0f, 0.0f, 0.0f };
-    points[0].opacity    = 1.0f;
-    points[0].quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
-    points[0].scale      = { 0.2f, 0.1f, 0.1f, 1.0f };
-    // A gray Gaussian
-    points[0].sh[0] = 1.5f;
-    points[0].sh[1] = 1.5f;
-    points[0].sh[2] = 1.5f;
-
-    points[1].position   = { 0.2f, 0.2f, 2.0f };
-    points[1].opacity    = 1.0f;
-    points[1].quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
-    points[1].scale      = { 0.1f, 0.5f, 0.1f, 1.0f };
-    // A red Gaussian
-    points[1].sh[0] = 1.5f;
-    points[1].sh[1] = 0.5f;
-    points[1].sh[2] = 0.5f;
-
-    // std::mt19937 rng{std::random_device{}()};
-    // std::uniform_real_distribution dist_pos(-0.5f, 0.5f);
+    // points[0].position   = { 0.0f, 0.0f, 0.0f };
+    // points[0].opacity    = 1.0f;
+    // points[0].quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
+    // points[0].scale      = { 0.2f, 0.1f, 0.1f, 1.0f };
+    // // A gray Gaussian
+    // points[0].sh[0] = 1.5f;
+    // points[0].sh[1] = 1.5f;
+    // points[0].sh[2] = 1.5f;
     //
-    // for (auto& [position, opacity, quaternion, scale, sh] : points) {
-    //     position = { dist_pos(rng), dist_pos(rng), dist_pos(rng) + 1.0f };
-    //     opacity = 1.0f;
-    //     quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
-    //     scale = { 0.2f, 0.1f, 0.1f, 1.0f };
-    //     sh[0] = 1.5f;
-    //     sh[1] = 1.5f;
-    //     sh[2] = 1.5f;
-    // }
+    // points[1].position   = { 0.2f, 0.2f, 1.0f };
+    // points[1].opacity    = 1.0f;
+    // points[1].quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
+    // points[1].scale      = { 0.1f, 0.5f, 0.1f, 1.0f };
+    // // A red Gaussian
+    // points[1].sh[0] = 1.5f;
+    // points[1].sh[1] = 0.5f;
+    // points[1].sh[2] = 0.5f;
+
+    std::mt19937 rng{std::random_device{}()};
+    std::uniform_real_distribution dist_pos(-0.5f, 0.5f);
+    std::uniform_real_distribution dist_opacity(0.1f, 1.0f);
+    std::uniform_real_distribution dist_scale(0.1f, 0.3f);
+    std::uniform_real_distribution dist_sh(0.0f, 1.5f);
+
+    for (auto& [position, opacity, quaternion, scale, sh] : points) {
+        position = { dist_pos(rng), dist_pos(rng), dist_pos(rng) + 0.5f };
+        opacity = dist_opacity(rng);
+        quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
+        scale = { dist_scale(rng), dist_scale(rng), dist_scale(rng), 1.0f };
+        sh[0] = dist_sh(rng);
+        sh[1] = dist_sh(rng);
+        sh[2] = dist_sh(rng);
+    }
 
     _gaussianBuffer = StorageBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eTransferDst)
@@ -665,15 +668,10 @@ void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcep
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _projectPipeline);
     cmd.dispatch((GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
-    // Wait until project pass has populated the raster point buffer
-    auto barrier = vk::MemoryBarrier2{};
-    barrier.srcStageMask = vk::PipelineStageFlagBits2::eComputeShader;
-    barrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
-    barrier.srcAccessMask = vk::AccessFlagBits2::eShaderStorageWrite;
-    barrier.dstAccessMask = vk::AccessFlagBits2::eShaderStorageRead;
-
-    const auto dependencyInfo = vk::DependencyInfo{}.setMemoryBarriers(barrier);
-    cmd.pipelineBarrier2(dependencyInfo);
+    // Make sure splat contents written by project are visible
+    // We're going to modify the tiles members in this buffer
+    using AccessMask = vk::AccessFlagBits2;
+    _splatBuffer.recordComputeDstAccess(cmd, AccessMask::eShaderStorageRead | AccessMask::eShaderStorageWrite);
 
     // Prefix pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _prefixPipeline);
@@ -692,45 +690,51 @@ void tpd::GaussianEngine::reallocateBuffers() {
 }
 
 void tpd::GaussianEngine::recordBlend(const vk::CommandBuffer cmd, const uint32_t tilesRendered) const noexcept {
-    // Reusable barrier
-    auto barrier = vk::MemoryBarrier2{};
-    barrier.srcStageMask = vk::PipelineStageFlagBits2::eComputeShader;
-    barrier.dstStageMask = vk::PipelineStageFlagBits2::eComputeShader;
-    barrier.srcAccessMask = vk::AccessFlagBits2::eShaderStorageWrite;
-    barrier.dstAccessMask = vk::AccessFlagBits2::eShaderStorageRead;
-    const auto dependencyInfo = vk::DependencyInfo{}.setMemoryBarriers(barrier);
+    // Even with a fence staying in between, make sure prefix sums computed by prefix pass are visible
+    using AccessMask = vk::AccessFlagBits2;
+    _splatBuffer.recordComputeDstAccess(cmd, AccessMask::eShaderStorageRead);
 
     // Keygen pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _keygenPipeline);
     cmd.dispatch((GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
-    // Wait until keygen pass has populated the keys and vals buffers
-    cmd.pipelineBarrier2(dependencyInfo);
-
     // Radix sort + coalesce mapping passes
+    const auto partialSortBuffers = std::vector<vk::Buffer>{ _sortedKeyBuffer, _splatIndexBuffer };
+    const auto radixBuffers = std::vector<vk::Buffer>{ _keyBuffer, _valBuffer, _blockSumBuffer, _localSumBuffer };
     using enum vk::ShaderStageFlagBits;
     for (auto radixPass = 0; radixPass < 32; ++radixPass) {
         cmd.pushConstants(_gaussianLayout, eCompute, sizeof(PointCloud) + sizeof(uint32_t), sizeof(uint32_t), &radixPass);
 
+        // Make sure contents written to the partial sorted keys and indices are visible to radix pass
+        StorageBuffer::recordComputeDstAccess(partialSortBuffers, cmd, AccessMask::eShaderStorageRead);
+        // Ensure coalesce has finished reading radix buffers before writing
+        StorageBuffer::recordComputeExecution(radixBuffers, cmd);
+
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixPipeline);
         cmd.dispatch((tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
-        cmd.pipelineBarrier2(dependencyInfo);
+
+        // Make sure radix sort data is visible to coalesce pass
+        StorageBuffer::recordComputeDstAccess(radixBuffers, cmd, AccessMask::eShaderStorageRead);
+        // Ensure radix has finished reading the partial sorted keys and indices before writing
+        StorageBuffer::recordComputeExecution(partialSortBuffers, cmd);
 
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _coalescePipeline);
         cmd.dispatch((tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
-        cmd.pipelineBarrier2(dependencyInfo);
     }
 
     // Clear the range buffer before populating it
     cmd.fillBuffer(_rangeBuffer, 0, vk::WholeSize, 0);
-    _rangeBuffer.recordTransferDst(cmd, { vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite });
+    _rangeBuffer.recordTransferDstPoint(cmd, { vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite });
+
+    // Wait until coalesce has done written to the sorted key buffer
+    _sortedKeyBuffer.recordComputeDstAccess(cmd, AccessMask::eShaderStorageRead);
 
     // Range pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _rangePipeline);
     cmd.dispatch((tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
     // Wait until range pass has populated the range buffer
-    cmd.pipelineBarrier2(dependencyInfo);
+    _rangeBuffer.recordComputeDstAccess(cmd, AccessMask::eShaderStorageRead);
 
     // Alpha blending pass
     const auto [w, h] = _renderer->getFramebufferSize();
