@@ -63,12 +63,10 @@ namespace tpd {
         void createTilesRenderedBuffer();
         void createPartitionCountBuffer();
         void createPartitionDescriptorBuffer();
-        void createKeyBuffer();
-        void createValBuffer();
-        void createBlockSumBuffer();
-        void createLocalSumBuffer();
-        void createSortedKeyBuffer();
+        void createSplatKeyBuffer();
         void createSplatIndexBuffer();
+        void createBlockDescriptorBuffers();
+        void createGlobalSumBuffer();
         void createRangeBuffer(uint32_t width, uint32_t height);
 
         void setStorageBufferDescriptors(
@@ -102,7 +100,7 @@ namespace tpd {
         };
 
         static constexpr auto NEAR = 0.2f;
-        static constexpr auto FAR = 10.0f;
+        static constexpr auto FAR = 20.0f;
         struct Camera {
             mat4 viewMatrix;
             mat4 projMatrix;
@@ -134,7 +132,6 @@ namespace tpd {
         vk::Pipeline _prefixPipeline{};
         vk::Pipeline _keygenPipeline{};
         vk::Pipeline _radixPipeline{};
-        vk::Pipeline _coalescePipeline{};
         vk::Pipeline _rangePipeline{};
         vk::Pipeline _forwardPipeline{};
 
@@ -150,7 +147,7 @@ namespace tpd {
 
         /*--------------------*/
 
-        static constexpr uint32_t GAUSSIAN_COUNT = 16'000;
+        static constexpr uint32_t GAUSSIAN_COUNT = 512;
         static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
 
         // The maximum number of floats for RGB spherical harmonics
@@ -170,12 +167,11 @@ namespace tpd {
         StorageBuffer _splatBuffer{};
         StorageBuffer _partitionCountBuffer{};
         StorageBuffer _partitionDescriptorBuffer{};
-        StorageBuffer _keyBuffer{};
-        StorageBuffer _valBuffer{};
-        StorageBuffer _blockSumBuffer{};
-        StorageBuffer _localSumBuffer{};
-        StorageBuffer _sortedKeyBuffer{};
+        StorageBuffer _splatKeyBuffer{};
         StorageBuffer _splatIndexBuffer{};
+        StorageBuffer _blockDescriptorBuffer0{};
+        StorageBuffer _blockDescriptorBuffer1{};
+        StorageBuffer _globalSumBuffer{};
         StorageBuffer _rangeBuffer{};
 
         using PipelineStage = vk::PipelineStageFlagBits2;
@@ -188,7 +184,15 @@ namespace tpd {
             AccessMask::eShaderStorageRead,  // dst access
         };
 
+        static constexpr auto WAW_BARRIER = vk::MemoryBarrier2{
+            PipelineStage::eComputeShader,
+            AccessMask::eShaderStorageWrite,
+            PipelineStage::eComputeShader,
+            AccessMask::eShaderStorageRead | AccessMask::eShaderStorageWrite,
+        };
+
         static constexpr auto RAW_DEPENDENCY = vk::DependencyInfo{ {}, 1, &RAW_BARRIER };
+        static constexpr auto WAW_DEPENDENCY = vk::DependencyInfo{ {}, 1, &WAW_BARRIER };
     };
 } // namespace tpd
 

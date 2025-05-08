@@ -3,10 +3,10 @@ import splat;
 [[vk::push_constant]]
 uniform RasterInfo info;
 
-[[vk::binding(11)]]
-StructuredBuffer<uint64_t> sortedKeys;
+[[vk::binding(7)]]
+StructuredBuffer<uint64_t> splatKeys;
 
-[[vk::binding(13)]]
+[[vk::binding(12)]]
 RWStructuredBuffer<uint2> ranges;
 
 // Based on: https://github.com/graphdeco-inria/gaussian-splatting
@@ -19,11 +19,11 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     let idx = globalInvocationID.x;
     if (idx >= info.tilesRendered) return;
 
-    let currTile = uint(sortedKeys[idx] >> 32);
+    let currTile = uint(splatKeys[idx] >> 32);
     if (idx == 0) {
         ranges[currTile].x = 0;
     } else {
-        let prevTile = uint(sortedKeys[idx - 1] >> 32);
+        let prevTile = uint(splatKeys[idx - 1] >> 32);
         if (currTile != prevTile) {
             ranges[prevTile].y = idx;
             ranges[currTile].x = idx;

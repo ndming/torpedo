@@ -9,10 +9,10 @@ WTexture2D outputImage;
 [[vk::binding(3)]]
 StructuredBuffer<Splat> splats;
 
-[[vk::binding(11)]]
-RWStructuredBuffer<uint64_t> sortedKeys;
+[[vk::binding(7)]]
+RWStructuredBuffer<uint64_t> splatKeys;
 
-[[vk::binding(12)]]
+[[vk::binding(8)]]
 RWStructuredBuffer<uint> splatIndices;
 
 // Based on: https://github.com/graphdeco-inria/gaussian-splatting
@@ -46,7 +46,7 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
 
     for (uint y = rectMin.y; y < rectMax.y; y++) {
         for (uint x = rectMin.x; x < rectMax.x; x++) {
-            sortedKeys[offset] = (uint64_t(y * grid.x + x) << 32) | reinterpret<uint32_t>(depth); // tile ID | depth
+            splatKeys[offset] = (uint64_t(y * grid.x + x) << 32) | reinterpret<uint32_t>(depth); // tile ID | depth
             splatIndices[offset] = idx;
             ++offset;
         }
