@@ -9,16 +9,16 @@ RWStructuredBuffer<uint64_t> splatKeys;
 [[vk::binding(8)]]
 RWStructuredBuffer<uint> splatIndices;
 
-[[vk::binding(5)]]
-RWStructuredBuffer<uint> partitionCount;
-
 [[vk::binding(9)]]
-RWStructuredBuffer<uint64_t> blockDescriptors0; // flag (2 bits) - radix 1 (31 bits) - radix 0 (31 bits)
+RWStructuredBuffer<uint> blockCount; // atomic counter for workgroup partition
 
 [[vk::binding(10)]]
-RWStructuredBuffer<uint64_t> blockDescriptors1; // flag (2 bits) - radix 3 (31 bits) - radix 2 (31 bits)
+RWStructuredBuffer<uint64_t> blockDescriptors0; // flag (2 bits) - radix 1 (31 bits) - radix 0 (31 bits)
 
 [[vk::binding(11)]]
+RWStructuredBuffer<uint64_t> blockDescriptors1; // flag (2 bits) - radix 3 (31 bits) - radix 2 (31 bits)
+
+[[vk::binding(12)]]
 RWStructuredBuffer<uint64_t> globalSums; // array of 3 64-bit integers, each is a flag (1 bit) - sum radix i (32 bits) 
 
 struct LocalOffset {
@@ -45,12 +45,12 @@ static const uint64_t DUMMY = uint64_t::maxValue;
 
 [shader("compute")]
 [numthreads(WORKGROUP_SIZE / 2, 1, 1)] // each thread (invocation) processes 2 items
-void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID) {
+void main(uint3 localInvocationID : SV_GroupThreadID) {
     let localID = localInvocationID.x; // [0, WORKGROUP_SIZE / 2 - 1]
 
     // Acquire partition and initialize block descriptors
     if (localID == 0) {
-        InterlockedAdd(partitionCount[0], 1, partition);
+        InterlockedAdd(blockCount[0], 1, partition);
         InterlockedExchange(blockDescriptors0[partition], 0);
         InterlockedExchange(blockDescriptors1[partition], 0);
 
@@ -181,14 +181,14 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID
     // The last partition writes the total sum of each radix to global sums and resets the atomic counter
     let workgroupCount = (info.tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
     if (partition == workgroupCount - 1 && localID == 0) {
-        let g0 = (1ULL << 32) | uint64_t(s0 + globalPrefix0);
-        let g1 = (1ULL << 32) | uint64_t(s1 + globalPrefix1);
-        let g2 = (1ULL << 32) | uint64_t(s2 + globalPrefix2);
+        let g0 = uint64_t(1ULL << 32) | uint64_t(s0 + globalPrefix0);
+        let g1 = uint64_t(1ULL << 32) | uint64_t(s1 + globalPrefix1);
+        let g2 = uint64_t(1ULL << 32) | uint64_t(s2 + globalPrefix2);
         InterlockedExchange(globalSums[0], g0);
         InterlockedExchange(globalSums[1], g1);
         InterlockedExchange(globalSums[2], g2);
 
-        partitionCount[0] = 0;
+        blockCount[0] = 0;
     }
 
     // Acquire the global sums

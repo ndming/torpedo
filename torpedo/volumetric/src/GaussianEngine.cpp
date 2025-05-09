@@ -96,7 +96,6 @@ void tpd::GaussianEngine::onInitialized() {
     _prefixPipeline = createPipeline("prefix.slang", _gaussianLayout);
     _keygenPipeline = createPipeline("keygen.slang", _gaussianLayout);
     _radixPipeline = createPipeline("radix.slang", _gaussianLayout);
-    // _coalescePipeline = createPipeline("coalesce.slang", _gaussianLayout);
     _rangePipeline = createPipeline("range.slang", _gaussianLayout);
     _forwardPipeline = createPipeline("forward.slang", _gaussianLayout);
 
@@ -115,17 +114,32 @@ void tpd::GaussianEngine::onInitialized() {
     createPointCloudObject();
     createCameraObject(w, h);
 
+    // These buffers can be used across in-flight frames due to the readback fence
     createCameraBuffer();
     createGaussianBuffer();
     createSplatBuffer();
     createTilesRenderedBuffer();
     createPartitionCountBuffer();
     createPartitionDescriptorBuffer();
-    createSplatKeyBuffer();
-    createSplatIndexBuffer();
-    createBlockDescriptorBuffers();
-    createGlobalSumBuffer();
-    createRangeBuffer(w, h);
+
+    // These buffers are frame-dependent and the vectors should be resized once here
+    // since they can be reallocated later and should not be resized again
+    _splatKeyBuffers.resize(frameCount);
+    _splatIndexBuffers.resize(frameCount);
+    _blockCountBuffers.resize(frameCount);
+    _blockDescriptorBuffer0s.resize(frameCount);
+    _blockDescriptorBuffer1s.resize(frameCount);
+    _globalSumBuffers.resize(frameCount);
+
+    for (auto i = 0; i < frameCount; ++i) {
+        createSplatKeyBuffers(i);
+        createSplatIndexBuffers(i);
+        createBlockDescriptorBuffers(i);
+    }
+
+    createBlockCountBuffers();
+    createGlobalSumBuffers();
+    createRangeBuffers(w, h);
 }
 
 void tpd::GaussianEngine::logDebugInfos() const noexcept {
@@ -168,7 +182,7 @@ void tpd::GaussianEngine::onFramebufferResize(const uint32_t width, const uint32
     createRenderTargets(width, height);
 
     createCameraObject(width, height);
-    createRangeBuffer(width, height);
+    createRangeBuffers(width, height);
 
     PLOGD << "GaussianEngine - Recreated render targets and ranges buffer";
 
@@ -204,10 +218,11 @@ void tpd::GaussianEngine::createGaussianLayout() {
         .descriptor(0, 6, eStorageBuffer, 1, eCompute) // partition descriptors
         .descriptor(0, 7, eStorageBuffer, 1, eCompute) // splat keys
         .descriptor(0, 8, eStorageBuffer, 1, eCompute) // splat indices
-        .descriptor(0, 9, eStorageBuffer, 1, eCompute) // block descriptors 0
-        .descriptor(0,10, eStorageBuffer, 1, eCompute) // block descriptors 1
-        .descriptor(0,11, eStorageBuffer, 1, eCompute) // global sums
-        .descriptor(0,12, eStorageBuffer, 1, eCompute) // ranges
+        .descriptor(0, 9, eStorageBuffer, 1, eCompute) // block count
+        .descriptor(0,10, eStorageBuffer, 1, eCompute) // block descriptors 0
+        .descriptor(0,11, eStorageBuffer, 1, eCompute) // block descriptors 1
+        .descriptor(0,12, eStorageBuffer, 1, eCompute) // global sums
+        .descriptor(0,13, eStorageBuffer, 1, eCompute) // ranges
         .build(_device, &_gaussianLayout);
 
     _shaderInstance = _shaderLayout.createInstance(_device, _renderer->getInFlightFrameCount());
@@ -236,11 +251,12 @@ void tpd::GaussianEngine::createFrames() {
     const auto drawingAllocInfo = vk::CommandBufferAllocateInfo{ _drawingCommandPool, vk::CommandBufferLevel::ePrimary, 1 };
     const auto computeAllocInfo = vk::CommandBufferAllocateInfo{ _computeCommandPool, vk::CommandBufferLevel::ePrimary, 1 };
 
-    for (auto& [drawing, compute, ownership, preFrameFence, readBackFence, _] : _frames) {
+    for (auto& [drawing, compute, ownership, preFrameFence, readBackFence, maxTilesRendered, target, rangeBuffer] : _frames) {
         drawing = _device.allocateCommandBuffers(drawingAllocInfo)[0];
         compute = _device.allocateCommandBuffers(asyncCompute()? computeAllocInfo : drawingAllocInfo)[0];
         preFrameFence = _device.createFence(vk::FenceCreateInfo{ vk::FenceCreateFlagBits::eSignaled });
         readBackFence = _device.createFence({});
+        maxTilesRendered = 1;
 
         if (asyncCompute()) {
             ownership = _device.createSemaphore({});
@@ -377,15 +393,13 @@ void tpd::GaussianEngine::createGaussianBuffer() {
 
     constexpr auto dstSync = SyncPoint{ vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead };
     _transferWorker->transfer(points.data(), sizeof(Gaussian) * GAUSSIAN_COUNT, _gaussianBuffer, _computeFamilyIndex, dstSync);
+    points.clear(); // no longer need the points data
 
     setStorageBufferDescriptors(_gaussianBuffer, sizeof(Gaussian) * GAUSSIAN_COUNT, _shaderInstance, 2);
 }
 
 void tpd::GaussianEngine::createSplatBuffer() {
-    _splatBuffer = StorageBuffer::Builder()
-        .alloc(SPLAT_SIZE * GAUSSIAN_COUNT)
-        .build(_vmaAllocator);
-
+    _splatBuffer = StorageBuffer::Builder().alloc(SPLAT_SIZE * GAUSSIAN_COUNT).build(_vmaAllocator);
     setStorageBufferDescriptors(_splatBuffer, SPLAT_SIZE * GAUSSIAN_COUNT, _shaderInstance, 3);
 }
 
@@ -399,81 +413,93 @@ void tpd::GaussianEngine::createTilesRenderedBuffer() {
 }
 
 void tpd::GaussianEngine::createPartitionCountBuffer() {
-    _partitionCountBuffer = StorageBuffer::Builder()
-        .alloc(sizeof(uint32_t))
-        .build(_vmaAllocator);
-
+    _partitionCountBuffer = StorageBuffer::Builder().alloc(sizeof(uint32_t)).build(_vmaAllocator);
     setStorageBufferDescriptors(_partitionCountBuffer, sizeof(uint32_t), _shaderInstance, 5);
 }
 
 void tpd::GaussianEngine::createPartitionDescriptorBuffer() {
     constexpr auto size = sizeof(uint64_t) * (GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
 
-    _partitionDescriptorBuffer = StorageBuffer::Builder()
-        .alloc(size)
-        .build(_vmaAllocator);
-
+    _partitionDescriptorBuffer = StorageBuffer::Builder().alloc(size).build(_vmaAllocator);
     setStorageBufferDescriptors(_partitionDescriptorBuffer, size, _shaderInstance, 6);
 }
 
-void tpd::GaussianEngine::createSplatKeyBuffer() {
-    const auto size = sizeof(uint64_t) * _maxTilesRendered;
+void tpd::GaussianEngine::createSplatKeyBuffers(const uint32_t frameIndex) {
+    const auto size = sizeof(uint64_t) * _frames[frameIndex].maxTilesRendered;
+    _splatKeyBuffers[frameIndex].destroy(_vmaAllocator);
+    _splatKeyBuffers[frameIndex] = StorageBuffer::Builder().alloc(size).build(_vmaAllocator);
 
-    // It's possible we're reallocating a new buffer, in which case the old one must be destroyed
-    _splatKeyBuffer.destroy(_vmaAllocator);
-    _splatKeyBuffer = StorageBuffer::Builder()
-        .alloc(size)
-        .build(_vmaAllocator);
-
-    setStorageBufferDescriptors(_splatKeyBuffer, size, _shaderInstance, 7);
+    const auto info = vk::DescriptorBufferInfo{}.setBuffer(_splatKeyBuffers[frameIndex]).setOffset(0).setRange(size);
+    _shaderInstance.setDescriptor(frameIndex, 0, 7, vk::DescriptorType::eStorageBuffer, _device, info);
 }
 
-void tpd::GaussianEngine::createSplatIndexBuffer() {
-    const auto size = sizeof(uint32_t) * _maxTilesRendered;
+void tpd::GaussianEngine::createSplatIndexBuffers(const uint32_t frameIndex) {
+    const auto size = sizeof(uint32_t) * _frames[frameIndex].maxTilesRendered;
+    _splatIndexBuffers[frameIndex].destroy(_vmaAllocator);
+    _splatIndexBuffers[frameIndex] = StorageBuffer::Builder().alloc(size).build(_vmaAllocator);
 
-    // It's possible we're reallocating a new buffer, in which case the old one must be destroyed
-    _splatIndexBuffer.destroy(_vmaAllocator);
-    _splatIndexBuffer = StorageBuffer::Builder()
-        .alloc(size)
-        .build(_vmaAllocator);
-
-    setStorageBufferDescriptors(_splatIndexBuffer, size, _shaderInstance, 8);
+    const auto info = vk::DescriptorBufferInfo{}.setBuffer(_splatIndexBuffers[frameIndex]).setOffset(0).setRange(size);
+    _shaderInstance.setDescriptor(frameIndex, 0, 8, vk::DescriptorType::eStorageBuffer, _device, info);
 }
 
-void tpd::GaussianEngine::createBlockDescriptorBuffers() {
-    const auto size = sizeof(uint64_t) * (_maxTilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+void tpd::GaussianEngine::createBlockCountBuffers() {
+    const auto builder = StorageBuffer::Builder().alloc(sizeof(uint32_t));
 
-    // It's possible we're reallocating a new buffer, in which case the old one must be destroyed
-    _blockDescriptorBuffer0.destroy(_vmaAllocator);
-    _blockDescriptorBuffer1.destroy(_vmaAllocator);
-
-    _blockDescriptorBuffer0 = StorageBuffer::Builder().alloc(size).build(_vmaAllocator);
-    _blockDescriptorBuffer1 = StorageBuffer::Builder().alloc(size).build(_vmaAllocator);
-
-    setStorageBufferDescriptors(_blockDescriptorBuffer0, size, _shaderInstance, 9);
-    setStorageBufferDescriptors(_blockDescriptorBuffer1, size, _shaderInstance, 10);
+    for (auto i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
+        _blockCountBuffers[i] = builder.build(_vmaAllocator);
+        const auto info = vk::DescriptorBufferInfo{}.setBuffer(_blockCountBuffers[i]).setOffset(0).setRange(sizeof(uint32_t));
+        _shaderInstance.setDescriptor(i, 0, 9, vk::DescriptorType::eStorageBuffer, _device, info);
+    }
 }
 
-void tpd::GaussianEngine::createGlobalSumBuffer() {
+void tpd::GaussianEngine::createBlockDescriptorBuffers(const uint32_t frameIndex) {
+    const auto size = sizeof(uint64_t) * (_frames[frameIndex].maxTilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+    const auto builder = StorageBuffer::Builder().alloc(size);
+
+    _blockDescriptorBuffer0s[frameIndex].destroy(_vmaAllocator);
+    _blockDescriptorBuffer1s[frameIndex].destroy(_vmaAllocator);
+
+    _blockDescriptorBuffer0s[frameIndex] = builder.build(_vmaAllocator);
+    _blockDescriptorBuffer1s[frameIndex] = builder.build(_vmaAllocator);
+
+    const auto info0 = vk::DescriptorBufferInfo{}.setBuffer(_blockDescriptorBuffer0s[frameIndex]).setOffset(0).setRange(size);
+    const auto info1 = vk::DescriptorBufferInfo{}.setBuffer(_blockDescriptorBuffer1s[frameIndex]).setOffset(0).setRange(size);
+    _shaderInstance.setDescriptor(frameIndex, 0, 10, vk::DescriptorType::eStorageBuffer, _device, info0);
+    _shaderInstance.setDescriptor(frameIndex, 0, 11, vk::DescriptorType::eStorageBuffer, _device, info1);
+}
+
+void tpd::GaussianEngine::createGlobalSumBuffers() {
     const auto size = sizeof(uint64_t) * 3; // see radix.slang
-    _globalSumBuffer = StorageBuffer::Builder().alloc(size).build(_vmaAllocator);
+    const auto builder = StorageBuffer::Builder().alloc(size);
 
-    setStorageBufferDescriptors(_globalSumBuffer, size, _shaderInstance, 11);
+    for (auto i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
+        _globalSumBuffers[i] = builder.build(_vmaAllocator);
+        const auto info = vk::DescriptorBufferInfo{}.setBuffer(_globalSumBuffers[i]).setOffset(0).setRange(size);
+        _shaderInstance.setDescriptor(i, 0, 12, vk::DescriptorType::eStorageBuffer, _device, info);
+    }
 }
 
-void tpd::GaussianEngine::createRangeBuffer(uint32_t width, uint32_t height) {
+void tpd::GaussianEngine::createRangeBuffers(const uint32_t width, const uint32_t height) {
     const auto tilesX = (width  + BLOCK_X - 1) / BLOCK_X;
     const auto tilesY = (height + BLOCK_Y - 1) / BLOCK_Y;
     const auto size = sizeof(uvec2) * tilesX * tilesY;
 
-    // It's possible we're reallocating a new buffer, in which case the old one must be destroyed
-    _rangeBuffer.destroy(_vmaAllocator);
-    _rangeBuffer = StorageBuffer::Builder()
-        .usage(vk::BufferUsageFlagBits::eTransferDst) // clear this buffer without compute
-        .alloc(size)
-        .build(_vmaAllocator);
+    // Also add transfer dst usage to clear the buffer without an additional compute pass
+    const auto builder = StorageBuffer::Builder().usage(vk::BufferUsageFlagBits::eTransferDst).alloc(size);
 
-    setStorageBufferDescriptors(_rangeBuffer, size, _shaderInstance, 12);
+    // Create a range buffer for each in-flight frame
+    for (auto i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
+        // It's possible we're reallocating a new buffer due to image
+        // dimension change, in which case the old one must be destroyed
+        _frames[i].rangeBuffer.destroy(_vmaAllocator);
+        _frames[i].rangeBuffer = builder.build(_vmaAllocator);
+
+        const auto descriptorInfo = vk::DescriptorBufferInfo{}
+            .setBuffer(_frames[i].rangeBuffer)
+            .setOffset(0)
+            .setRange(size);
+        _shaderInstance.setDescriptor(i, 0, 13, vk::DescriptorType::eStorageBuffer, _device, descriptorInfo);
+    }
 }
 
 void tpd::GaussianEngine::setStorageBufferDescriptors(
@@ -541,9 +567,9 @@ void tpd::GaussianEngine::preFrameCompute() {
 
     // Inspect the number of tiles rendered and reallocate relevant buffers if necessary
     const auto tilesRendered = _tilesRenderedBuffer.read<uint32_t>();
-    if (tilesRendered > _maxTilesRendered) [[unlikely]] {
-        _maxTilesRendered = tilesRendered;
-        reallocateBuffers();
+    if (tilesRendered > _frames[frameIndex].maxTilesRendered) [[unlikely]] {
+        _frames[frameIndex].maxTilesRendered = tilesRendered;
+        reallocateBuffers(frameIndex);
     }
 
     preFrameCompute.reset();
@@ -555,7 +581,7 @@ void tpd::GaussianEngine::preFrameCompute() {
     preFrameCompute.bindDescriptorSets(eCompute, _gaussianLayout, 0, _shaderInstance.getDescriptorSets(frameIndex), {});
 
     // The remaining passes: keygen, radix, range, forward
-    recordBlend(preFrameCompute, tilesRendered);
+    recordBlend(preFrameCompute, tilesRendered, frameIndex);
 
     // Transfer ownership to graphics before submitting if working with async compute
     if (asyncCompute()) {
@@ -650,15 +676,19 @@ void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcep
     cmd.dispatch((GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 }
 
-void tpd::GaussianEngine::reallocateBuffers() {
-    createSplatKeyBuffer();
-    createSplatIndexBuffer();
-    createBlockDescriptorBuffers();
+void tpd::GaussianEngine::reallocateBuffers(const uint32_t frameIndex) {
+    createSplatKeyBuffers(frameIndex);
+    createSplatIndexBuffers(frameIndex);
+    createBlockDescriptorBuffers(frameIndex);
 
-    PLOGD << "GaussianEngine - Reallocated with new tiles rendered: " << _maxTilesRendered;
+    PLOGD << "GaussianEngine - Frame " << frameIndex << " reallocated with new tiles rendered: " << _frames[frameIndex].maxTilesRendered;
 }
 
-void tpd::GaussianEngine::recordBlend(const vk::CommandBuffer cmd, const uint32_t tilesRendered) const noexcept {
+void tpd::GaussianEngine::recordBlend(
+    const vk::CommandBuffer cmd,
+    const uint32_t tilesRendered,
+    const uint32_t frameIndex) const noexcept 
+{
     // Even with a fence staying in between, make sure prefix sums computed by prefix pass are visible
     cmd.pipelineBarrier2(RAW_DEPENDENCY);
 
@@ -678,8 +708,8 @@ void tpd::GaussianEngine::recordBlend(const vk::CommandBuffer cmd, const uint32_
     }
 
     // Clear the range buffer before populating it
-    cmd.fillBuffer(_rangeBuffer, 0, vk::WholeSize, 0);
-    _rangeBuffer.recordTransferDstPoint(cmd, { vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageWrite });
+    cmd.fillBuffer(_frames[frameIndex].rangeBuffer, 0, vk::WholeSize, 0);
+    _frames[frameIndex].rangeBuffer.recordTransferDstPoint(cmd, { PipelineStage::eComputeShader, AccessMask::eShaderStorageWrite });
 
     // Make sure sorted keys written by radix pass are visible to range pass
     cmd.pipelineBarrier2(RAW_DEPENDENCY);
@@ -713,12 +743,21 @@ void tpd::GaussianEngine::recordTargetCopy(
 
 void tpd::GaussianEngine::destroy() noexcept {
     if (_initialized) {
-        _rangeBuffer.destroy(_vmaAllocator);
-        _globalSumBuffer.destroy(_vmaAllocator);
-        _blockDescriptorBuffer1.destroy(_vmaAllocator);
-        _blockDescriptorBuffer0.destroy(_vmaAllocator);
-        _splatIndexBuffer.destroy(_vmaAllocator);
-        _splatKeyBuffer.destroy(_vmaAllocator);
+        std::ranges::for_each(_frames, [this](Frame& f) { f.rangeBuffer.destroy(_vmaAllocator); });
+        std::ranges::for_each(_globalSumBuffers, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
+        std::ranges::for_each(_blockDescriptorBuffer1s, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
+        std::ranges::for_each(_blockDescriptorBuffer0s, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
+        std::ranges::for_each(_blockCountBuffers, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
+        std::ranges::for_each(_splatIndexBuffers, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
+        std::ranges::for_each(_splatKeyBuffers, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
+
+        _globalSumBuffers.clear();
+        _blockDescriptorBuffer1s.clear();
+        _blockDescriptorBuffer0s.clear();
+        _blockCountBuffers.clear();
+        _splatIndexBuffers.clear();
+        _splatKeyBuffers.clear();
+
         _partitionDescriptorBuffer.destroy(_vmaAllocator);
         _partitionCountBuffer.destroy(_vmaAllocator);
         _tilesRenderedBuffer.destroy(_vmaAllocator);
@@ -739,7 +778,6 @@ void tpd::GaussianEngine::destroy() noexcept {
 
         _device.destroyPipeline(_forwardPipeline);
         _device.destroyPipeline(_rangePipeline);
-        // _device.destroyPipeline(_coalescePipeline);
         _device.destroyPipeline(_radixPipeline);
         _device.destroyPipeline(_keygenPipeline);
         _device.destroyPipeline(_prefixPipeline);

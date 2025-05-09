@@ -42,7 +42,7 @@ namespace tpd {
         void onFramebufferResize(uint32_t width, uint32_t height);
 
         void createDrawingCommandPool();
-        void createComputeCommandPool(); // only called if async compute is used
+        void createComputeCommandPool(); // only called if async compute is being used
 
         void createGaussianLayout();
         [[nodiscard]] vk::Pipeline createPipeline(const std::string& slangFile, vk::PipelineLayout layout) const;
@@ -63,11 +63,12 @@ namespace tpd {
         void createTilesRenderedBuffer();
         void createPartitionCountBuffer();
         void createPartitionDescriptorBuffer();
-        void createSplatKeyBuffer();
-        void createSplatIndexBuffer();
-        void createBlockDescriptorBuffers();
-        void createGlobalSumBuffer();
-        void createRangeBuffer(uint32_t width, uint32_t height);
+        void createSplatKeyBuffers(uint32_t frameIndex);
+        void createSplatIndexBuffers(uint32_t frameIndex);
+        void createBlockDescriptorBuffers(uint32_t frameIndex);
+        void createBlockCountBuffers();
+        void createGlobalSumBuffers();
+        void createRangeBuffers(uint32_t width, uint32_t height);
 
         void setStorageBufferDescriptors(
             vk::Buffer buffer, vk::DeviceSize size, const ShaderInstance& instance,
@@ -77,8 +78,8 @@ namespace tpd {
         static constexpr uint32_t BLOCK_X = 16; // tile size in x-dimension
         static constexpr uint32_t BLOCK_Y = 16; // tile size in y-dimension
         void recordSplat(vk::CommandBuffer cmd) const noexcept;
-        void reallocateBuffers();
-        void recordBlend(vk::CommandBuffer cmd, uint32_t tilesRendered) const noexcept;
+        void reallocateBuffers(uint32_t frameIndex);
+        void recordBlend(vk::CommandBuffer cmd, uint32_t tilesRendered, uint32_t frameIndex) const noexcept;
         void recordTargetCopy(vk::CommandBuffer cmd, SwapImage swapImage, uint32_t frameIndex) const noexcept;
 
         void destroy() noexcept override;
@@ -89,7 +90,9 @@ namespace tpd {
             vk::Semaphore ownership{}; // only initialize if async compute is being used
             vk::Fence preFrameFence{};
             vk::Fence readBackFence{};
+            uint32_t maxTilesRendered{};
             Target outputImage{};
+            StorageBuffer rangeBuffer{}; // put this here so that we can quickly reference it for buffer clearing
         };
 
         // This is the immutable part of the RasterInfo struct in splat.slang during frame drawing. This separation is
@@ -119,21 +122,11 @@ namespace tpd {
         vk::Queue _graphicsQueue;
         vk::Queue _computeQueue;
         std::pmr::vector<Frame> _frames{ &_frameResource };
-        uint32_t _maxTilesRendered{ 1 };
+        vk::PipelineLayout _gaussianLayout{};
 
         /*--------------------*/
 
         ShaderInstance _shaderInstance{};
-
-        /*--------------------*/
-
-        vk::PipelineLayout _gaussianLayout{};
-        vk::Pipeline _projectPipeline{};
-        vk::Pipeline _prefixPipeline{};
-        vk::Pipeline _keygenPipeline{};
-        vk::Pipeline _radixPipeline{};
-        vk::Pipeline _rangePipeline{};
-        vk::Pipeline _forwardPipeline{};
 
         /*--------------------*/
 
@@ -143,11 +136,18 @@ namespace tpd {
 
         /*--------------------*/
 
+        vk::Pipeline _projectPipeline{};
+        vk::Pipeline _prefixPipeline{};
+        vk::Pipeline _keygenPipeline{};
+        vk::Pipeline _radixPipeline{};
+        vk::Pipeline _rangePipeline{};
+        vk::Pipeline _forwardPipeline{};
+
         Camera _camera{};
 
         /*--------------------*/
 
-        static constexpr uint32_t GAUSSIAN_COUNT = 512;
+        static constexpr uint32_t GAUSSIAN_COUNT = 256;
         static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
 
         // The maximum number of floats for RGB spherical harmonics
@@ -167,12 +167,12 @@ namespace tpd {
         StorageBuffer _splatBuffer{};
         StorageBuffer _partitionCountBuffer{};
         StorageBuffer _partitionDescriptorBuffer{};
-        StorageBuffer _splatKeyBuffer{};
-        StorageBuffer _splatIndexBuffer{};
-        StorageBuffer _blockDescriptorBuffer0{};
-        StorageBuffer _blockDescriptorBuffer1{};
-        StorageBuffer _globalSumBuffer{};
-        StorageBuffer _rangeBuffer{};
+        std::vector<StorageBuffer> _splatKeyBuffers{};
+        std::vector<StorageBuffer> _splatIndexBuffers{};
+        std::vector<StorageBuffer> _blockCountBuffers{};
+        std::vector<StorageBuffer> _blockDescriptorBuffer0s{};
+        std::vector<StorageBuffer> _blockDescriptorBuffer1s{};
+        std::vector<StorageBuffer> _globalSumBuffers{};
 
         using PipelineStage = vk::PipelineStageFlagBits2;
         using AccessMask = vk::AccessFlagBits2;
