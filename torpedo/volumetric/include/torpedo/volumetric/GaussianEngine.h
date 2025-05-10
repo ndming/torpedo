@@ -73,9 +73,7 @@ namespace tpd {
         void createTempValBuffers(uint32_t frameIndex);
         void createRangeBuffers(uint32_t width, uint32_t height);
 
-        void setStorageBufferDescriptors(
-            vk::Buffer buffer, vk::DeviceSize size, const ShaderInstance& instance,
-            uint32_t binding, uint32_t set = 0) const;
+        void setStorageBufferDescriptors(vk::Buffer buffer, vk::DeviceSize size, uint32_t binding) const;
 
         static constexpr uint32_t WORKGROUP_SIZE = 256; // number of local threads per workgroup in scan passes
         static constexpr uint32_t BLOCK_X = 16; // tile size in x-dimension
@@ -88,14 +86,15 @@ namespace tpd {
         void destroy() noexcept override;
 
         struct Frame {
+            ShaderInstance<1> instance{};
             vk::CommandBuffer drawing{};
             vk::CommandBuffer compute{};
             vk::Semaphore ownership{}; // only initialize if async compute is being used
             vk::Fence preFrameFence{};
             vk::Fence readBackFence{};
             uint32_t maxTilesRendered{};
-            Target outputImage{};
             StorageBuffer rangeBuffer{}; // put this here so that we can quickly reference it for buffer clearing
+            Target outputImage{};
         };
 
         // This is the immutable part of the RasterInfo struct in splat.slang during frame drawing. This separation is
@@ -126,10 +125,6 @@ namespace tpd {
         vk::Queue _computeQueue;
         std::pmr::vector<Frame> _frames{ &_frameResource };
         vk::PipelineLayout _gaussianLayout{};
-
-        /*--------------------*/
-
-        ShaderInstance _shaderInstance{};
 
         /*--------------------*/
 
@@ -164,7 +159,7 @@ namespace tpd {
             std::array<float, MAX_SH_RGB> sh;
         };
 
-        ShaderLayout _shaderLayout{};
+        ShaderLayout<1> _shaderLayout{};
         std::unique_ptr<TransferWorker> _transferWorker{};
 
         StorageBuffer _gaussianBuffer{};

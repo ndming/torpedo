@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.hpp>
 
 namespace tpd {
+    template<uint32_t SetCount = 0>
     class ShaderInstance final {
     public:
         /**
@@ -12,68 +13,115 @@ namespace tpd {
         * that involve shaders without descriptor sets.
         */
         ShaderInstance() noexcept = default;
-
-        ShaderInstance(
-            vk::DescriptorPool descriptorPool,
-            uint32_t setCountPerInstance,
-            const std::vector<vk::DescriptorSet>& descriptorSets) noexcept;
+        ShaderInstance(vk::DescriptorPool descriptorPool, const std::vector<vk::DescriptorSet>& descriptorSets) noexcept;
 
         ShaderInstance(ShaderInstance&&) noexcept = default;
         ShaderInstance& operator=(ShaderInstance&&) noexcept = default;
 
-        [[nodiscard]] std::span<const vk::DescriptorSet> getDescriptorSets(uint32_t instance) const noexcept;
+        [[nodiscard]] std::span<const vk::DescriptorSet> getDescriptorSets() const noexcept;
 
         void setDescriptor(
-            uint32_t instance, uint32_t setIndex, uint32_t binding, vk::DescriptorType type, vk::Device device,
-            const std::vector<vk::DescriptorBufferInfo>& bufferInfos) const;
+            uint32_t set, uint32_t binding, vk::DescriptorType type, vk::Device device,
+            const std::vector<vk::DescriptorBufferInfo>& bufferInfos) const noexcept;
 
         void setDescriptor(
-            uint32_t instance, uint32_t setIndex, uint32_t binding, vk::DescriptorType type, vk::Device device,
-            const vk::DescriptorBufferInfo& bufferInfo) const;
+            uint32_t set, uint32_t binding, vk::DescriptorType type, vk::Device device,
+            const vk::DescriptorBufferInfo& bufferInfo) const noexcept;
 
         void setDescriptor(
-            uint32_t instance, uint32_t setIndex, uint32_t binding, vk::DescriptorType type, vk::Device device,
-            const std::vector<vk::DescriptorImageInfo>& imageInfos) const;
+            uint32_t set, uint32_t binding, vk::DescriptorType type, vk::Device device,
+            const std::vector<vk::DescriptorImageInfo>& imageInfos) const noexcept;
         
         void setDescriptor(
-            uint32_t instance, uint32_t setIndex, uint32_t binding, vk::DescriptorType type, vk::Device device,
-            const vk::DescriptorImageInfo& imageInfo) const;
+            uint32_t set, uint32_t binding, vk::DescriptorType type, vk::Device device,
+            const vk::DescriptorImageInfo& imageInfo) const noexcept;
 
-        [[nodiscard]] bool empty() const noexcept;
         void destroy(vk::Device device) const noexcept;
-
-        static constexpr uint32_t MAX_DESCRIPTOR_SETS = 3;
-        static constexpr uint32_t MAX_INSTANCES = 2;
 
     private:
         /*------------------*/
 
         vk::DescriptorPool _descriptorPool{};
-        uint32_t _setCountPerInstance{ 0 };
-        std::array<vk::DescriptorSet, MAX_DESCRIPTOR_SETS * MAX_INSTANCES> _descriptorSets{};
+        std::array<vk::DescriptorSet, SetCount> _descriptorSets{};
 
         /*------------------*/
     };
 } // namespace tpd
 
-inline tpd::ShaderInstance::ShaderInstance(
-    const vk::DescriptorPool descriptorPool, 
-    const uint32_t setCountPerInstance,
+template<uint32_t SetCount>
+tpd::ShaderInstance<SetCount>::ShaderInstance(
+    const vk::DescriptorPool descriptorPool,
     const std::vector<vk::DescriptorSet>& descriptorSets) noexcept
     : _descriptorPool{ descriptorPool }
-    , _setCountPerInstance{ setCountPerInstance }
 {
-    std::ranges::copy_n(descriptorSets.begin(), descriptorSets.size(), _descriptorSets.begin());
+    std::ranges::copy_n(descriptorSets.begin(), SetCount, _descriptorSets.begin());
 }
 
-inline std::span<const vk::DescriptorSet> tpd::ShaderInstance::getDescriptorSets(const uint32_t instance) const noexcept {
-    return { _descriptorSets.begin() + instance * _setCountPerInstance, _setCountPerInstance };
+template<uint32_t SetCount>
+std::span<const vk::DescriptorSet> tpd::ShaderInstance<SetCount>::getDescriptorSets() const noexcept {
+    return { _descriptorSets.begin(), SetCount };
 }
 
-inline bool tpd::ShaderInstance::empty() const noexcept {
-    return _setCountPerInstance == 0;
+template<uint32_t SetCount>
+void tpd::ShaderInstance<SetCount>::setDescriptor(
+    const uint32_t set,
+    const uint32_t binding,
+    const vk::DescriptorType type,
+    const vk::Device device,
+    const std::vector<vk::DescriptorBufferInfo>& bufferInfos) const noexcept
+{
+    auto writeDescriptor = vk::WriteDescriptorSet{};
+    writeDescriptor.dstSet = _descriptorSets[set];
+    writeDescriptor.dstBinding = binding;
+    writeDescriptor.dstArrayElement = 0;
+    writeDescriptor.descriptorCount = static_cast<uint32_t>(bufferInfos.size());
+    writeDescriptor.descriptorType = type;
+    writeDescriptor.pBufferInfo = bufferInfos.data();
+
+    device.updateDescriptorSets({ writeDescriptor }, {});
 }
 
-inline void tpd::ShaderInstance::destroy(const vk::Device device) const noexcept {
+template<uint32_t SetCount>
+void tpd::ShaderInstance<SetCount>::setDescriptor(
+    const uint32_t set,
+    const uint32_t binding,
+    const vk::DescriptorType type,
+    const vk::Device device,
+    const vk::DescriptorBufferInfo& bufferInfo) const noexcept
+{
+    setDescriptor(set, binding, type, device, std::vector{ bufferInfo });
+}
+
+template<uint32_t SetCount>
+void tpd::ShaderInstance<SetCount>::setDescriptor(
+    const uint32_t set,
+    const uint32_t binding,
+    const vk::DescriptorType type,
+    const vk::Device device, const std::vector<vk::DescriptorImageInfo>& imageInfos) const noexcept
+{
+    auto writeDescriptor = vk::WriteDescriptorSet{};
+    writeDescriptor.dstSet = _descriptorSets[set];
+    writeDescriptor.dstBinding = binding;
+    writeDescriptor.dstArrayElement = 0;
+    writeDescriptor.descriptorCount = static_cast<uint32_t>(imageInfos.size());
+    writeDescriptor.descriptorType = type;
+    writeDescriptor.pImageInfo = imageInfos.data();
+
+    device.updateDescriptorSets({ writeDescriptor }, {});
+}
+
+template<uint32_t SetCount>
+void tpd::ShaderInstance<SetCount>::setDescriptor(
+    const uint32_t set,
+    const uint32_t binding,
+    const vk::DescriptorType type,
+    const vk::Device device,
+    const vk::DescriptorImageInfo& imageInfo) const noexcept
+{
+    setDescriptor(set, binding, type, device, std::vector{ imageInfo });
+}
+
+template<uint32_t SetCount>
+void tpd::ShaderInstance<SetCount>::destroy(const vk::Device device) const noexcept {
     device.destroyDescriptorPool(_descriptorPool);
 }
