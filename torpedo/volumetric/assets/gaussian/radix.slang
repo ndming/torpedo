@@ -4,10 +4,10 @@ import splat;
 uniform RasterInfo info;
 
 [[vk::binding(7)]]
-RWStructuredBuffer<uint64_t> splatKeys;
+StructuredBuffer<uint64_t> splatKeys;
 
 [[vk::binding(8)]]
-RWStructuredBuffer<uint> splatIndices;
+StructuredBuffer<uint> splatIndices;
 
 [[vk::binding(9)]]
 RWStructuredBuffer<uint> blockCount; // atomic counter for workgroup partition
@@ -19,7 +19,16 @@ RWStructuredBuffer<uint64_t> blockDescriptors0; // flag (2 bits) - radix 1 (31 b
 RWStructuredBuffer<uint64_t> blockDescriptors1; // flag (2 bits) - radix 3 (31 bits) - radix 2 (31 bits)
 
 [[vk::binding(12)]]
-RWStructuredBuffer<uint64_t> globalSums; // array of 3 64-bit integers, each is a flag (1 bit) - sum radix i (32 bits) 
+RWStructuredBuffer<uint> globalSums; // total count of radix 0, 1, and 2
+
+[[vk::binding(13)]]
+RWStructuredBuffer<uint> globalPrefixes;
+
+[[vk::binding(14)]]
+RWStructuredBuffer<uint64_t> tempKeys;
+
+[[vk::binding(15)]]
+RWStructuredBuffer<uint> tempVals;
 
 struct LocalOffset {
     uint data[WORKGROUP_SIZE];
@@ -27,7 +36,9 @@ struct LocalOffset {
 
 groupshared LocalOffset offsets[4];
 groupshared uint partition; // which part of the global array this workgroup is resonsible for
-groupshared uint64_t value; // global values from other workgroups are read into this variable
+
+groupshared uint64_t descriptor0; // descriptor values from other workgroups are read into this variable
+groupshared uint64_t descriptor1; // descriptor values from other workgroups are read into this variable
 
 #define NUM_BANKS 16 // half the SIMD width
 #define LOG_NUM_BANKS 4
@@ -53,13 +64,6 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
         InterlockedAdd(blockCount[0], 1, partition);
         InterlockedExchange(blockDescriptors0[partition], 0);
         InterlockedExchange(blockDescriptors1[partition], 0);
-
-        // Let workgroup responsible for partition 0 initialize the global sums
-        if (partition == 0) {
-            InterlockedExchange(globalSums[0], 0);
-            InterlockedExchange(globalSums[1], 0);
-            InterlockedExchange(globalSums[2], 0);
-        }
     }
     // Wait until thread 0 has obtained the partition for this workgroup
     GroupMemoryBarrierWithGroupSync();
@@ -89,7 +93,7 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
     offsets[3].data[aj + bankOffsetA] = uint(keyA == 3); offsets[3].data[bj + bankOffsetB] = uint(keyB == 3);
 
     // Upsweep reduction
-    uint offset = 1;
+    var offset = 1u;
     for (uint d = WORKGROUP_SIZE >> 1; d > 0; d >>= 1) {
         // Ensure all values at the previous level have been computed and visible
         GroupMemoryBarrierWithGroupSync();
@@ -133,18 +137,19 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
         var lookbackPartition = partition - 1;
         while (true) {
             // TODO: have an entire SIMD workgroups inspecting predecessors in parallel (parallelized look-back)
-            if (localID == 0) InterlockedCompareExchange(blockDescriptors0[lookbackPartition], DUMMY, DUMMY, value);
+            if (localID == 0) InterlockedCompareExchange(blockDescriptors0[lookbackPartition], DUMMY, DUMMY, descriptor0);
             GroupMemoryBarrierWithGroupSync(); // wait for thread 0 to obtain the descriptor value
 
-            let flag = uint(value >> 62);
+            let flag = uint(descriptor0 >> 62);
             if (flag != FLAG_X) {
                 // Accumulate the aggregate/inclusive prefix
-                globalPrefix0 += uint(value & 0x7FFFFFFFULL);
-                globalPrefix1 += uint((value >> 31) & 0x7FFFFFFFULL);
+                globalPrefix0 += uint(descriptor0 & 0x7FFFFFFFULL);
+                globalPrefix1 += uint((descriptor0 >> 31) & 0x7FFFFFFFULL);
                 if (flag == FLAG_A) --lookbackPartition;
                 else break; // FLAG_P
             }
             // FLAG_X, spin
+            GroupMemoryBarrierWithGroupSync();
         }
     }
 
@@ -155,18 +160,19 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
         var lookbackPartition = partition - 1;
         while (true) {
             // TODO: have an entire SIMD workgroups inspecting predecessors in parallel (parallelized look-back)
-            if (localID == 0) InterlockedCompareExchange(blockDescriptors1[lookbackPartition], DUMMY, DUMMY, value);
+            if (localID == 0) InterlockedCompareExchange(blockDescriptors1[lookbackPartition], DUMMY, DUMMY, descriptor1);
             GroupMemoryBarrierWithGroupSync(); // wait for thread 0 to obtain the descriptor value
 
-            let flag = uint(value >> 62);
+            let flag = uint(descriptor1 >> 62);
             if (flag != FLAG_X) {
                 // Accumulate the aggregate/inclusive prefix
-                globalPrefix2 += uint(value & 0x7FFFFFFFULL);
-                globalPrefix3 += uint((value >> 31) & 0x7FFFFFFFULL);
+                globalPrefix2 += uint(descriptor1 & 0x7FFFFFFFULL);
+                globalPrefix3 += uint((descriptor1 >> 31) & 0x7FFFFFFFULL);
                 if (flag == FLAG_A) --lookbackPartition;
                 else break; // FLAG_P
             }
             // FLAG_X, spin
+            GroupMemoryBarrierWithGroupSync();
         }
     }
 
@@ -178,63 +184,22 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
         InterlockedExchange(blockDescriptors1[partition], p1);
     }
 
-    // The last partition writes the total sum of each radix to global sums and resets the atomic counter
-    let workgroupCount = (info.tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
-    if (partition == workgroupCount - 1 && localID == 0) {
-        let g0 = uint64_t(1ULL << 32) | uint64_t(s0 + globalPrefix0);
-        let g1 = uint64_t(1ULL << 32) | uint64_t(s1 + globalPrefix1);
-        let g2 = uint64_t(1ULL << 32) | uint64_t(s2 + globalPrefix2);
-        InterlockedExchange(globalSums[0], g0);
-        InterlockedExchange(globalSums[1], g1);
-        InterlockedExchange(globalSums[2], g2);
-
-        blockCount[0] = 0;
-    }
-
-    // Acquire the global sums
-    var globalSum0 = 0u;
-    var globalSum1 = 0u;
-    var globalSum2 = 0u;
-    while (true) {
-        if (localID == 0) InterlockedCompareExchange(globalSums[0], DUMMY, DUMMY, value);
-        GroupMemoryBarrierWithGroupSync(); // wait for thread 0 to obtain the global sum value
-
-        let valid = bool(value >> 32);
-        if (valid) {
-            globalSum0 = uint(value & 0xFFFFFFFFULL);
-            break;
-        }
-    }
-
-    while (true) {
-        if (localID == 0) InterlockedCompareExchange(globalSums[1], DUMMY, DUMMY, value);
-        GroupMemoryBarrierWithGroupSync(); // wait for thread 0 to obtain the global sum value
-
-        let valid = bool(value >> 32);
-        if (valid) {
-            globalSum1 = uint(value & 0xFFFFFFFFULL);
-            break;
-        }
-    }
-
-    while (true) {
-        if (localID == 0) InterlockedCompareExchange(globalSums[2], DUMMY, DUMMY, value);
-        GroupMemoryBarrierWithGroupSync(); // wait for thread 0 to obtain the global sum value
-
-        let valid = bool(value >> 32);
-        if (valid) {
-            globalSum2 = uint(value & 0xFFFFFFFFULL);
-            break;
-        }
-    }
-
     // Set the last element of each local offset array to their respective global prefix sum
     if (localID == 0) {
         let n = WORKGROUP_SIZE;
-        offsets[3].data[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = globalPrefix3 + globalSum2 + globalSum1 + globalSum0;
-        offsets[2].data[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = globalPrefix2 + globalSum1 + globalSum0;
-        offsets[1].data[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = globalPrefix1 + globalSum0;
+        offsets[3].data[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = globalPrefix3;
+        offsets[2].data[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = globalPrefix2;
+        offsets[1].data[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = globalPrefix1;
         offsets[0].data[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = globalPrefix0;
+
+        // The last partition writes the total sum of each radix to global sums and resets the atomic counter
+        let workgroupCount = (info.tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+        if (partition == workgroupCount - 1) {
+            globalSums[0] = s0 + globalPrefix0;
+            globalSums[1] = s1 + globalPrefix1;
+            globalSums[2] = s2 + globalPrefix2;
+            blockCount[0] = 0u;
+        }
     }
 
     // Downsweep partial sum
@@ -270,12 +235,14 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
     let idxA = offsets[keyA].data[aj + bankOffsetA];
     let idxB = offsets[keyB].data[bj + bankOffsetB];
 
-    if (idxA < info.tilesRendered) {
-        splatKeys[idxA] = kA;
-        splatIndices[idxA] = vA;
+    if (begin + aj < info.tilesRendered) {
+        tempKeys[begin + aj] = kA;
+        tempVals[begin + aj] = vA;
+        globalPrefixes[begin + aj] = idxA;
     }
-    if (idxB < info.tilesRendered) {
-        splatKeys[idxB] = kB;
-        splatIndices[idxB] = vB;
+    if (begin + bj < info.tilesRendered) {
+        tempKeys[begin + bj] = kB;
+        tempVals[begin + bj] = vB;
+        globalPrefixes[begin + bj] = idxB;
     }
 }

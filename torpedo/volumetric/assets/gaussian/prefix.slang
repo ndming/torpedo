@@ -110,6 +110,7 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
                 else break; // FLAG_P
             }
             // FLAG_X, spin
+            GroupMemoryBarrierWithGroupSync();
         }
     }
 

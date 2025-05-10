@@ -63,11 +63,14 @@ namespace tpd {
         void createTilesRenderedBuffer();
         void createPartitionCountBuffer();
         void createPartitionDescriptorBuffer();
-        void createSplatKeyBuffers(uint32_t frameIndex);
-        void createSplatIndexBuffers(uint32_t frameIndex);
+        void createSplatKeyBuffer(uint32_t frameIndex);
+        void createSplatIndexBuffer(uint32_t frameIndex);
         void createBlockDescriptorBuffers(uint32_t frameIndex);
         void createBlockCountBuffers();
         void createGlobalSumBuffers();
+        void createGlobalPrefixBuffer(uint32_t frameIndex);
+        void createTempKeyBuffers(uint32_t frameIndex);
+        void createTempValBuffers(uint32_t frameIndex);
         void createRangeBuffers(uint32_t width, uint32_t height);
 
         void setStorageBufferDescriptors(
@@ -102,8 +105,8 @@ namespace tpd {
             uint32_t shDegree;
         };
 
-        static constexpr auto NEAR = 0.2f;
-        static constexpr auto FAR = 20.0f;
+        static constexpr auto NEAR = 0.01f;
+        static constexpr auto FAR = 100.0f;
         struct Camera {
             mat4 viewMatrix;
             mat4 projMatrix;
@@ -140,6 +143,7 @@ namespace tpd {
         vk::Pipeline _prefixPipeline{};
         vk::Pipeline _keygenPipeline{};
         vk::Pipeline _radixPipeline{};
+        vk::Pipeline _coalescePipeline{};
         vk::Pipeline _rangePipeline{};
         vk::Pipeline _forwardPipeline{};
 
@@ -147,7 +151,7 @@ namespace tpd {
 
         /*--------------------*/
 
-        static constexpr uint32_t GAUSSIAN_COUNT = 256;
+        static constexpr uint32_t GAUSSIAN_COUNT = 8192;
         static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
 
         // The maximum number of floats for RGB spherical harmonics
@@ -173,6 +177,9 @@ namespace tpd {
         std::vector<StorageBuffer> _blockDescriptorBuffer0s{};
         std::vector<StorageBuffer> _blockDescriptorBuffer1s{};
         std::vector<StorageBuffer> _globalSumBuffers{};
+        std::vector<StorageBuffer> _globalPrefixBuffers{};
+        std::vector<StorageBuffer> _tempKeyBuffers{};
+        std::vector<StorageBuffer> _tempValBuffers{};
 
         using PipelineStage = vk::PipelineStageFlagBits2;
         using AccessMask = vk::AccessFlagBits2;
