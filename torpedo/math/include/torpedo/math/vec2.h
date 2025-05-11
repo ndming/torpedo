@@ -2,6 +2,8 @@
 
 #include "torpedo/math/common.h"
 
+#include <limits>
+
 namespace tpd {
     template<typename T> requires (std::is_arithmetic_v<T>)
     struct vec2_t {

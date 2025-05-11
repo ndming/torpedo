@@ -15,6 +15,7 @@ namespace tpd {
     struct mat4_t {
         constexpr mat4_t() noexcept = default;
         constexpr explicit mat4_t(T val) noexcept;
+        constexpr explicit mat4_t(const T* data) noexcept;
         constexpr mat4_t(const mat3_t<T>& mat, const vec3_t<T>& vec, T r3c3 = 1) noexcept;
         constexpr mat4_t(const vec4_t<T>& row0, const vec4_t<T>& row1, const vec4_t<T>& row2, const vec4_t<T>& row3) noexcept;
         constexpr mat4_t(
@@ -55,6 +56,8 @@ namespace tpd {
         mat4_t& operator*=(T scalar) noexcept;
         mat4_t& operator/=(T scalar) noexcept;
 
+        [[nodiscard]] const T* data_ptr() const noexcept;
+
         vec4_t<T> data[4];
     };
 
@@ -86,6 +89,15 @@ namespace tpd::utils {
 template<typename T> requires (std::is_arithmetic_v<T>)
 constexpr tpd::mat4_t<T>::mat4_t(const T val) noexcept
     : data{ { val, 0, 0, 0 }, { 0, val, 0, 0 }, { 0, 0, val, 0 }, { 0, 0, 0, val } } {}
+
+template<typename T> requires (std::is_arithmetic_v<T>)
+constexpr tpd::mat4_t<T>::mat4_t(const T* data) noexcept
+    : data{
+        { *(data +  0), *(data +  1), *(data +  2), *(data +  3) },
+        { *(data +  4), *(data +  5), *(data +  6), *(data +  7) },
+        { *(data +  8), *(data +  9), *(data + 10), *(data + 11) },
+        { *(data + 12), *(data + 13), *(data + 14), *(data + 15) },}
+{}
 
 template<typename T> requires (std::is_arithmetic_v<T>)
 constexpr tpd::mat4_t<T>::mat4_t(const mat3_t<T>& mat, const vec3_t<T>& vec, const T r3c3) noexcept
@@ -179,6 +191,11 @@ tpd::mat4_t<T>& tpd::mat4_t<T>::operator/=(const T scalar) noexcept {
     data[2] /= scalar;
     data[3] /= scalar;
     return *this;
+}
+
+template<typename T> requires (std::is_arithmetic_v<T>)
+const T* tpd::mat4_t<T>::data_ptr() const noexcept {
+    return data[0].data;
 }
 
 template<typename T>
