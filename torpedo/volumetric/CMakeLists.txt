@@ -12,7 +12,6 @@ torpedo_define_module(${TARGET} "${TORPEDO_VOLUMETRIC_SOURCES}")
 target_include_directories(${TARGET} PUBLIC include)
 # Dependencies
 target_link_libraries(${TARGET} PUBLIC torpedo::rendering)
-target_link_libraries(${TARGET} PUBLIC torpedo::math)
 
 
 # SHADER ASSETS

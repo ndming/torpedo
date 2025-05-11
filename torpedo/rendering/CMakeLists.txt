@@ -38,6 +38,7 @@ target_include_directories(${TARGET} PUBLIC include)
 # Dependencies
 target_link_libraries(${TARGET} PUBLIC torpedo::bootstrap)
 target_link_libraries(${TARGET} PUBLIC torpedo::foundation)
+target_link_libraries(${TARGET} PUBLIC torpedo::math)
 target_link_libraries(${TARGET} PUBLIC glfw)
 target_link_libraries(${TARGET} PUBLIC plog::plog)
 

@@ -130,10 +130,11 @@ function(torpedo_compile_slang TARGET_NAME SPIR_V_OUTPUT_DIR SLANG_SOURCE_FILES)
     foreach(SLANG_FILE ${SLANG_SOURCE_FILES})
         get_filename_component(FILE_NAME ${SLANG_FILE} NAME)
         set(SPIR_V "${SPIR_V_OUTPUT_DIR}/${FILE_NAME}.spv")
+        set(COMPILE_OPTIONS -profile glsl_460 -target spirv -entry main -O3 -matrix-layout-row-major)
 
         add_custom_command(
             OUTPUT ${SPIR_V}
-            COMMAND ${SLANG_COMPILER} ${SLANG_FILE} -profile glsl_460 -target spirv -o ${SPIR_V} -entry main -O3
+            COMMAND ${SLANG_COMPILER} ${SLANG_FILE} -o ${SPIR_V} ${COMPILE_OPTIONS}
             DEPENDS ${SLANG_FILE}
             COMMENT "Compiling ${FILE_NAME}")
 
@@ -153,5 +154,6 @@ add_subdirectory(${TORPEDO_SOURCE_DIR}/bootstrap)
 add_subdirectory(${TORPEDO_SOURCE_DIR}/foundation)
 add_subdirectory(${TORPEDO_SOURCE_DIR}/math)
 add_subdirectory(${TORPEDO_SOURCE_DIR}/rendering)
-add_subdirectory(${TORPEDO_SOURCE_DIR}/volumetric)
 add_subdirectory(${TORPEDO_SOURCE_DIR}/differential)
+add_subdirectory(${TORPEDO_SOURCE_DIR}/extension)
+add_subdirectory(${TORPEDO_SOURCE_DIR}/volumetric)
