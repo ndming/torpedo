@@ -80,23 +80,22 @@ public float3 getCameraWorldPosition(float4x4 viewMatrix) {
 }
 
 /// Performs frustum clipping of the given `point` using the provided camera matrices
-/// and returns view space depth and the projected position in NDC as out parameters.
-/// The view space `depth` is gauranteed to be valid regardless of the clipping result,
-/// while `projPos` is only valid if the function returns `true`.
-public bool passFrustumClipping(float3 point, float4x4 viewMat, float4x4 projMat, out float depth, out float3 projPos) {
+/// and returns position in view space and the projected position in NDC as out parameters.
+/// `viewPos` is gauranteed to be valid regardless of the clipping result, while `projPos` 
+/// is only valid if the function returns `true`.
+public bool passFrustumClipping(float3 point, float4x4 viewMat, float4x4 projMat, out float3 viewPos, out float3 projPos) {
     // Initialize out parameters to silent compiler warnings
     projPos = float3(0.0, 0.0, 0.0);
 
-    let viewPos = mul(viewMat, float4(point, 1.0));
-    depth = viewPos.z;
-    if (depth <= 0.0) return false; // behind the camera
+    viewPos = mul(viewMat, float4(point, 1.0)).xyz;
+    if (viewPos.z <= 0.0) return false; // behind the camera
 
     // Note that the projection matrix brings points from world all the way to NDC
     let clipPos = mul(projMat, float4(point, 1.0));
 
     // Frustum clipping
-    if (clipPos.x < -clipPos.w || clipPos.x > clipPos.w) return false; // outside left/right frustum planes
-    if (clipPos.y < -clipPos.w || clipPos.y > clipPos.w) return false; // outside top/bottom frustum planes
+    if (clipPos.x < -1.3 * clipPos.w || clipPos.x > 1.3 * clipPos.w) return false; // outside left/right frustum planes
+    if (clipPos.y < -1.3 * clipPos.w || clipPos.y > 1.3 * clipPos.w) return false; // outside top/bottom frustum planes
 
     // Note that we're working with reversed z-mapping, i.e. [near, far] are mapped to [1, 0]
     // See: https://developer.nvidia.com/content/depth-precision-visualized

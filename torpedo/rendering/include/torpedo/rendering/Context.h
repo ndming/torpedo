@@ -1,5 +1,6 @@
 #pragma once
 
+#include "torpedo/rendering/Camera.h"
 #include "torpedo/rendering/Renderer.h"
 #include "torpedo/rendering/Engine.h"
 #include "torpedo/rendering/LogUtils.h"
@@ -28,10 +29,16 @@ namespace tpd {
         template<EngineImpl E>
         void destroyEngine(std::unique_ptr<E, Deleter<E>> engine) noexcept;
 
+        template<CameraImpl C>
+        [[nodiscard]] std::unique_ptr<C, Deleter<C>> createCamera();
+
+        template<CameraImpl C>
+        void destroyCamera(std::unique_ptr<C, Deleter<C>> camera) noexcept;
+
         ~Context() noexcept;
 
     private:
-        // Keep Renderer and Engine close on the heap
+        // Keep Context resources close on the heap
         static std::pmr::unsynchronized_pool_resource _contextResource;
 
         explicit Context(R* renderer);
@@ -252,7 +259,7 @@ template<tpd::RendererImpl R>
 template<tpd::EngineImpl E>
 void tpd::Context<R>::destroyEngine(std::unique_ptr<E, Deleter<E>> engine) noexcept {
     if (!engine) [[unlikely]] {
-        PLOGW << "Context - Destroying an Engine that has likely already been destroyed: is this a joke?";
+        PLOGW << "Context - Destroying an Engine that has already been destroyed: haha?";
         return;
     }
     if (!_engine || _engine != engine.get()) [[unlikely]] {
@@ -263,6 +270,36 @@ void tpd::Context<R>::destroyEngine(std::unique_ptr<E, Deleter<E>> engine) noexc
 
     engine.reset();
     _engine = nullptr;
+}
+
+template<tpd::RendererImpl R>
+template<tpd::CameraImpl C>
+std::unique_ptr<C, tpd::Deleter<C>> tpd::Context<R>::createCamera() {
+    if (!_renderer->initialized()) [[unlikely]] {
+        PLOGE << "Context - Please init the renderer before creating any Camera!";
+        throw std::runtime_error("Context - Create Camera before initializing the associated Renderer");
+    }
+
+    const auto [w, h] = _renderer->getFramebufferSize();
+    auto camera = alloc::make_unique<C>(&_contextResource, w, h);
+
+    _renderer->addFramebufferResizeCallback(camera.get(), [](void* ptr, const uint32_t width, const uint32_t height) {
+        const auto cam = static_cast<Camera*>(ptr);
+        cam->onImageSizeChange(width, height);
+    });
+
+    return camera;
+}
+
+template<tpd::RendererImpl R>
+template<tpd::CameraImpl C>
+void tpd::Context<R>::destroyCamera(std::unique_ptr<C, Deleter<C>> camera) noexcept {
+    if (!camera) [[unlikely]] {
+        PLOGW << "Context - Destroying a Camera that has already been destroyed: haha?";
+        return;
+    }
+    _renderer->removeFramebufferResizeCallback(camera.get());
+    camera.reset();
 }
 
 template<tpd::RendererImpl R>

@@ -7,7 +7,6 @@
 #include <plog/Log.h>
 
 #include <filesystem>
-#include <numbers>
 #include <random>
 
 tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
@@ -113,7 +112,6 @@ void tpd::GaussianEngine::onInitialized() {
     createRenderTargets(w, h);
 
     createPointCloudObject();
-    createCameraObject(w, h);
 
     // These buffers can be used across in-flight frames due to the readback fence
     createCameraBuffer();
@@ -187,12 +185,9 @@ void tpd::GaussianEngine::framebufferResizeCallback(void* ptr, const uint32_t wi
 void tpd::GaussianEngine::onFramebufferResize(const uint32_t width, const uint32_t height) {
     cleanupRenderTargets();
     createRenderTargets(width, height);
-
-    createCameraObject(width, height);
     createRangeBuffers(width, height);
 
     PLOGD << "GaussianEngine - Recreated render targets and ranges buffer";
-
 }
 
 void tpd::GaussianEngine::createDrawingCommandPool() {
@@ -301,40 +296,6 @@ void tpd::GaussianEngine::createPointCloudObject() {
     _pc = PointCloud{ GAUSSIAN_COUNT, 0 };
 }
 
-void tpd::GaussianEngine::createCameraObject(const uint32_t width, const uint32_t height) {
-    constexpr auto fovY = 60.0f * std::numbers::pi_v<float> / 180.0f; // radians
-    const auto aspect = static_cast<float>(width) / static_cast<float>(height);
-    _camera.tanFov.y  = std::numbers::inv_sqrt3_v<float>; // tan(60/2)
-    _camera.tanFov.x  = _camera.tanFov.y * aspect;
-
-    _camera.viewMatrix = mat4{
-        1.0f, 0.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 1.0f, 2.0f,
-        0.0f, 0.0f, 0.0f, 1.0f,
-    };
-
-    // The projection map to reverse depth (1, 0) range, and the camera orientation is the same as OpenCV
-    const auto fy = 1.f / std::tan(fovY / 2.f);
-    const auto fx = fy / aspect;
-    constexpr auto za = NEAR / (NEAR - FAR);
-    constexpr auto zb = NEAR * FAR / (FAR - NEAR);
-    const auto projection = mat4{
-        fx,  0.f, 0.f, 0.f,
-        0.f, fy,  0.f, 0.f,
-        0.f, 0.f, za,  zb,
-        0.f, 0.f, 1.f, 0.f,
-    };
-    _camera.projMatrix = math::mul(projection, _camera.viewMatrix);
-
-    _camera.viewMatrix = math::transpose(_camera.viewMatrix);
-    _camera.projMatrix = math::transpose(_camera.projMatrix);
-}
-
-void tpd::GaussianEngine::updateCameraBuffer(const uint32_t frameIndex) const {
-    _cameraBuffer.update(frameIndex, &_camera, sizeof(Camera));
-}
-
 void tpd::GaussianEngine::createCameraBuffer() {
     // A RingBuffer internally uses offsets to manage the buffer, and for a uniform buffer, these offsets
     // must be aligned to the minUniformBufferOffsetAlignment limit of the physical device.
@@ -360,7 +321,7 @@ void tpd::GaussianEngine::createGaussianBuffer() {
     auto points = std::vector<Gaussian>(GAUSSIAN_COUNT);
 
     std::mt19937 rng{std::random_device{}()};
-    std::uniform_real_distribution dist_pos(-2.0f, 2.0f);
+    std::uniform_real_distribution dist_pos(-8.0f, 8.0f);
     std::uniform_real_distribution dist_depth(-1.0f, 10.0f);
     std::uniform_real_distribution dist_opacity(0.1f, 1.0f);
     std::uniform_real_distribution dist_scale(0.008f, 0.08f);
@@ -533,7 +494,7 @@ void tpd::GaussianEngine::setStorageBufferDescriptors(
     }
 }
 
-void tpd::GaussianEngine::preFrameCompute() {
+void tpd::GaussianEngine::preFrameCompute(const Camera& camera) {
     // Choose the right queue to submit pre-frame work
     const auto preFrameQueue = asyncCompute() ? _computeQueue : _graphicsQueue;
 
@@ -541,7 +502,7 @@ void tpd::GaussianEngine::preFrameCompute() {
     vmaSetCurrentFrameIndex(_vmaAllocator, frameIndex);
 
     // Set uniform buffers for camera
-    updateCameraBuffer(frameIndex);
+    updateCameraBuffer(frameIndex, camera);
 
     // Wait until the GPU has done with the pre-frame compute buffer for this frame
     using limits = std::numeric_limits<uint64_t>;
@@ -673,6 +634,18 @@ void tpd::GaussianEngine::draw(const SwapImage image) {
     graphicsDraw.end();
 
     _graphicsQueue.submit2(submitInfo, frameDrawFence);
+}
+
+void tpd::GaussianEngine::updateCameraBuffer(const uint32_t frameIndex, const Camera& camera) const {
+    auto projection = mat4{ camera.getProjectionData() };
+    const auto fx = projection[0, 0];
+    const auto fy = projection[1, 1];
+    projection = math::mul(projection, camera.getViewMatrix());
+    const auto focalNDC = std::array{ fx, fy };
+
+    _cameraBuffer.update(frameIndex, camera.getViewMatrixData(), sizeof(mat4));
+    _cameraBuffer.update(frameIndex, projection.data_ptr(), sizeof(mat4), sizeof(mat4));
+    _cameraBuffer.update(frameIndex, focalNDC.data(), sizeof(focalNDC), sizeof(mat4) * 2);
 }
 
 void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcept {

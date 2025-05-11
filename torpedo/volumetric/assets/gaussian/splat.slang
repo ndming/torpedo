@@ -18,7 +18,7 @@ public struct RasterInfo {
 public struct Camera {
     public float4x4 viewMatrix; // world to view space, row-major
     public float4x4 projMatrix; // world to clip space, row-major
-    public float2 tanHalfFov;   // tan (fov / 2) in x- and y-axis
+    public float2 focalNDC; // inverse tangent of half FOV
 }
 
 // Size: 240 bytes, alignment: 16 bytes

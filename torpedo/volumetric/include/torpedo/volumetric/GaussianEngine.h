@@ -1,6 +1,7 @@
 #pragma once
 
 #include <torpedo/rendering/Engine.h>
+#include <torpedo/rendering/Camera.h>
 
 #include <torpedo/foundation/Target.h>
 #include <torpedo/foundation/ReadbackBuffer.h>
@@ -13,7 +14,7 @@
 namespace tpd {
     class GaussianEngine final : public Engine {
     public:
-        void preFrameCompute();
+        void preFrameCompute(const Camera& camera);
         void draw(SwapImage image) override;
 
         ~GaussianEngine() noexcept override { destroy(); }
@@ -54,9 +55,6 @@ namespace tpd {
 
         void createPointCloudObject();
 
-        void createCameraObject(uint32_t width, uint32_t height);
-        void updateCameraBuffer(uint32_t frameIndex) const;
-
         void createCameraBuffer();
         void createGaussianBuffer();
         void createSplatBuffer();
@@ -75,9 +73,7 @@ namespace tpd {
 
         void setStorageBufferDescriptors(vk::Buffer buffer, vk::DeviceSize size, uint32_t binding) const;
 
-        static constexpr uint32_t WORKGROUP_SIZE = 256; // number of local threads per workgroup in scan passes
-        static constexpr uint32_t BLOCK_X = 16; // tile size in x-dimension
-        static constexpr uint32_t BLOCK_Y = 16; // tile size in y-dimension
+        void updateCameraBuffer(uint32_t frameIndex, const Camera& camera) const;
         void recordSplat(vk::CommandBuffer cmd) const noexcept;
         void reallocateBuffers(uint32_t frameIndex);
         void recordBlend(vk::CommandBuffer cmd, uint32_t tilesRendered, uint32_t frameIndex) const noexcept;
@@ -104,13 +100,9 @@ namespace tpd {
             uint32_t shDegree;
         };
 
-        static constexpr auto NEAR = 0.01f;
-        static constexpr auto FAR = 100.0f;
-        struct Camera {
-            mat4 viewMatrix;
-            mat4 projMatrix;
-            vec2 tanFov;
-        };
+        static constexpr uint32_t WORKGROUP_SIZE = 256; // number of local threads per workgroup in scan passes
+        static constexpr uint32_t BLOCK_X = 16; // tile size in x-dimension
+        static constexpr uint32_t BLOCK_Y = 16; // tile size in y-dimension
 
         /*--------------------*/
 
@@ -141,8 +133,6 @@ namespace tpd {
         vk::Pipeline _coalescePipeline{};
         vk::Pipeline _rangePipeline{};
         vk::Pipeline _forwardPipeline{};
-
-        Camera _camera{};
 
         /*--------------------*/
 

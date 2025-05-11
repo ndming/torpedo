@@ -1,13 +1,13 @@
 implementing splat;
 
 public float2 ndc2pix(float2 ndcPoint, uint2 imageSize) {
-    // The orignial CUDA code follows the old convention of rounding continuous coordinates to the nearest integer to
+    // The original CUDA code follows the old convention of rounding continuous coordinates to the nearest integer to
     // find the pixel center, hence the mapping [-1, 1] to [-0.5, size - 0.5] in this following code
     // More reading: https://pbr-book.org/4ed/Sampling_and_Reconstruction/Sampling_Theory#UnderstandingPixels
     return ((ndcPoint + 1.0) * imageSize - 1.0) * 0.5;
 }
 
-/// Returns the screen-space starting tile index `rectMin` and ending tile index `rectMax` (exclusive) thats the image
+/// Returns the screen-space starting tile index `rectMin` and ending tile index `rectMax` (exclusive) that the image
 /// `point` with `radius` in pixels overlaps with. `grid` specifies the number of `BLOCK_X` x `BLOCK_Y` tiles.
 public void getBoundingRect(float2 point, float radius, uint2 grid, out uint2 rectMin, out uint2 rectMax) {
     rectMin.x = min(grid.x, max(0, (int)((point.x - radius) / BLOCK_X)));
@@ -41,30 +41,22 @@ public float3x3 computeCovariance(float4 quaternion, float4 scale) {
 }
 
 /// Projects a 3D covariance matrix of a Gaussian centered at `mean` in world space to a 2D covariance in clip space
-public float2x2 projectCovariance(float3x3 cov3D, float3 mean, float4x4 viewMatrix, float2 focal, float2 tanHalfFov) {
+public float2x2 projectCovariance(float3x3 cov3D, float3 viewPos, float4x4 viewMatrix, float2 focal) {
     let W = (float3x3)viewMatrix;
-    let J = computeJacobian(mean, viewMatrix, focal, tanHalfFov);
+    let J = computeJacobian(viewPos, focal);
     let cov2D = mul(J, mul(W, mul(cov3D, transpose(W))) * transpose(J)); // J * W * Sigma_3D * W^T * J^T
     // Note that the low-pass filtering is hoisted out of this function, call site should apply it
     return (float2x2)cov2D;
 }
 
 /// Computes the local affine approximation of a projective transformation on `mean`, see EWA Spatting equation 29 
-float3x3 computeJacobian(float3 mean, float4x4 viewMatrix, float2 focal, float2 tanHalfFov) {
-    // The Gaussian's center in camera space
-    var t = mul(viewMatrix, float4(mean, 1.0)).xyz;
-
-    // TODO: Understand this logic
-    let limx = 1.3 * tanHalfFov.x;
-    let limy = 1.3 * tanHalfFov.y;
-    let txtz = t.x / t.z;
-    let tytz = t.y / t.z;
-    t.x = min(limx, max(-limx, txtz)) * t.z;
-    t.y = min(limy, max(-limy, tytz)) * t.z;
+float3x3 computeJacobian(float3 viewPos, float2 focal) {
+    let f = focal / viewPos.z;
+    let t = viewPos.xy / viewPos.z;
 
     return float3x3(
-        focal.x / t.z, 0.0,           -(focal.x * t.x) / (t.z * t.z),
-        0.0,           focal.y / t.z, -(focal.y * t.y) / (t.z * t.z),
-        0.0,           0.0,          0.0, 
+        f.x, 0.0, -f.x * t.x,
+        0.0, f.y, -f.y * t.y,
+        0.0, 0.0, 0.0, 
     );
 }

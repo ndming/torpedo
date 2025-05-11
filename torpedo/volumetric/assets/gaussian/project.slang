@@ -32,17 +32,17 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     let mean = gaussians[idx].position;
 
     // Quit if outside the frustum
-    float depth; float3 projPos; // depth z in view space and projected position in NDC
-    if (!passFrustumClipping(mean, camera.viewMatrix, camera.projMatrix, depth, projPos)) return;
+    float3 viewPos; float3 projPos; // depth z in view space and projected position in NDC
+    if (!passFrustumClipping(mean, camera.viewMatrix, camera.projMatrix, viewPos, projPos)) return;
 
     // The image size in pixels
     uint2 imageSize; uint mipCount;
     outputImage.GetDimensions(0, imageSize.x, imageSize.y, mipCount);
 
     // Convert R and S to covariance 3D then project it to image space
-    let focal = imageSize / (2.0 * camera.tanHalfFov);
+    let focal = 0.5 * imageSize * camera.focalNDC;
     let cov3D = computeCovariance(gaussians[idx].quaternion, gaussians[idx].scale);
-    let cov2D = projectCovariance(cov3D, mean, camera.viewMatrix, focal, camera.tanHalfFov);
+    let cov2D = projectCovariance(cov3D, viewPos, camera.viewMatrix, focal);
 
     // Apply low-pass filter: every Gaussian should be at least one pixel wide/high, discard 3rd row and column
     let cov = float3(cov2D[0][0] + 0.3, cov2D[1][0], cov2D[1][1] + 0.3f);
@@ -70,7 +70,7 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
 
     // Store preprocessed Gaussian data as RasterPoint
     splats[idx].color = color;
-    splats[idx].texel = float4(imgPoint, depth, radius);
+    splats[idx].texel = float4(imgPoint, viewPos.z, radius);
     splats[idx].copac = float4(conic, gaussians[idx].opacity);
     splats[idx].tiles = (rectMax.x - rectMin.x) * (rectMax.y - rectMin.y);
 }
