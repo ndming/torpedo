@@ -12,18 +12,18 @@ tpd::RingBuffer tpd::RingBuffer::Builder::build(VmaAllocator allocator) const {
     return RingBuffer{ pMappedData, _bufferCount, allocSizePerBuffer, buffer, allocation };
 }
 
-void tpd::RingBuffer::update(const uint32_t bufferIndex, const void* data, const std::size_t size) const {
+void tpd::RingBuffer::update(const uint32_t bufferIndex, const void* data, const std::size_t size, const std::size_t offset) const {
     // Memory in Vulkan doesn't need to be unmapped before using it on GPU. However, unless memory types have
     // a VK_MEMORY_PROPERTY_HOST_COHERENT_BIT flag set, we need to manually invalidate cache before reading of mapped
     // pointer and flush cache after writing to map a pointer. Map/unmap operations don't do that automatically.
     // Windows drivers from all 3 PC GPU vendors (AMD, Intel, NVIDIA) currently provide HOST_COHERENT flag on all
     // memory types that are HOST_VISIBLE, so on PC we may not need to bother.
-    memcpy(_pMappedData + _allocSizePerBuffer * bufferIndex, data, size);
+    memcpy(_pMappedData + _allocSizePerBuffer * bufferIndex + offset, data, size);
 }
 
-void tpd::RingBuffer::update(const void* data, const std::size_t size) const {
+void tpd::RingBuffer::update(const void* data, const std::size_t size, const std::size_t offset) const {
     for (auto i = 0; i < _bufferCount; ++i) {
-        update(i, data, size);
+        update(i, data, size, offset);
     }
 }
 

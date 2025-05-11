@@ -24,8 +24,8 @@ namespace tpd {
         RingBuffer(RingBuffer&& other) noexcept;
         RingBuffer& operator=(RingBuffer&& other) noexcept;
 
-        void update(uint32_t bufferIndex, const void* data, std::size_t size) const;
-        void update(const void* data, std::size_t size) const;
+        void update(uint32_t bufferIndex, const void* data, std::size_t size, std::size_t offset = 0) const;
+        void update(const void* data, std::size_t size, std::size_t offset = 0) const;
 
         [[nodiscard]] uint32_t getOffset(uint32_t bufferIndex) const;
 
