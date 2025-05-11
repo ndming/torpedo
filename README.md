@@ -34,11 +34,16 @@ sudo apt install libwayland-dev libxkbcommon-dev xorg-dev
 ```
 
 #### 🐍 Build using a Conda environment
-Clang-build is the only option for conda-managed dependencies.
+Clang-build is the only option for conda-managed dependencies where all required packages and tools for each OS 
+are included in their respective `.yml` files.
 
-All required packages for each OS are included in their respective `.yml` files, with the only exception is the 
-[Slang](https://github.com/shader-slang/slang/releases/tag/v2024.17) compiler, for which version `2024.17` needs 
-to be downloaded and extracted to a location whose path is specified during CMake configuration.
+The only exception to the above is the [Slang](https://shader-slang.org/) compiler, for which the prebuilt
+[binaries](https://github.com/shader-slang/slang/releases/tag/vulkan-sdk-1.4.304.1) corresponding to Vulkan `1.4.304` 
+needs to be downloaded and extracted to a location whose path is specified during CMake configuration:
+```shell
+# During CMake configuration
+cmake ... -DSLANG_COMPILER_DIR=path/to/slang/bin
+```
 
 ###### Windows
 ```shell
@@ -58,10 +63,6 @@ Make sure Visual Studio version is `17.9.7` or greater, with the following compo
 conda env create --file env-linux.yml
 conda activate torpedo
 ```
-
-There is a small limitation when setting up Conda environment on Linux: the `xorg-dev` library, which provides support
-for X11, is not well maintained on `conda-forge`. This only causes issues when performing surface rendering on systems
-using X11. As long as `tpd::SurfaceRenderer` is not used, the Conda environment works fine at runtimes on such hosts.
 
 ### Release build
 Configure and build the project:
