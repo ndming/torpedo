@@ -25,8 +25,7 @@ set(TORPEDO_RENDERING_SOURCES
         src/HeadlessRenderer.cpp
         src/LogUtils.cpp
         src/Renderer.cpp
-        src/SurfaceRenderer.cpp
-        src/TransferWorker.cpp)
+        src/SurfaceRenderer.cpp)
 
 
 # TORPEDO RENDERING MODULE

@@ -3,11 +3,12 @@
 #include <torpedo/rendering/Engine.h>
 #include <torpedo/rendering/Camera.h>
 
-#include <torpedo/foundation/Target.h>
 #include <torpedo/foundation/ReadbackBuffer.h>
 #include <torpedo/foundation/RingBuffer.h>
 #include <torpedo/foundation/ShaderLayout.h>
 #include <torpedo/foundation/StorageBuffer.h>
+#include <torpedo/foundation/Target.h>
+#include <torpedo/foundation/TransferWorker.h>
 
 #include <torpedo/math/mat4.h>
 

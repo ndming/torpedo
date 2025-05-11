@@ -1,15 +1,15 @@
-#include "torpedo/rendering/TransferWorker.h"
-
-#include <torpedo/foundation/StorageBuffer.h>
-#include <torpedo/foundation/Texture.h>
-
-#include <plog/Log.h>
+#include "torpedo/foundation/TransferWorker.h"
+#include "torpedo/foundation/StorageBuffer.h"
+#include "torpedo/foundation/Texture.h"
 
 tpd::DeletionWorker::DeletionWorker(const vk::Device device, VmaAllocator vmaAllocator)
-    : _device{ device }, _vmaAllocator{ vmaAllocator }
-    , _workerThread{ std::thread(&DeletionWorker::deletionWork, this) }
-{
-    PLOGD << "DeletionWorker - Launched 1 deletion thread";
+    : _device{ device }, _vmaAllocator{ vmaAllocator } {}
+
+void tpd::DeletionWorker::start() {
+    if (!_workerThread.joinable()) [[unlikely]] {
+        _workerThread = std::thread(&DeletionWorker::deletionWork, this);
+        _statusUpdateCallback("DeletionWorker - Launched 1 deletion thread");
+    }
 }
 
 void tpd::DeletionWorker::submit(
@@ -22,7 +22,7 @@ void tpd::DeletionWorker::submit(
     {
         std::lock_guard lock(_queueMutex);
         auto resource = OpaqueResource{ buffer, allocation };
-        PLOGD << "DeletionWorker - Inserting a resource: " << resource.toString();
+        _statusUpdateCallback("DeletionWorker - Inserting a resource: " + resource.toString());
         _tasks.emplace_back(fence, std::move(resource), semaphore, std::move(commandBuffers));
     }
     _queueCondition.notify_one();
@@ -59,7 +59,7 @@ void tpd::DeletionWorker::deletionWork() {
             for (const auto [pool, buffer] : buffers) _device.freeCommandBuffers(pool, buffer);
         }
 
-        PLOGD << "DeletionWorker - Destroyed a resource: " << resName;
+        _statusUpdateCallback("DeletionWorker - Destroyed a resource: " + resName);
 
         // Notify the main thread who could potentially be waiting until all tasks are free
         // If that's not the case, this signal can be lost without causing any issue
@@ -82,7 +82,7 @@ void tpd::DeletionWorker::shutdown() noexcept {
         }
         _queueCondition.notify_one();
         _workerThread.join();
-        PLOGD << "DeletionWorker - Shut down 1 deletion thread";
+        _statusUpdateCallback("DeletionWorker - Shut down 1 deletion thread");
     }
 }
 
@@ -118,6 +118,8 @@ void tpd::TransferWorker::transfer(
     if (size == 0) {
         return;
     }
+
+    _deletionWorker.start();
 
     const auto [stagingBuffer, stagingAllocation] = vma::allocateStagingBuffer(_deletionWorker._vmaAllocator, size);
     vma::copyStagingData(_deletionWorker._vmaAllocator, data, size, stagingAllocation);
@@ -164,6 +166,8 @@ void tpd::TransferWorker::transfer(
     if (size == 0) {
         return;
     }
+
+    _deletionWorker.start();
 
     const auto [stagingBuffer, stagingAllocation] = vma::allocateStagingBuffer(_deletionWorker._vmaAllocator, size);
     vma::copyStagingData(_deletionWorker._vmaAllocator, data, size, stagingAllocation);
@@ -215,6 +219,8 @@ void tpd::TransferWorker::transfer(
     if (size == 0) {
         return;
     }
+
+    _deletionWorker.start();
 
     const auto [stagingBuffer, stagingAllocation] = vma::allocateStagingBuffer(_deletionWorker._vmaAllocator, size);
     vma::copyStagingData(_deletionWorker._vmaAllocator, data, size, stagingAllocation);

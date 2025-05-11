@@ -1,9 +1,10 @@
 #pragma once
 
-#include <torpedo/foundation/VmaUsage.h>
+#include "torpedo/foundation/VmaUsage.h"
 
-#include <mutex>
 #include <deque>
+#include <functional>
+#include <mutex>
 #include <thread>
 
 namespace tpd {
@@ -17,6 +18,8 @@ namespace tpd {
         DeletionWorker(const DeletionWorker&) = delete;
         DeletionWorker& operator=(const DeletionWorker&) = delete;
 
+        void start();
+
         void submit(
             vk::Fence fence, vk::Buffer buffer, VmaAllocation allocation, vk::Semaphore semaphore = {},
             std::vector<std::pair<vk::CommandPool, vk::CommandBuffer>>&& commandBuffers = {});
@@ -27,6 +30,8 @@ namespace tpd {
         ~DeletionWorker() noexcept { shutdown(); }
 
     private:
+        std::function<void(std::string_view)> _statusUpdateCallback{ [](std::string_view) {} };
+
         vk::Device _device;
         VmaAllocator _vmaAllocator;
 
@@ -39,7 +44,7 @@ namespace tpd {
             vk::Semaphore semaphore;
             std::vector<std::pair<vk::CommandPool, vk::CommandBuffer>> buffers;
         };
-        std::deque<Task> _tasks;
+        std::deque<Task> _tasks{};
         bool _stopWorker{ false };
 
         std::mutex _queueMutex{};
@@ -71,7 +76,11 @@ namespace tpd {
             const void* data, vk::DeviceSize size, const Texture& texture, vk::Extent3D extent, uint32_t dstFamily,
             uint32_t mipCount, vk::ImageLayout dstLayout = vk::ImageLayout::eShaderReadOnlyOptimal);
 
+        void setStatusUpdateCallback(const std::function<void(std::string_view)>& callback) noexcept;
+        void setStatusUpdateCallback(std::function<void(std::string_view)>&& callback) noexcept;
+
         void waitIdle() { _deletionWorker.waitEmpty(); }
+
         void destroy() noexcept;
 
     private:
@@ -100,6 +109,14 @@ namespace tpd {
         vk::CommandPool _computeAcquirePool;
     };
 } // namespace tpd
+
+inline void tpd::TransferWorker::setStatusUpdateCallback(const std::function<void(std::string_view)>& callback) noexcept {
+    _deletionWorker._statusUpdateCallback = callback;
+}
+
+inline void tpd::TransferWorker::setStatusUpdateCallback(std::function<void(std::string_view)>&& callback) noexcept {
+    _deletionWorker._statusUpdateCallback = std::move(callback);
+}
 
 inline vk::CommandPool tpd::TransferWorker::getPool(const uint32_t queueFamily) const {
     if (queueFamily == _transferFamily) {

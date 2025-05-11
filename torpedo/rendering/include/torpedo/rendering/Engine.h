@@ -1,7 +1,8 @@
 #pragma once
 
 #include "torpedo/rendering/Renderer.h"
-#include "torpedo/rendering/TransferWorker.h"
+
+#include <torpedo/foundation/VmaUsage.h>
 
 namespace tpd {
     struct PhysicalDeviceSelection;

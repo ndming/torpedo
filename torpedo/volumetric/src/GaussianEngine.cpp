@@ -77,6 +77,7 @@ void tpd::GaussianEngine::onInitialized() {
     // We're going to need a transfer worker for data transfer
     _transferWorker = std::make_unique<TransferWorker>(
         _transferFamilyIndex, _graphicsFamilyIndex, _computeFamilyIndex, _physicalDevice, _device, _vmaAllocator);
+    _transferWorker->setStatusUpdateCallback([](const auto message) { PLOGD << message; });
 
     // Create queues relevant to Gaussian splatting
     _graphicsQueue = _device.getQueue(_graphicsFamilyIndex, 0);

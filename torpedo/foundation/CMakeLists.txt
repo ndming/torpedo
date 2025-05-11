@@ -12,6 +12,7 @@ set(TORPEDO_FOUNDATION_SOURCES
         src/StorageBuffer.cpp
         src/Target.cpp
         src/Texture.cpp
+        src/TransferWorker.cpp
         src/VmaUsage.cpp)
 
 
