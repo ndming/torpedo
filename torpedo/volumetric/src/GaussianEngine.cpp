@@ -297,21 +297,17 @@ void tpd::GaussianEngine::createPointCloudObject() {
 }
 
 void tpd::GaussianEngine::createCameraBuffer() {
-    // A RingBuffer internally uses offsets to manage the buffer, and for a uniform buffer, these offsets
-    // must be aligned to the minUniformBufferOffsetAlignment limit of the physical device.
-    const auto minAlignment = _physicalDevice.getProperties().limits.minUniformBufferOffsetAlignment;
-
     _cameraBuffer = RingBuffer::Builder()
-        .count(_renderer->getInFlightFrameCount())
+        .count(1) // thanks to readback fence, a single camera buffer can be used across in-flight frames
         .usage(vk::BufferUsageFlagBits::eUniformBuffer)
-        .alloc(sizeof(Camera), minAlignment)
+        .alloc(sizeof(Camera))
         .build(_vmaAllocator);
 
     // Set camera buffer descriptors
     for (uint32_t i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
         const auto descriptorInfo = vk::DescriptorBufferInfo{}
             .setBuffer(_cameraBuffer)
-            .setOffset(_cameraBuffer.getOffset(i))
+            .setOffset(0)
             .setRange(sizeof(Camera));
         _frames[i].instance.setDescriptor(0, 1, vk::DescriptorType::eUniformBuffer, _device, descriptorInfo);
     }
@@ -502,7 +498,7 @@ void tpd::GaussianEngine::preFrameCompute(const Camera& camera) {
     vmaSetCurrentFrameIndex(_vmaAllocator, frameIndex);
 
     // Set uniform buffers for camera
-    updateCameraBuffer(frameIndex, camera);
+    updateCameraBuffer(camera);
 
     // Wait until the GPU has done with the pre-frame compute buffer for this frame
     using limits = std::numeric_limits<uint64_t>;
@@ -636,16 +632,16 @@ void tpd::GaussianEngine::draw(const SwapImage image) {
     _graphicsQueue.submit2(submitInfo, frameDrawFence);
 }
 
-void tpd::GaussianEngine::updateCameraBuffer(const uint32_t frameIndex, const Camera& camera) const {
+void tpd::GaussianEngine::updateCameraBuffer(const Camera& camera) const {
     auto projection = mat4{ camera.getProjectionData() };
     const auto fx = projection[0, 0];
     const auto fy = projection[1, 1];
     projection = math::mul(projection, camera.getViewMatrix());
     const auto focalNDC = std::array{ fx, fy };
 
-    _cameraBuffer.update(frameIndex, camera.getViewMatrixData(), sizeof(mat4));
-    _cameraBuffer.update(frameIndex, projection.data_ptr(), sizeof(mat4), sizeof(mat4));
-    _cameraBuffer.update(frameIndex, focalNDC.data(), sizeof(focalNDC), sizeof(mat4) * 2);
+    _cameraBuffer.update(0, camera.getViewMatrixData(), sizeof(mat4));
+    _cameraBuffer.update(0, projection.data_ptr(), sizeof(mat4), sizeof(mat4));
+    _cameraBuffer.update(0, focalNDC.data(), sizeof(focalNDC), sizeof(mat4) * 2);
 }
 
 void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcept {

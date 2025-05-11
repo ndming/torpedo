@@ -73,7 +73,7 @@ namespace tpd {
 
         void setStorageBufferDescriptors(vk::Buffer buffer, vk::DeviceSize size, uint32_t binding) const;
 
-        void updateCameraBuffer(uint32_t frameIndex, const Camera& camera) const;
+        void updateCameraBuffer(const Camera& camera) const;
         void recordSplat(vk::CommandBuffer cmd) const noexcept;
         void reallocateBuffers(uint32_t frameIndex);
         void recordBlend(vk::CommandBuffer cmd, uint32_t tilesRendered, uint32_t frameIndex) const noexcept;
@@ -103,6 +103,8 @@ namespace tpd {
         static constexpr uint32_t WORKGROUP_SIZE = 256; // number of local threads per workgroup in scan passes
         static constexpr uint32_t BLOCK_X = 16; // tile size in x-dimension
         static constexpr uint32_t BLOCK_Y = 16; // tile size in y-dimension
+        static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
+        static constexpr uint32_t MAX_SH_RGB = 48; // maximum number of floats for RGB spherical harmonics
 
         /*--------------------*/
 
@@ -137,10 +139,6 @@ namespace tpd {
         /*--------------------*/
 
         static constexpr uint32_t GAUSSIAN_COUNT = 8192;
-        static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
-
-        // The maximum number of floats for RGB spherical harmonics
-        static constexpr uint32_t MAX_SH_RGB = 48;
         struct Gaussian {
             vec3 position;
             float opacity;
