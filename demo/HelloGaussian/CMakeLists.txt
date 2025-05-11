@@ -9,3 +9,4 @@ torpedo_demo_clang_setup(HelloGaussian)
 # Dependencies
 # ------------
 target_link_libraries(HelloGaussian PRIVATE torpedo::volumetric)
+target_link_libraries(HelloGaussian PRIVATE torpedo::extension)
