@@ -44,17 +44,24 @@ tpd::SurfaceRenderer::Window::Window(const bool fullscreen) {
     }
 }
 
-void tpd::SurfaceRenderer::Window::loop(const std::function<void()>& onRender) const {
-    while (!glfwWindowShouldClose(_glfwWindow)) [[likely]] {
+tpd::SurfaceRenderer::Window::~Window() {
+    glfwDestroyWindow(_glfwWindow);
+    _glfwWindow = nullptr;
+    glfwTerminate();
+}
+
+void tpd::SurfaceRenderer::loop(const std::function<void()>& onRender) const {
+    while (!glfwWindowShouldClose(_window->_glfwWindow)) [[likely]] {
         glfwPollEvents();
         onRender();
     }
+    _device.waitIdle();
 }
 
-void tpd::SurfaceRenderer::Window::loop(const std::function<void(float)>& onRender) const {
+void tpd::SurfaceRenderer::loop(const std::function<void(float)>& onRender) const {
     auto lastTime = std::chrono::high_resolution_clock::now();
 
-    while (!glfwWindowShouldClose(_glfwWindow)) [[likely]] {
+    while (!glfwWindowShouldClose(_window->_glfwWindow)) [[likely]] {
         glfwPollEvents();
 
         const auto currentTime = std::chrono::high_resolution_clock::now();
@@ -63,12 +70,7 @@ void tpd::SurfaceRenderer::Window::loop(const std::function<void(float)>& onRend
 
         lastTime = currentTime;
     }
-}
-
-tpd::SurfaceRenderer::Window::~Window() {
-    glfwDestroyWindow(_glfwWindow);
-    _glfwWindow = nullptr;
-    glfwTerminate();
+    _device.waitIdle();
 }
 
 #if defined(_WIN32)

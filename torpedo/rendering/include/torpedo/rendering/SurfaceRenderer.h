@@ -20,15 +20,15 @@ namespace tpd {
 
             void setTitle(std::string_view title) const;
 
-            void loop(const std::function<void()>& onRender) const;
-            void loop(const std::function<void(float)>& onRender) const;
-
             ~Window();
 
         private:
             GLFWwindow* _glfwWindow;
             friend class SurfaceRenderer;
         };
+
+        void loop(const std::function<void()>& onRender) const;
+        void loop(const std::function<void(float)>& onRender) const;
 
         [[nodiscard]] SwapImage launchFrame();
         void submitFrame(uint32_t imageIndex);

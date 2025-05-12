@@ -17,14 +17,13 @@ int main() {
     const auto camera = context->createCamera<tpd::PerspectiveCamera>();
     camera->lookAt({ 0.f, 0.f, -6.f }, { 0.f, 0.f, 0.f }, { 0.f, -1.f, 0.f });
 
-    renderer->getWindow()->loop([&] {
+    renderer->loop([&] {
         engine->preFrameCompute(*camera);
         if (const auto swapImage = renderer->launchFrame(); swapImage) {
             engine->draw(swapImage);
             renderer->submitFrame(swapImage.index);
         }
     });
-    engine->waitIdle();
 
     return 0;
 }
