@@ -34,7 +34,7 @@ namespace tpd::alloc {
         return size + alignment - 1 & ~(alignment - 1);
     }
 
-    template <typename T, typename... Args> requires (!std::is_array_v<T>)
+    template <typename T, typename... Args> requires (!std::is_array_v<T> && std::constructible_from<T, Args...>)
     std::unique_ptr<T, Deleter<T>> make_unique(std::pmr::memory_resource* pool, Args&&... args) {
         void* mem = pool->allocate(sizeof(T), alignof(T)); // allocate memory
         T* obj = new (mem) T(std::forward<Args>(args)...); // placement new
