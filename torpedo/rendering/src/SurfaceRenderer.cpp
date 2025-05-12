@@ -9,7 +9,7 @@
 
 #include <chrono>
 
-tpd::SurfaceRenderer::Window::Window(const vk::Extent2D initialFramebufferSize) {
+tpd::Window::Window(const vk::Extent2D initialFramebufferSize, SurfaceRenderer* renderer) {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
@@ -17,12 +17,11 @@ tpd::SurfaceRenderer::Window::Window(const vk::Extent2D initialFramebufferSize) 
     const auto h = static_cast<int>(initialFramebufferSize.height);
     _glfwWindow = glfwCreateWindow(w, h, "torpedo", nullptr, nullptr);
 
-    if (!_glfwWindow) {
-        throw std::runtime_error("SurfaceRenderer::Window - Failed to create a GLFW window");
-    }
+    checkWindowCreated();
+    setupEventListener(renderer);
 }
 
-tpd::SurfaceRenderer::Window::Window(const bool fullscreen) {
+tpd::Window::Window(const bool fullscreen, SurfaceRenderer* renderer) {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
@@ -39,12 +38,24 @@ tpd::SurfaceRenderer::Window::Window(const bool fullscreen) {
         glfwMaximizeWindow(_glfwWindow);
     }
 
-    if (!_glfwWindow) {
+    checkWindowCreated();
+    setupEventListener(renderer);
+}
+
+void tpd::Window::checkWindowCreated() const {
+    if (!_glfwWindow) [[unlikely]] {
         throw std::runtime_error("SurfaceRenderer::Window - Failed to create a GLFW window");
     }
 }
 
-tpd::SurfaceRenderer::Window::~Window() {
+void tpd::Window::setupEventListener(SurfaceRenderer* renderer) noexcept {
+    _listener.renderer = renderer;
+    glfwSetWindowUserPointer(_glfwWindow, &_listener);
+    glfwSetMouseButtonCallback(_glfwWindow, Control::mouseButtonCallback);
+    glfwSetScrollCallback(_glfwWindow, Control::scrollCallback);
+}
+
+tpd::Window::~Window() {
     glfwDestroyWindow(_glfwWindow);
     _glfwWindow = nullptr;
     glfwTerminate();
@@ -143,8 +154,7 @@ void tpd::SurfaceRenderer::init(const uint32_t frameWidth, const uint32_t frameH
     }
 
     // Creating a GLFW window
-    _window = std::make_unique<Window>(vk::Extent2D{ frameWidth, frameHeight });
-    glfwSetWindowUserPointer(_window->_glfwWindow, this);
+    _window = std::make_unique<Window>(vk::Extent2D{ frameWidth, frameHeight }, this);
     glfwSetFramebufferSizeCallback(_window->_glfwWindow, framebufferResizeCallback);
 
     // Bind the created window to the Vulkan surface
@@ -161,8 +171,7 @@ void tpd::SurfaceRenderer::init(const bool fullscreen) {
     }
 
     PLOGI << "Initializing renderer: tpd::SurfaceRenderer";
-    _window = std::make_unique<Window>(fullscreen);
-    glfwSetWindowUserPointer(_window->_glfwWindow, this);
+    _window = std::make_unique<Window>(fullscreen, this);
     glfwSetFramebufferSizeCallback(_window->_glfwWindow, framebufferResizeCallback);
 
     // Bind the created window to the Vulkan surface
@@ -173,7 +182,7 @@ void tpd::SurfaceRenderer::init(const bool fullscreen) {
 }
 
 void tpd::SurfaceRenderer::framebufferResizeCallback(GLFWwindow* window, [[maybe_unused]] int width, [[maybe_unused]] int height) {
-    const auto renderer = static_cast<SurfaceRenderer*>(glfwGetWindowUserPointer(window));
+    const auto renderer = static_cast<Window::EventListener*>(glfwGetWindowUserPointer(window))->renderer;
     renderer->_framebufferResized = true;
 }
 

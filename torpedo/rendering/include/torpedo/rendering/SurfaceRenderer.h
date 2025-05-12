@@ -1,32 +1,49 @@
 #pragma once
 
 #include "torpedo/rendering/Renderer.h"
+#include "torpedo/rendering/Control.h"
 
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
+#include <unordered_set>
 
 namespace tpd {
     struct SwapImage;
+    class SurfaceRenderer;
+
+    class Window final {
+    public:
+        struct EventListener {
+            SurfaceRenderer* renderer;
+            std::unordered_set<Control*> controls;
+        };
+
+        Window(vk::Extent2D initialFramebufferSize, SurfaceRenderer* renderer);
+        Window(bool fullscreen, SurfaceRenderer* renderer);
+
+        Window(const Window&) = delete;
+        Window& operator=(const Window&) = delete;
+
+        void setTitle(std::string_view title) const;
+
+        template<ControlImpl C>
+        [[nodiscard]] std::unique_ptr<C> createControl();
+
+        template<ControlImpl C>
+        void destroyControl(std::unique_ptr<C> control) noexcept;
+
+        ~Window();
+
+    private:
+        void checkWindowCreated() const;
+        GLFWwindow* _glfwWindow;
+
+        void setupEventListener(SurfaceRenderer* renderer) noexcept;
+        EventListener _listener;
+
+        friend class SurfaceRenderer;
+    };
 
     class SurfaceRenderer final : public Renderer {
     public:
-        class Window final {
-        public:
-            explicit Window(vk::Extent2D initialFramebufferSize);
-            explicit Window(bool fullscreen);
-
-            Window(const Window&) = delete;
-            Window& operator=(const Window&) = delete;
-
-            void setTitle(std::string_view title) const;
-
-            ~Window();
-
-        private:
-            GLFWwindow* _glfwWindow;
-            friend class SurfaceRenderer;
-        };
-
         void loop(const std::function<void()>& onRender) const;
         void loop(const std::function<void(float)>& onRender) const;
 
@@ -98,11 +115,11 @@ namespace tpd {
     };
 } // namespace tpd
 
-inline void tpd::SurfaceRenderer::Window::setTitle(const std::string_view title) const {
+inline void tpd::Window::setTitle(const std::string_view title) const {
     glfwSetWindowTitle(_glfwWindow, title.data());
 }
 
-inline const std::unique_ptr<tpd::SurfaceRenderer::Window>& tpd::SurfaceRenderer::getWindow() const {
+inline const std::unique_ptr<tpd::Window>& tpd::SurfaceRenderer::getWindow() const {
     if (!initialized()) [[unlikely]] {
         throw std::runtime_error(
             "SurfaceRenderer - getWindow called before initialization: "
@@ -113,6 +130,20 @@ inline const std::unique_ptr<tpd::SurfaceRenderer::Window>& tpd::SurfaceRenderer
 
 inline bool tpd::SurfaceRenderer::initialized() const noexcept {
     return _window != nullptr;
+}
+
+template<tpd::ControlImpl C>
+std::unique_ptr<C> tpd::Window::createControl() {
+    auto control = std::make_unique<C>(_glfwWindow);
+    _listener.controls.insert(control.get());
+    return control;
+}
+
+template<tpd::ControlImpl C>
+void tpd::Window::destroyControl(std::unique_ptr<C> control) noexcept {
+    if (!control) [[unlikely]] return;
+    _listener.controls.erase(control.get());
+    control.reset();
 }
 
 inline vk::Extent2D tpd::SurfaceRenderer::getFramebufferSize() const noexcept {

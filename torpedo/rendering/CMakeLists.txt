@@ -21,6 +21,7 @@ FetchContent_MakeAvailable(plog)
 set(TORPEDO_RENDERING_SOURCES
         src/Camera.cpp
         src/Context.cpp
+        src/Control.cpp
         src/Engine.cpp
         src/HeadlessRenderer.cpp
         src/LogUtils.cpp
