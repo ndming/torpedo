@@ -1,4 +1,5 @@
 #include "torpedo/volumetric/GaussianEngine.h"
+#include "torpedo/volumetric/GaussianGeometry.h"
 
 #include <torpedo/bootstrap/DeviceBuilder.h>
 #include <torpedo/bootstrap/ShaderModuleBuilder.h>
@@ -7,7 +8,6 @@
 #include <plog/Log.h>
 
 #include <filesystem>
-#include <random>
 
 tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
     const std::vector<const char*>& deviceExtensions,
@@ -321,34 +321,18 @@ void tpd::GaussianEngine::createCameraBuffer() {
 }
 
 void tpd::GaussianEngine::createGaussianBuffer() {
-    auto points = std::vector<Gaussian>(GAUSSIAN_COUNT);
-
-    std::mt19937 rng{std::random_device{}()};
-    std::uniform_real_distribution dist_pos(-10.0f, 10.0f);
-    std::uniform_real_distribution dist_opacity(0.1f, 1.0f);
-    std::uniform_real_distribution dist_scale(0.005f, 0.2f);
-    std::uniform_real_distribution dist_sh(0.0f, 1.5f);
-
-    for (auto& [position, opacity, quaternion, scale, sh] : points) {
-        position = { dist_pos(rng), dist_pos(rng), dist_pos(rng) };
-        opacity = dist_opacity(rng);
-        quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
-        scale = { dist_scale(rng), dist_scale(rng), dist_scale(rng), 1.0f };
-        sh[0] = dist_sh(rng);
-        sh[1] = dist_sh(rng);
-        sh[2] = dist_sh(rng);
-    }
+    auto points = GaussianPoint::random(GAUSSIAN_COUNT, 10.f, {}, 0.005f, 0.2f);
 
     _gaussianBuffer = StorageBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eTransferDst)
-        .alloc(sizeof(Gaussian) * GAUSSIAN_COUNT)
+        .alloc(sizeof(GaussianPoint) * GAUSSIAN_COUNT)
         .build(_vmaAllocator);
 
     constexpr auto dstSync = SyncPoint{ vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead };
-    _transferWorker->transfer(points.data(), sizeof(Gaussian) * GAUSSIAN_COUNT, _gaussianBuffer, _computeFamilyIndex, dstSync);
+    _transferWorker->transfer(points.data(), sizeof(GaussianPoint) * GAUSSIAN_COUNT, _gaussianBuffer, _computeFamilyIndex, dstSync);
     points.clear(); // no longer need the points data
 
-    setStorageBufferDescriptors(_gaussianBuffer, sizeof(Gaussian) * GAUSSIAN_COUNT, 2);
+    setStorageBufferDescriptors(_gaussianBuffer, sizeof(GaussianPoint) * GAUSSIAN_COUNT, 2);
 }
 
 void tpd::GaussianEngine::createSplatBuffer() {

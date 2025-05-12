@@ -1,7 +1,8 @@
 # MODULE SOURCE FILES
 # -------------------
 set(TORPEDO_VOLUMETRIC_SOURCES
-        src/GaussianEngine.cpp)
+        src/GaussianEngine.cpp
+        src/GaussianGeometry.cpp)
 
 
 # TORPEDO VOLUMETRIC MODULE

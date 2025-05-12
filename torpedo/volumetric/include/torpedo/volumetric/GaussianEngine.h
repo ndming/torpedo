@@ -10,8 +10,6 @@
 #include <torpedo/foundation/Target.h>
 #include <torpedo/foundation/TransferWorker.h>
 
-#include <torpedo/math/mat4.h>
-
 namespace tpd {
     class GaussianEngine final : public Engine {
     public:
@@ -105,7 +103,6 @@ namespace tpd {
         static constexpr uint32_t BLOCK_X = 16; // tile size in x-dimension
         static constexpr uint32_t BLOCK_Y = 16; // tile size in y-dimension
         static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
-        static constexpr uint32_t MAX_SH_RGB = 48; // maximum number of floats for RGB spherical harmonics
 
         /*--------------------*/
 
@@ -140,13 +137,6 @@ namespace tpd {
         /*--------------------*/
 
         static constexpr uint32_t GAUSSIAN_COUNT = 8192;
-        struct Gaussian {
-            vec3 position;
-            float opacity;
-            vec4 quaternion;
-            vec4 scale;
-            std::array<float, MAX_SH_RGB> sh;
-        };
 
         ShaderLayout<1> _shaderLayout{};
         std::unique_ptr<TransferWorker> _transferWorker{};
