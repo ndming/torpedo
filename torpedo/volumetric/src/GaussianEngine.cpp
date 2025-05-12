@@ -77,7 +77,12 @@ void tpd::GaussianEngine::onInitialized() {
     // We're going to need a transfer worker for data transfer
     _transferWorker = std::make_unique<TransferWorker>(
         _transferFamilyIndex, _graphicsFamilyIndex, _computeFamilyIndex, _physicalDevice, _device, _vmaAllocator);
-    _transferWorker->setStatusUpdateCallback([](const auto message) { PLOGD << message; });
+
+    const auto func = __FUNCTION__;
+    _transferWorker->setStatusUpdateCallback([func](const auto message) {
+        // Do this instead of PLOGD to silent clang-tidy check of bugprone-lambda-function-name
+        (*plog::get<0>()) += plog::Record(plog::debug, func, 81, "", reinterpret_cast<void*>(0), 0).ref() << message;
+    });
 
     // Create queues relevant to Gaussian splatting
     _graphicsQueue = _device.getQueue(_graphicsFamilyIndex, 0);
@@ -298,10 +303,11 @@ void tpd::GaussianEngine::createPointCloudObject() {
 }
 
 void tpd::GaussianEngine::createCameraBuffer() {
+    constexpr auto size = sizeof(mat4) * 2 + sizeof(vec2);
     _cameraBuffer = RingBuffer::Builder()
         .count(1) // thanks to readback fence, a single camera buffer can be used across in-flight frames
         .usage(vk::BufferUsageFlagBits::eUniformBuffer)
-        .alloc(sizeof(Camera))
+        .alloc(size)
         .build(_vmaAllocator);
 
     // Set camera buffer descriptors
@@ -309,7 +315,7 @@ void tpd::GaussianEngine::createCameraBuffer() {
         const auto descriptorInfo = vk::DescriptorBufferInfo{}
             .setBuffer(_cameraBuffer)
             .setOffset(0)
-            .setRange(sizeof(Camera));
+            .setRange(size);
         _frames[i].instance.setDescriptor(0, 1, vk::DescriptorType::eUniformBuffer, _device, descriptorInfo);
     }
 }
