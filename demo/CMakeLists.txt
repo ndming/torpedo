@@ -36,8 +36,4 @@ function(torpedo_demo_clang_setup TARGET_NAME)
 endfunction()
 
 # Demo targets
-# add_subdirectory(HelloTriangle)
-# add_subdirectory(PhongCube)
-# add_subdirectory(TexturedCube)
-# add_subdirectory(ModelLoading)
 add_subdirectory(HelloGaussian)
