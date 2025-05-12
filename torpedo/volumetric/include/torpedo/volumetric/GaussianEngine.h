@@ -16,7 +16,7 @@ namespace tpd {
     class GaussianEngine final : public Engine {
     public:
         void preFrameCompute(const Camera& camera);
-        void draw(SwapImage image) override;
+        void draw(SwapImage image) const;
 
         ~GaussianEngine() noexcept override { destroy(); }
 

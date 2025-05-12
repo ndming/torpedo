@@ -6,7 +6,6 @@
 
 namespace tpd {
     struct PhysicalDeviceSelection;
-    struct SwapImage;
     class Engine;
 
     template<typename T>
@@ -16,8 +15,6 @@ namespace tpd {
     public:
         Engine(const Engine&) = delete;
         Engine& operator=(const Engine&) = delete;
-
-        virtual void draw(SwapImage image) = 0;
 
         void waitIdle() const noexcept;
 

@@ -589,7 +589,7 @@ void tpd::GaussianEngine::preFrameCompute(const Camera& camera) {
     preFrameQueue.submit2(computeDrawSubmitInfo, preFrameFence);
 }
 
-void tpd::GaussianEngine::draw(const SwapImage image) {
+void tpd::GaussianEngine::draw(const SwapImage image) const {
     const auto frameIndex = _renderer->getCurrentFrameIndex();
     const auto [imageReady, renderDone, frameDrawFence] = _renderer->getCurrentFrameSync();
 
