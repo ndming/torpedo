@@ -1,6 +1,7 @@
 # MODULE SOURCE FILES
 # -------------------
 set(TORPEDO_EXTENSION_SOURCES
+        src/OrbitControl.cpp
         src/PerspectiveCamera.cpp)
 
 # TORPEDO EXTENSION MODULE
