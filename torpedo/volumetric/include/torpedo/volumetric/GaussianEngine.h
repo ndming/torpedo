@@ -28,8 +28,8 @@ namespace tpd {
             std::initializer_list<uint32_t> queueFamilyIndices) const override;
 
         static vk::PhysicalDeviceFeatures getFeatures();
+        static vk::PhysicalDeviceVulkan12Features getVulkan12Features();
         static vk::PhysicalDeviceVulkan13Features getVulkan13Features();
-        static vk::PhysicalDeviceShaderAtomicInt64Features getShaderAtomicInt64Features();
 
         [[nodiscard]] const char* getName() const noexcept override;
         [[nodiscard]] std::pmr::memory_resource* getFrameResource() noexcept override;
@@ -60,6 +60,11 @@ namespace tpd {
         void createTilesRenderedBuffer();
         void createPartitionCountBuffer();
         void createPartitionDescriptorBuffer();
+
+        void createTransformHandleBuffer();
+        void createTransformIndexBuffer();
+        void createBindlessTransformBuffer();
+
         void createSplatKeyBuffer(uint32_t frameIndex);
         void createSplatIndexBuffer(uint32_t frameIndex);
         void createBlockDescriptorBuffers(uint32_t frameIndex);
@@ -70,7 +75,10 @@ namespace tpd {
         void createTempValBuffers(uint32_t frameIndex);
         void createRangeBuffers(uint32_t width, uint32_t height);
 
-        void setStorageBufferDescriptors(vk::Buffer buffer, vk::DeviceSize size, uint32_t binding) const;
+        void setBufferDescriptors(
+            vk::Buffer buffer, vk::DeviceSize size,
+            vk::DescriptorType descriptorType,
+            uint32_t binding, uint32_t set = 0) const;
 
         void updateCameraBuffer(const Camera& camera) const;
         void recordSplat(vk::CommandBuffer cmd) const noexcept;
@@ -80,8 +88,9 @@ namespace tpd {
 
         void destroy() noexcept override;
 
+        static constexpr auto DESCRIPTOR_SET_COUNT = 3;
         struct Frame {
-            ShaderInstance<1> instance{};
+            ShaderInstance<DESCRIPTOR_SET_COUNT> instance{};
             vk::CommandBuffer drawing{};
             vk::CommandBuffer compute{};
             vk::Semaphore ownership{}; // only initialize if async compute is being used
@@ -138,13 +147,17 @@ namespace tpd {
 
         static constexpr uint32_t GAUSSIAN_COUNT = 8192;
 
-        ShaderLayout<1> _shaderLayout{};
+        ShaderLayout<DESCRIPTOR_SET_COUNT> _shaderLayout{};
         std::unique_ptr<TransferWorker> _transferWorker{};
 
         StorageBuffer _gaussianBuffer{};
         StorageBuffer _splatBuffer{};
         StorageBuffer _partitionCountBuffer{};
         StorageBuffer _partitionDescriptorBuffer{};
+        StorageBuffer _transformHandleBuffer{};
+        StorageBuffer _transformIndexBuffer{};
+        RingBuffer _bindlessTransformBuffer{};
+
         std::vector<StorageBuffer> _splatKeyBuffers{};
         std::vector<StorageBuffer> _splatIndexBuffers{};
         std::vector<StorageBuffer> _blockCountBuffers{};

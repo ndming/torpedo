@@ -15,6 +15,18 @@ StructuredBuffer<Gaussian> gaussians;
 [[vk::binding(3)]]
 RWStructuredBuffer<Splat> splats;
 
+[[vk::binding(0, 1)]] // set 1, binding 0
+uniform StructuredBuffer<ConstantBuffer<float4[4]>.Handle> transforms; // this is going to be a handle array of uint2
+
+[[vk::binding(1, 1)]] // set 1, binding 1
+StructuredBuffer<uint> transformIndices;
+
+// There's going to be a global uniform buffer array at set 2, binding 0,
+// generated automatically by the compiler due to our handle declaration.
+// layout(std140) uniform Transform {
+// vec4[4] data;
+// } transforms[];
+
 // Projects Gaussian points to Splat points on image space
 // Based on: https://github.com/graphdeco-inria/gaussian-splatting
 
@@ -31,9 +43,15 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     // The Gaussian's center in world space
     let mean = gaussians[idx].position;
 
+    // Acquire the model matrix using descriptor indexing, see:
+    // https://shader-slang.org/slang/user-guide/convenience-features.html#descriptorhandle-for-bindless-descriptor-access
+    // https://docs.vulkan.org/samples/latest/samples/extensions/descriptor_indexing/README.html
+    let r = *nonuniform(transforms[transformIndices[idx]]);
+    let model = float4x4(r[0], r[1], r[2], r[3]);
+
     // Quit if outside the frustum
     float3 viewPos; float3 projPos; // depth z in view space and projected position in NDC
-    if (!passFrustumClipping(mean, camera.viewMatrix, camera.projMatrix, viewPos, projPos)) return;
+    if (!passFrustumClipping(mean, model, camera.viewMatrix, camera.projMatrix, viewPos, projPos)) return;
 
     // The image size in pixels
     uint2 imageSize; uint mipCount;

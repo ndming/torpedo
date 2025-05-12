@@ -16,8 +16,8 @@ tpd::PhysicalDeviceSelection tpd::GaussianEngine::pickPhysicalDevice(
 {
     auto selector = PhysicalDeviceSelector()
         .features(getFeatures())
-        .featuresVulkan13(getVulkan13Features())
-        .featuresShaderAtomicInt64(getShaderAtomicInt64Features());
+        .featuresVulkan12(getVulkan12Features())
+        .featuresVulkan13(getVulkan13Features());
 
     if (_renderer->supportSurfaceRendering()) {
         selector.requestGraphicsQueueFamily();
@@ -34,17 +34,17 @@ vk::Device tpd::GaussianEngine::createDevice(
     auto deviceFeatures = vk::PhysicalDeviceFeatures2{};
     deviceFeatures.features = getFeatures();
 
-    auto featuresVulkan13 = getVulkan13Features();
-    deviceFeatures.pNext = &featuresVulkan13;
+    auto featuresVulkan12 = getVulkan12Features();
+    deviceFeatures.pNext = &featuresVulkan12;
 
-    auto featuresShaderAtomicInt64 = getShaderAtomicInt64Features();
-    featuresVulkan13.pNext = &featuresShaderAtomicInt64;
+    auto featuresVulkan13 = getVulkan13Features();
+    featuresVulkan12.pNext = &featuresVulkan13;
 
     // Remember to update the count number at the end of the first message should more features are added
     PLOGD << "Device features requested by " << getName() << " (3):";
     PLOGD << " - Features: shaderInt64";
+    PLOGD << " - Vulkan12Features: shaderBufferInt64Atomics, runtimeDescriptorArray";
     PLOGD << " - Vulkan13Features: synchronization2";
-    PLOGD << " - ShaderAtomicInt64Features: shaderBufferInt64Atomics";
 
     return DeviceBuilder()
         .deviceFeatures(&deviceFeatures)
@@ -58,15 +58,16 @@ vk::PhysicalDeviceFeatures tpd::GaussianEngine::getFeatures() {
     return features;
 }
 
-vk::PhysicalDeviceVulkan13Features tpd::GaussianEngine::getVulkan13Features() {
-    auto features = vk::PhysicalDeviceVulkan13Features();
-    features.synchronization2 = true;
+vk::PhysicalDeviceVulkan12Features tpd::GaussianEngine::getVulkan12Features() {
+    auto features = vk::PhysicalDeviceVulkan12Features{};
+    features.runtimeDescriptorArray = true;
+    features.shaderBufferInt64Atomics = true;
     return features;
 }
 
-vk::PhysicalDeviceShaderAtomicInt64Features tpd::GaussianEngine::getShaderAtomicInt64Features() {
-    auto features = vk::PhysicalDeviceShaderAtomicInt64Features{};
-    features.shaderBufferInt64Atomics = true;
+vk::PhysicalDeviceVulkan13Features tpd::GaussianEngine::getVulkan13Features() {
+    auto features = vk::PhysicalDeviceVulkan13Features();
+    features.synchronization2 = true;
     return features;
 }
 
@@ -80,8 +81,8 @@ void tpd::GaussianEngine::onInitialized() {
 
     const auto func = __FUNCTION__;
     _transferWorker->setStatusUpdateCallback([func](const auto message) {
-        // Do this instead of PLOGD to silent clang-tidy check of bugprone-lambda-function-name
-        (*plog::get<0>()) += plog::Record(plog::debug, func, 81, "", reinterpret_cast<void*>(0), 0).ref() << message;
+        // Do this to silent clang-tidy check of bugprone-lambda-function-name
+        *plog::get<0>() += plog::Record(plog::debug, func, 81, "", nullptr, 0).ref() << message;
     });
 
     // Create queues relevant to Gaussian splatting
@@ -126,6 +127,11 @@ void tpd::GaussianEngine::onInitialized() {
     createTilesRenderedBuffer();
     createPartitionCountBuffer();
     createPartitionDescriptorBuffer();
+
+    // Similarly, buffers handling transform data also benefit from the same fence
+    createTransformHandleBuffer();
+    createTransformIndexBuffer();
+    createBindlessTransformBuffer();
 
     // These buffers are frame-dependent and the vectors should be resized once here
     // since they can be reallocated later and should not be resized again
@@ -177,6 +183,10 @@ void tpd::GaussianEngine::logDebugInfos() const noexcept {
     PLOGD << " - Max range: " << limits.maxStorageBufferRange / 1048576 << "MB";
     PLOGD << " - Min align: " << limits.minStorageBufferOffsetAlignment << "B";
 
+    PLOGD << "Uniform buffer limits:";
+    PLOGD << " - Max range: " << limits.maxUniformBufferRange / 1024 << "KB";
+    PLOGD << " - Min align: " << limits.minUniformBufferOffsetAlignment << "B";
+
     // Assets directories
     const auto assetsDir = std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR).make_preferred();
     PLOGD << "Assets directories used by " << getName() << ':';
@@ -214,7 +224,7 @@ void tpd::GaussianEngine::createGaussianLayout() {
     using enum vk::DescriptorType;
     using enum vk::ShaderStageFlagBits;
 
-    _shaderLayout = ShaderLayout<1>::Builder()
+    _shaderLayout = ShaderLayout<DESCRIPTOR_SET_COUNT>::Builder()
         .pushConstantRange(eCompute, 0, sizeof(PointCloud) + sizeof(uint32_t) + sizeof(uint32_t))
         .descriptor(0, 0, eStorageImage,  1, eCompute) // output image
         .descriptor(0, 1, eUniformBuffer, 1, eCompute) // camera
@@ -233,6 +243,9 @@ void tpd::GaussianEngine::createGaussianLayout() {
         .descriptor(0,14, eStorageBuffer, 1, eCompute) // temp keys
         .descriptor(0,15, eStorageBuffer, 1, eCompute) // temp vals
         .descriptor(0,16, eStorageBuffer, 1, eCompute) // ranges
+        .descriptor(1, 0, eStorageBuffer, 1, eCompute) // transform handles
+        .descriptor(1, 1, eStorageBuffer, 1, eCompute) // transform indices
+        .descriptor(2, 0, eUniformBuffer, 1, eCompute) // bindless transforms
         .build(_device, &_gaussianLayout);
 }
 
@@ -310,18 +323,11 @@ void tpd::GaussianEngine::createCameraBuffer() {
         .alloc(size)
         .build(_vmaAllocator);
 
-    // Set camera buffer descriptors
-    for (uint32_t i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
-        const auto descriptorInfo = vk::DescriptorBufferInfo{}
-            .setBuffer(_cameraBuffer)
-            .setOffset(0)
-            .setRange(size);
-        _frames[i].instance.setDescriptor(0, 1, vk::DescriptorType::eUniformBuffer, _device, descriptorInfo);
-    }
+    setBufferDescriptors(_cameraBuffer, size, vk::DescriptorType::eUniformBuffer, 1, 0);
 }
 
 void tpd::GaussianEngine::createGaussianBuffer() {
-    auto points = GaussianPoint::random(GAUSSIAN_COUNT, 10.f, {}, 0.005f, 0.2f);
+    const auto points = GaussianPoint::random(GAUSSIAN_COUNT, 10.f, {}, 0.005f, 0.2f);
 
     _gaussianBuffer = StorageBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eTransferDst)
@@ -330,14 +336,13 @@ void tpd::GaussianEngine::createGaussianBuffer() {
 
     constexpr auto dstSync = SyncPoint{ vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead };
     _transferWorker->transfer(points.data(), sizeof(GaussianPoint) * GAUSSIAN_COUNT, _gaussianBuffer, _computeFamilyIndex, dstSync);
-    points.clear(); // no longer need the points data
 
-    setStorageBufferDescriptors(_gaussianBuffer, sizeof(GaussianPoint) * GAUSSIAN_COUNT, 2);
+    setBufferDescriptors(_gaussianBuffer, sizeof(GaussianPoint) * GAUSSIAN_COUNT, vk::DescriptorType::eStorageBuffer, 2);
 }
 
 void tpd::GaussianEngine::createSplatBuffer() {
     _splatBuffer = StorageBuffer::Builder().alloc(SPLAT_SIZE * GAUSSIAN_COUNT).build(_vmaAllocator);
-    setStorageBufferDescriptors(_splatBuffer, SPLAT_SIZE * GAUSSIAN_COUNT, 3);
+    setBufferDescriptors(_splatBuffer, SPLAT_SIZE * GAUSSIAN_COUNT, vk::DescriptorType::eStorageBuffer, 3);
 }
 
 void tpd::GaussianEngine::createTilesRenderedBuffer() {
@@ -346,19 +351,59 @@ void tpd::GaussianEngine::createTilesRenderedBuffer() {
         .alloc(sizeof(uint32_t))
         .build(_vmaAllocator);
 
-    setStorageBufferDescriptors(_tilesRenderedBuffer, sizeof(uint32_t), 4);
+    setBufferDescriptors(_tilesRenderedBuffer, sizeof(uint32_t), vk::DescriptorType::eStorageBuffer, 4);
 }
 
 void tpd::GaussianEngine::createPartitionCountBuffer() {
     _partitionCountBuffer = StorageBuffer::Builder().alloc(sizeof(uint32_t)).build(_vmaAllocator);
-    setStorageBufferDescriptors(_partitionCountBuffer, sizeof(uint32_t), 5);
+    setBufferDescriptors(_partitionCountBuffer, sizeof(uint32_t), vk::DescriptorType::eStorageBuffer, 5);
 }
 
 void tpd::GaussianEngine::createPartitionDescriptorBuffer() {
     constexpr auto size = sizeof(uint64_t) * (GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
 
     _partitionDescriptorBuffer = StorageBuffer::Builder().alloc(size).build(_vmaAllocator);
-    setStorageBufferDescriptors(_partitionDescriptorBuffer, size, 6);
+    setBufferDescriptors(_partitionDescriptorBuffer, size, vk::DescriptorType::eStorageBuffer, 6);
+}
+
+void tpd::GaussianEngine::createTransformHandleBuffer() {
+    _transformHandleBuffer = StorageBuffer::Builder()
+        .usage(vk::BufferUsageFlagBits::eTransferDst)
+        .alloc(sizeof(uvec2))
+        .build(_vmaAllocator);
+
+    constexpr auto data = uvec2{ 0, 0 };
+    constexpr auto dstSync = SyncPoint{ vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead };
+    _transferWorker->transfer(&data, sizeof(uvec2), _transformHandleBuffer, _computeFamilyIndex, dstSync);
+
+    setBufferDescriptors(_transformHandleBuffer, sizeof(uvec2), vk::DescriptorType::eStorageBuffer, 0, 1);
+}
+
+void tpd::GaussianEngine::createTransformIndexBuffer() {
+    constexpr auto size = sizeof(uint32_t) * GAUSSIAN_COUNT;
+    _transformIndexBuffer = StorageBuffer::Builder()
+        .usage(vk::BufferUsageFlagBits::eTransferDst)
+        .alloc(size)
+        .build(_vmaAllocator);
+
+    const auto indices = std::vector(GAUSSIAN_COUNT, uint32_t{ 0 });
+    constexpr auto dstSync = SyncPoint{ vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead };
+    _transferWorker->transfer(indices.data(), size, _transformIndexBuffer, _computeFamilyIndex, dstSync);
+
+    setBufferDescriptors(_transformIndexBuffer, size, vk::DescriptorType::eStorageBuffer, 1, 1);
+}
+
+void tpd::GaussianEngine::createBindlessTransformBuffer() {
+    _bindlessTransformBuffer = RingBuffer::Builder()
+        .count(1)
+        .usage(vk::BufferUsageFlagBits::eUniformBuffer)
+        .alloc(sizeof(mat4))
+        .build(_vmaAllocator);
+
+    setBufferDescriptors(_bindlessTransformBuffer, sizeof(mat4), vk::DescriptorType::eUniformBuffer, 0, 2);
+
+    constexpr auto tf = mat4{ 1.0f };
+    _bindlessTransformBuffer.update(0, &tf, sizeof(mat4));
 }
 
 void tpd::GaussianEngine::createSplatKeyBuffer(const uint32_t frameIndex) {
@@ -466,17 +511,19 @@ void tpd::GaussianEngine::createRangeBuffers(const uint32_t width, const uint32_
     }
 }
 
-void tpd::GaussianEngine::setStorageBufferDescriptors(
+void tpd::GaussianEngine::setBufferDescriptors(
     const vk::Buffer buffer,
     const vk::DeviceSize size,
-    const uint32_t binding) const
+    const vk::DescriptorType descriptorType,
+    const uint32_t binding,
+    const uint32_t set) const
 {
     for (uint32_t i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
         const auto descriptorInfo = vk::DescriptorBufferInfo{}
             .setBuffer(buffer)
             .setOffset(0)
             .setRange(size);
-        _frames[i].instance.setDescriptor(0, binding, vk::DescriptorType::eStorageBuffer, _device, descriptorInfo);
+        _frames[i].instance.setDescriptor(set, binding, descriptorType, _device, descriptorInfo);
     }
 }
 
@@ -741,6 +788,10 @@ void tpd::GaussianEngine::destroy() noexcept {
         _blockCountBuffers.clear();
         _splatIndexBuffers.clear();
         _splatKeyBuffers.clear();
+
+        _bindlessTransformBuffer.destroy(_vmaAllocator);
+        _transformIndexBuffer.destroy(_vmaAllocator);
+        _transformHandleBuffer.destroy(_vmaAllocator);
 
         _partitionDescriptorBuffer.destroy(_vmaAllocator);
         _partitionCountBuffer.destroy(_vmaAllocator);

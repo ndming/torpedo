@@ -81,17 +81,17 @@ public float3 getCameraWorldPosition(float4x4 viewMatrix) {
 
 /// Performs frustum clipping of the given `point` using the provided camera matrices
 /// and returns position in view space and the projected position in NDC as out parameters.
-/// `viewPos` is gauranteed to be valid regardless of the clipping result, while `projPos` 
+/// `viewPos` is guaranteed to be valid regardless of the clipping result, while `projPos`
 /// is only valid if the function returns `true`.
-public bool passFrustumClipping(float3 point, float4x4 viewMat, float4x4 projMat, out float3 viewPos, out float3 projPos) {
+public bool passFrustumClipping(float3 point, float4x4 M, float4x4 V, float4x4 P, out float3 viewPos, out float3 projPos) {
     // Initialize out parameters to silent compiler warnings
     projPos = float3(0.0, 0.0, 0.0);
 
-    viewPos = mul(viewMat, float4(point, 1.0)).xyz;
+    viewPos = mul(mul(V, M), float4(point, 1.0)).xyz;
     if (viewPos.z <= 0.0) return false; // behind the camera
 
-    // Note that the projection matrix brings points from world all the way to NDC
-    let clipPos = mul(projMat, float4(point, 1.0));
+    // Note that the projection matrix brings points from view to NDC
+    let clipPos = mul(mul(P, M), float4(point, 1.0));
 
     // Frustum clipping
     if (clipPos.x < -1.3 * clipPos.w || clipPos.x > 1.3 * clipPos.w) return false; // outside left/right frustum planes
