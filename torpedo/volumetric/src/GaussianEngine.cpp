@@ -324,14 +324,13 @@ void tpd::GaussianEngine::createGaussianBuffer() {
     auto points = std::vector<Gaussian>(GAUSSIAN_COUNT);
 
     std::mt19937 rng{std::random_device{}()};
-    std::uniform_real_distribution dist_pos(-8.0f, 8.0f);
-    std::uniform_real_distribution dist_depth(-1.0f, 10.0f);
+    std::uniform_real_distribution dist_pos(-10.0f, 10.0f);
     std::uniform_real_distribution dist_opacity(0.1f, 1.0f);
-    std::uniform_real_distribution dist_scale(0.008f, 0.08f);
+    std::uniform_real_distribution dist_scale(0.005f, 0.2f);
     std::uniform_real_distribution dist_sh(0.0f, 1.5f);
 
     for (auto& [position, opacity, quaternion, scale, sh] : points) {
-        position = { dist_pos(rng), dist_pos(rng), dist_depth(rng) };
+        position = { dist_pos(rng), dist_pos(rng), dist_pos(rng) };
         opacity = dist_opacity(rng);
         quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
         scale = { dist_scale(rng), dist_scale(rng), dist_scale(rng), 1.0f };
