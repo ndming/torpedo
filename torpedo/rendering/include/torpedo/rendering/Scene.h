@@ -22,13 +22,13 @@ namespace tpd {
     class Scene final {
     public:
         template<typename T, typename... Args> requires (std::constructible_from<T, Args...>)
-        [[nodiscard]] Entity add(Args&&... args);
+        Entity add(Args&&... args);
 
         template<typename T>
-        [[nodiscard]] Entity add(T&& element);
+        Entity add(T&& element);
 
         template<typename T>
-        [[nodiscard]] Entity add(EntityGroup<T> elements);
+        Entity add(EntityGroup<T> elements);
 
         template<typename T>
         [[nodiscard]] uint32_t count() const noexcept;
@@ -52,7 +52,7 @@ namespace tpd {
         [[nodiscard]] std::vector<uint32_t> groupSizes() const noexcept;
 
         template<typename T>
-        [[nodiscard]] std::map<Entity, uint32_t> buildEnityMap() const;
+        [[nodiscard]] std::map<Entity, uint32_t> buildEntityMap() const;
 
     private:
         entt::registry _registry;
@@ -95,7 +95,7 @@ uint32_t tpd::Scene::countAll() const noexcept {
     const auto groups = _registry.view<EntityGroup<T>>();
     return std::transform_reduce(
         std::execution::par, groups.begin(), groups.end(), count<T>(), std::plus{},
-        [this](const auto entity) { return _registry.get<EntityGroup<T>>(entity).size(); });
+        [this](const auto entity) { return static_cast<uint32_t>(_registry.get<EntityGroup<T>>(entity).size()); });
 }
 
 template<typename T>
@@ -150,7 +150,7 @@ std::vector<uint32_t> tpd::Scene::groupSizes() const noexcept {
 }
 
 template<typename T>
-std::map<tpd::Entity, uint32_t> tpd::Scene::buildEnityMap() const {
+std::map<tpd::Entity, uint32_t> tpd::Scene::buildEntityMap() const {
     const auto toEntity = [this](const auto entity) { return entity; };
     auto entities = std::vector<Entity>{};
     entities.reserve(count<T>() + countGroup<T>());

@@ -24,7 +24,7 @@ int main() {
     control->setSensitivity(.5f);
     control->setRadius(8.f);
 
-    // Generate random points within a cube of size 10 cnetered at the origin
+    // Generate random points within a cube of size 10 centered at the origin
     auto points = tpd::GaussianPoint::random(8192, 10.f, {}, 0.005f, 0.2f);
 
     // A big, white, uniform Gaussian at the center of the scene
@@ -37,8 +37,8 @@ int main() {
     };
 
     auto scene = tpd::Scene{};
-    const auto pointCloud = scene.add(tpd::group(points));
-    const auto point = scene.add(std::move(gaussian));
+    scene.add(tpd::group(points));
+    scene.add(std::move(gaussian));
 
     auto settings = tpd::GaussianEngine::Settings::getDefault();
     settings.shDegree = 0;

@@ -348,7 +348,7 @@ void tpd::GaussianEngine::compile(const Scene& scene, const Settings& settings) 
     for (const auto size : scene.groupSizes<GaussianPoint>()) std::ranges::fill_n(std::back_inserter(indices), size, index++);
     for (auto i = 0; i < scene.count<GaussianPoint>(); ++i) indices.push_back(index++);
 
-    auto entityMap = scene.buildEnityMap<GaussianPoint>();
+    auto entityMap = scene.buildEntityMap<GaussianPoint>();
     const auto entityCount = entityMap.size();
 
     createTransformHandleBuffer(entityCount);
