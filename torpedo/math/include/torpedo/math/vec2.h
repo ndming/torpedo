@@ -149,8 +149,28 @@ constexpr tpd::vec2_t<T> operator+(const tpd::vec2_t<T>& lhs, const tpd::vec2_t<
 }
 
 template<typename T>
+constexpr tpd::vec2_t<T> operator+(const tpd::vec2_t<T>& vec, const T scalar) noexcept {
+    return tpd::vec2_t<T>{ vec.x + scalar, vec.y + scalar };
+}
+
+template<typename T>
+constexpr tpd::vec2_t<T> operator+(const T scalar, const tpd::vec2_t<T>& vec) noexcept {
+    return vec + scalar;
+}
+
+template<typename T>
 constexpr tpd::vec2_t<T> operator-(const tpd::vec2_t<T>& lhs, const tpd::vec2_t<T>& rhs) noexcept {
     return tpd::vec2_t<T>{ lhs.x - rhs.x, lhs.y - rhs.y };
+}
+
+template<typename T>
+constexpr tpd::vec2_t<T> operator-(const tpd::vec2_t<T>& vec, const T scalar) noexcept {
+    return tpd::vec2_t<T>{ vec.x - scalar, vec.y - scalar };
+}
+
+template<typename T>
+constexpr tpd::vec2_t<T> operator-(const T scalar, const tpd::vec2_t<T>& vec) noexcept {
+    return -vec + scalar;
 }
 
 template<typename T>
