@@ -17,11 +17,11 @@ std::pair<tpd::vec3, tpd::vec3> tpd::OrbitControl::getCameraUpdate(const float d
 void tpd::OrbitControl::updateVelocities(const float deltaTimeMillis) {
     _panVelocity = _mouseLeftDragging
         ? _deltaMousePosition * deltaTimeMillis
-        : _panVelocity * std::pow(1.f - _dampingFactor, deltaTimeMillis);
+        : vec2{ 0.f, 0.f };
 
     _tarVelocity = _mouseRightDragging
         ? _deltaMousePosition * deltaTimeMillis
-        : _tarVelocity * std::pow(1.f - _dampingFactor, deltaTimeMillis);
+        : vec2{ 0.f, 0.f };
 
     // Don't update zoom if not scrolling
     if (_deltaScroll.y != 0.0f) {

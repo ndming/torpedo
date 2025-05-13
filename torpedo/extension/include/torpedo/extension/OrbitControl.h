@@ -27,7 +27,6 @@ namespace tpd {
         void updateCameraPosition() noexcept;
         void updateCameraTarget() noexcept;
 
-        float _dampingFactor{ .05f };
         float _sensitivity{ 1.f };
 
         float _theta{ .785f };
