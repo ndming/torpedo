@@ -23,9 +23,7 @@ std::vector<tpd::GaussianPoint> tpd::GaussianPoint::random(
         opacity = dist_opacity(rng);
         quaternion = { 0.0f, 0.0f, 0.0f, 1.0f };
         scale = { dist_scale(rng), dist_scale(rng), dist_scale(rng), 1.0f };
-        sh[0] = dist_sh(rng);
-        sh[1] = dist_sh(rng);
-        sh[2] = dist_sh(rng);
+        sh = utils::rgb2sh(dist_sh(rng), dist_sh(rng), dist_sh(rng));
     }
     return points;
 }
