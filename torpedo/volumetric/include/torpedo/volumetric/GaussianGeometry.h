@@ -10,6 +10,12 @@ namespace tpd {
         // Maximum number of floats for RGB spherical harmonics
         static constexpr uint32_t MAX_SH_FLOATS = 48;
 
+        vec3 position;
+        float opacity;
+        vec4 quaternion;
+        vec4 scale;
+        std::array<float, MAX_SH_FLOATS> sh;
+
         [[nodiscard]] static std::vector<GaussianPoint> random(
             uint32_t count,
             float radius = 1.0f,
@@ -18,23 +24,16 @@ namespace tpd {
             float maxScale = 1.0f,
             float minOpacity = 0.1f,
             float maxOpacity = 1.0f);
-
-        vec3 position;
-        float opacity;
-        vec4 quaternion;
-        vec4 scale;
-        std::array<float, MAX_SH_FLOATS> sh;
     };
 
     namespace utils {
         [[nodiscard]] constexpr std::array<float, GaussianPoint::MAX_SH_FLOATS> rgb2sh(float r, float g, float b) noexcept;
-        [[nodiscard]] constexpr std::array<float, GaussianPoint::MAX_SH_FLOATS> rgb2sh(const vec3& rgb) noexcept;
         [[nodiscard]] constexpr vec3 sh2rgb(const std::array<float, GaussianPoint::MAX_SH_FLOATS>& sh) noexcept;
     }
 } // namespace tpd
 
-constexpr std::array<float, tpd::GaussianPoint::MAX_SH_FLOATS> tpd::utils::rgb2sh(float r, float g, float b) noexcept {
-    static constexpr auto C0 = 0.28209479177387814f;
+constexpr std::array<float, tpd::GaussianPoint::MAX_SH_FLOATS> tpd::utils::rgb2sh(const float r, const float g, const float b) noexcept {
+    constexpr auto C0 = 0.28209479177387814f;
 
     auto sh = std::array<float, GaussianPoint::MAX_SH_FLOATS>{};
     sh[0] = (r - 0.5f) / C0;
@@ -43,12 +42,8 @@ constexpr std::array<float, tpd::GaussianPoint::MAX_SH_FLOATS> tpd::utils::rgb2s
     return sh;
 }
 
-constexpr std::array<float, tpd::GaussianPoint::MAX_SH_FLOATS> tpd::utils::rgb2sh(const vec3& rgb) noexcept {
-    return rgb2sh(rgb.x, rgb.y, rgb.z);
-}
-
-constexpr tpd::vec3 tpd::utils::sh2rgb(const std::array<float, tpd::GaussianPoint::MAX_SH_FLOATS>& sh) noexcept {
-    static constexpr auto C0 = 0.28209479177387814f;
+constexpr tpd::vec3 tpd::utils::sh2rgb(const std::array<float, GaussianPoint::MAX_SH_FLOATS>& sh) noexcept {
+    constexpr auto C0 = 0.28209479177387814f;
     const auto rgb = vec3{ sh[0], sh[1], sh[2] };
     return rgb * C0 + 0.5f;
 }
