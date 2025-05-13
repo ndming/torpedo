@@ -37,8 +37,8 @@ void tpd::OrbitControl::decayZoom(const float deltaTimeMillis) {
 }
 
 void tpd::OrbitControl::updateCameraPosition() noexcept {
-    _theta -= _panVelocity.x * _sensitivity * PAN_FACTOR;
-    _phi   -= _panVelocity.y * _sensitivity * PAN_FACTOR;
+    _theta -= _panVelocity.x * _sensitivity * PAN_FACTOR * std::sqrt(_radius);
+    _phi   -= _panVelocity.y * _sensitivity * PAN_FACTOR * std::sqrt(_radius);
     _phi = std::clamp(_phi, 0.0f + 0.01f, std::numbers::pi_v<float> - 0.01f);
 
     // Zoom should be proportional to the current radius and must not proportional to sensitivity
@@ -51,6 +51,6 @@ void tpd::OrbitControl::updateCameraTarget() noexcept {
     const auto forward = _target - to_cartesian(_theta, _phi, _radius);
     const auto dirX = normalize(cross(forward, getCameraUp()));
     const auto dirY = normalize(cross(forward, dirX));
-    _target -= dirX * _tarVelocity.x * _sensitivity * PAN_FACTOR * 4.f;
-    _target -= dirY * _tarVelocity.y * _sensitivity * PAN_FACTOR * 4.f;
+    _target -= dirX * _tarVelocity.x * _sensitivity * PAN_FACTOR * 4.f * std::sqrt(_radius);
+    _target -= dirY * _tarVelocity.y * _sensitivity * PAN_FACTOR * 4.f * std::sqrt(_radius);
 }

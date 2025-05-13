@@ -39,7 +39,7 @@ namespace tpd {
         float _zoomVelocity{ 0.f };
 
         static constexpr auto ZOOM_FACTOR = 0.0025f;
-        static constexpr auto PAN_FACTOR = 0.00075f;
+        static constexpr auto PAN_FACTOR = 0.00085f;
     };
 } // namespace tpd
 
