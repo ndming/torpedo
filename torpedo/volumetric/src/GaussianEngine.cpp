@@ -117,33 +117,20 @@ void tpd::GaussianEngine::onInitialized() {
 
     createFrames();
     createRenderTargets(w, h);
-
-    createPointCloudObject();
-
-    // These buffers can be used across in-flight frames due to the readback fence
     createCameraBuffer();
-    createGaussianBuffer();
-    createSplatBuffer();
-    createTilesRenderedBuffer();
-    createPartitionCountBuffer();
-    createPartitionDescriptorBuffer();
-
-    // Similarly, buffers handling transform data also benefit from the same fence
-    createTransformHandleBuffer();
-    createTransformIndexBuffer();
-    createBindlessTransformBuffer();
+    createRangeBuffers(w, h);
 
     // These buffers are frame-dependent and the vectors should be resized once here
     // since they can be reallocated later and should not be resized again
     _splatKeyBuffers.resize(frameCount);
     _splatIndexBuffers.resize(frameCount);
-    _blockCountBuffers.resize(frameCount);
     _blockDescriptorBuffer0s.resize(frameCount);
     _blockDescriptorBuffer1s.resize(frameCount);
-    _globalSumBuffers.resize(frameCount);
     _globalPrefixBuffers.resize(frameCount);
     _tempKeyBuffers.resize(frameCount);
     _tempValBuffers.resize(frameCount);
+    _blockCountBuffers.resize(frameCount);
+    _globalSumBuffers.resize(frameCount);
 
     for (auto i = 0; i < frameCount; ++i) {
         createSplatKeyBuffer(i);
@@ -156,7 +143,17 @@ void tpd::GaussianEngine::onInitialized() {
 
     createBlockCountBuffers();
     createGlobalSumBuffers();
-    createRangeBuffers(w, h);
+
+    // Create buffers for an empty scene
+    createGaussianBuffer(std::vector<std::byte>(sizeof(GaussianPoint)));
+    createSplatBuffer(1);
+    createTilesRenderedBuffer();
+    createPartitionCountBuffer();
+    createPartitionDescriptorBuffer(1);
+
+    createTransformHandleBuffer(1);
+    createTransformIndexBuffer({ 0 });
+    createBindlessTransformBuffer(1);
 }
 
 void tpd::GaussianEngine::logDebugInfos() const noexcept {
@@ -311,10 +308,6 @@ void tpd::GaussianEngine::cleanupRenderTargets() noexcept {
     std::ranges::for_each(_frames, [this](Frame& it) { it.outputImage.destroy(_vmaAllocator); });
 }
 
-void tpd::GaussianEngine::createPointCloudObject() {
-    _pc = PointCloud{ GAUSSIAN_COUNT, 0 };
-}
-
 void tpd::GaussianEngine::createCameraBuffer() {
     constexpr auto size = sizeof(mat4) * 2 + sizeof(vec2);
     _cameraBuffer = RingBuffer::Builder()
@@ -326,23 +319,64 @@ void tpd::GaussianEngine::createCameraBuffer() {
     setBufferDescriptors(_cameraBuffer, size, vk::DescriptorType::eUniformBuffer, 1, 0);
 }
 
-void tpd::GaussianEngine::createGaussianBuffer() {
-    const auto points = GaussianPoint::random(GAUSSIAN_COUNT, 10.f, {}, 0.005f, 0.2f);
+void tpd::GaussianEngine::updateCameraBuffer(const Camera& camera) const {
+    auto projection = mat4{ camera.getProjectionData() };
+    const auto fx = projection[0, 0];
+    const auto fy = projection[1, 1];
+    projection = math::mul(projection, camera.getViewMatrix());
+    const auto focalNDC = std::array{ fx, fy };
 
+    _cameraBuffer.update(0, camera.getViewMatrixData(), sizeof(mat4));
+    _cameraBuffer.update(0, projection.data_ptr(), sizeof(mat4), sizeof(mat4));
+    _cameraBuffer.update(0, focalNDC.data(), sizeof(focalNDC), sizeof(mat4) * 2);
+}
+
+void tpd::GaussianEngine::compile(const Scene& scene, const Settings& settings) {
+    const auto gaussianCount = scene.countAll<GaussianPoint>();
+    _pc = PointCloud{ gaussianCount, settings.shDegree };
+
+    createGaussianBuffer(scene.dataAll<GaussianPoint>());
+    createSplatBuffer(gaussianCount);
+    createPartitionDescriptorBuffer(gaussianCount);
+
+    // Build indices that map each Gaussian to the transform handle it belongs to
+    auto indices = std::vector<uint32_t>{};
+    indices.reserve(gaussianCount);
+
+    // Data from scene is laid out group first then individual
+    auto index = 0;
+    for (const auto size : scene.groupSizes<GaussianPoint>()) std::ranges::fill_n(std::back_inserter(indices), size, index++);
+    for (auto i = 0; i < scene.count<GaussianPoint>(); ++i) indices.push_back(index++);
+
+    auto entityMap = scene.buildEnityMap<GaussianPoint>();
+    const auto entityCount = entityMap.size();
+
+    createTransformHandleBuffer(entityCount);
+    createTransformIndexBuffer(indices);
+    createBindlessTransformBuffer(entityCount);
+
+    PLOGD << "Scene compiled by tpd::GaussianEngine:";
+    PLOGD << " - Gaussian count: " << gaussianCount;
+    PLOGD << " - Entity count: " << entityCount;
+}
+
+void tpd::GaussianEngine::createGaussianBuffer(const std::vector<std::byte>& bytes) {
+    _gaussianBuffer.destroy(_vmaAllocator);
     _gaussianBuffer = StorageBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eTransferDst)
-        .alloc(sizeof(GaussianPoint) * GAUSSIAN_COUNT)
+        .alloc(bytes.size())
         .build(_vmaAllocator);
 
     constexpr auto dstSync = SyncPoint{ vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead };
-    _transferWorker->transfer(points.data(), sizeof(GaussianPoint) * GAUSSIAN_COUNT, _gaussianBuffer, _computeFamilyIndex, dstSync);
+    _transferWorker->transfer(bytes.data(), bytes.size(), _gaussianBuffer, _computeFamilyIndex, dstSync);
 
-    setBufferDescriptors(_gaussianBuffer, sizeof(GaussianPoint) * GAUSSIAN_COUNT, vk::DescriptorType::eStorageBuffer, 2);
+    setBufferDescriptors(_gaussianBuffer, bytes.size(), vk::DescriptorType::eStorageBuffer, 2);
 }
 
-void tpd::GaussianEngine::createSplatBuffer() {
-    _splatBuffer = StorageBuffer::Builder().alloc(SPLAT_SIZE * GAUSSIAN_COUNT).build(_vmaAllocator);
-    setBufferDescriptors(_splatBuffer, SPLAT_SIZE * GAUSSIAN_COUNT, vk::DescriptorType::eStorageBuffer, 3);
+void tpd::GaussianEngine::createSplatBuffer(const uint32_t gaussianCount) {
+    _splatBuffer.destroy(_vmaAllocator);
+    _splatBuffer = StorageBuffer::Builder().alloc(SPLAT_SIZE * gaussianCount).build(_vmaAllocator);
+    setBufferDescriptors(_splatBuffer, SPLAT_SIZE * gaussianCount, vk::DescriptorType::eStorageBuffer, 3);
 }
 
 void tpd::GaussianEngine::createTilesRenderedBuffer() {
@@ -359,51 +393,75 @@ void tpd::GaussianEngine::createPartitionCountBuffer() {
     setBufferDescriptors(_partitionCountBuffer, sizeof(uint32_t), vk::DescriptorType::eStorageBuffer, 5);
 }
 
-void tpd::GaussianEngine::createPartitionDescriptorBuffer() {
-    constexpr auto size = sizeof(uint64_t) * (GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
-
+void tpd::GaussianEngine::createPartitionDescriptorBuffer(const uint32_t gaussianCount) {
+    _partitionDescriptorBuffer.destroy(_vmaAllocator);
+    const auto size = sizeof(uint64_t) * (gaussianCount + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
     _partitionDescriptorBuffer = StorageBuffer::Builder().alloc(size).build(_vmaAllocator);
     setBufferDescriptors(_partitionDescriptorBuffer, size, vk::DescriptorType::eStorageBuffer, 6);
 }
 
-void tpd::GaussianEngine::createTransformHandleBuffer() {
+void tpd::GaussianEngine::createTransformHandleBuffer(const uint32_t entityCount) {
+    const auto size = sizeof(uvec2) * entityCount;
+
+    _transformHandleBuffer.destroy(_vmaAllocator);
     _transformHandleBuffer = StorageBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eTransferDst)
-        .alloc(sizeof(uvec2))
+        .alloc(size)
         .build(_vmaAllocator);
 
-    constexpr auto data = uvec2{ 0, 0 };
+    const auto toUvec2 = [](const auto i) { return uvec2{ i, 0 }; };
+    const auto handles = std::views::iota(0u, entityCount) | std::views::transform(toUvec2) | std::ranges::to<std::vector>();
     constexpr auto dstSync = SyncPoint{ vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead };
-    _transferWorker->transfer(&data, sizeof(uvec2), _transformHandleBuffer, _computeFamilyIndex, dstSync);
+    _transferWorker->transfer(handles.data(), size, _transformHandleBuffer, _computeFamilyIndex, dstSync);
 
     setBufferDescriptors(_transformHandleBuffer, sizeof(uvec2), vk::DescriptorType::eStorageBuffer, 0, 1);
 }
 
-void tpd::GaussianEngine::createTransformIndexBuffer() {
-    constexpr auto size = sizeof(uint32_t) * GAUSSIAN_COUNT;
+void tpd::GaussianEngine::createTransformIndexBuffer(const std::vector<uint32_t>& indices) {
+    const auto size = sizeof(uint32_t) * indices.size();
+
+    _transformIndexBuffer.destroy(_vmaAllocator);
     _transformIndexBuffer = StorageBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eTransferDst)
         .alloc(size)
         .build(_vmaAllocator);
 
-    const auto indices = std::vector(GAUSSIAN_COUNT, uint32_t{ 0 });
     constexpr auto dstSync = SyncPoint{ vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead };
     _transferWorker->transfer(indices.data(), size, _transformIndexBuffer, _computeFamilyIndex, dstSync);
 
     setBufferDescriptors(_transformIndexBuffer, size, vk::DescriptorType::eStorageBuffer, 1, 1);
 }
 
-void tpd::GaussianEngine::createBindlessTransformBuffer() {
+void tpd::GaussianEngine::createBindlessTransformBuffer(const uint32_t entityCount) {
+    const auto size = sizeof(mat4) * entityCount;
+
+    _bindlessTransformBuffer.destroy(_vmaAllocator);
     _bindlessTransformBuffer = RingBuffer::Builder()
-        .count(1)
+        .count(1) // thanks to readback fence, a single transform buffer can be used across in-flight frames
         .usage(vk::BufferUsageFlagBits::eUniformBuffer)
-        .alloc(sizeof(mat4))
+        .alloc(size)
         .build(_vmaAllocator);
 
-    setBufferDescriptors(_bindlessTransformBuffer, sizeof(mat4), vk::DescriptorType::eUniformBuffer, 0, 2);
+    setBufferDescriptors(_bindlessTransformBuffer, size, vk::DescriptorType::eUniformBuffer, 0, 2);
 
     constexpr auto tf = mat4{ 1.0f };
     _bindlessTransformBuffer.update(0, &tf, sizeof(mat4));
+}
+
+void tpd::GaussianEngine::setBufferDescriptors(
+    const vk::Buffer buffer,
+    const vk::DeviceSize size,
+    const vk::DescriptorType descriptorType,
+    const uint32_t binding,
+    const uint32_t set) const
+{
+    for (uint32_t i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
+        const auto descriptorInfo = vk::DescriptorBufferInfo{}
+            .setBuffer(buffer)
+            .setOffset(0)
+            .setRange(size);
+        _frames[i].instance.setDescriptor(set, binding, descriptorType, _device, descriptorInfo);
+    }
 }
 
 void tpd::GaussianEngine::createSplatKeyBuffer(const uint32_t frameIndex) {
@@ -508,22 +566,6 @@ void tpd::GaussianEngine::createRangeBuffers(const uint32_t width, const uint32_
             .setOffset(0)
             .setRange(size);
         _frames[i].instance.setDescriptor(0, 16, vk::DescriptorType::eStorageBuffer, _device, descriptorInfo);
-    }
-}
-
-void tpd::GaussianEngine::setBufferDescriptors(
-    const vk::Buffer buffer,
-    const vk::DeviceSize size,
-    const vk::DescriptorType descriptorType,
-    const uint32_t binding,
-    const uint32_t set) const
-{
-    for (uint32_t i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
-        const auto descriptorInfo = vk::DescriptorBufferInfo{}
-            .setBuffer(buffer)
-            .setOffset(0)
-            .setRange(size);
-        _frames[i].instance.setDescriptor(set, binding, descriptorType, _device, descriptorInfo);
     }
 }
 
@@ -669,22 +711,10 @@ void tpd::GaussianEngine::draw(const SwapImage image) const {
     _graphicsQueue.submit2(submitInfo, frameDrawFence);
 }
 
-void tpd::GaussianEngine::updateCameraBuffer(const Camera& camera) const {
-    auto projection = mat4{ camera.getProjectionData() };
-    const auto fx = projection[0, 0];
-    const auto fy = projection[1, 1];
-    projection = math::mul(projection, camera.getViewMatrix());
-    const auto focalNDC = std::array{ fx, fy };
-
-    _cameraBuffer.update(0, camera.getViewMatrixData(), sizeof(mat4));
-    _cameraBuffer.update(0, projection.data_ptr(), sizeof(mat4), sizeof(mat4));
-    _cameraBuffer.update(0, focalNDC.data(), sizeof(focalNDC), sizeof(mat4) * 2);
-}
-
 void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcept {
     // Project pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _projectPipeline);
-    cmd.dispatch((GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
+    cmd.dispatch((_pc.count + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
     // Make sure splat contents written by project pass are visible (read),
     // and we're going to modify the tiles members in this buffer (write)
@@ -694,7 +724,7 @@ void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcep
 
     // Prefix pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _prefixPipeline);
-    cmd.dispatch((GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
+    cmd.dispatch((_pc.count + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 }
 
 void tpd::GaussianEngine::reallocateBuffers(const uint32_t frameIndex) {
@@ -718,7 +748,7 @@ void tpd::GaussianEngine::recordBlend(
 
     // Keygen pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _keygenPipeline);
-    cmd.dispatch((GAUSSIAN_COUNT + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
+    cmd.dispatch((_pc.count + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
     // Radix sort passes
     using enum vk::ShaderStageFlagBits;

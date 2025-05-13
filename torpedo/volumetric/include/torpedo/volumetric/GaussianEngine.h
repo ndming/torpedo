@@ -2,6 +2,7 @@
 
 #include <torpedo/rendering/Engine.h>
 #include <torpedo/rendering/Camera.h>
+#include <torpedo/rendering/Scene.h>
 
 #include <torpedo/foundation/ReadbackBuffer.h>
 #include <torpedo/foundation/RingBuffer.h>
@@ -13,6 +14,14 @@
 namespace tpd {
     class GaussianEngine final : public Engine {
     public:
+        struct Settings {
+            uint32_t shDegree{ 3 };
+
+            [[nodiscard]] static constexpr Settings getDefault() { return {}; };
+        };
+
+        void compile(const Scene& scene, const Settings& settings = Settings::getDefault());
+
         void preFrameCompute(const Camera& camera);
         void draw(SwapImage image) const;
 
@@ -52,18 +61,8 @@ namespace tpd {
         void createRenderTargets(uint32_t width, uint32_t height);
         void cleanupRenderTargets() noexcept;
 
-        void createPointCloudObject();
-
         void createCameraBuffer();
-        void createGaussianBuffer();
-        void createSplatBuffer();
-        void createTilesRenderedBuffer();
-        void createPartitionCountBuffer();
-        void createPartitionDescriptorBuffer();
-
-        void createTransformHandleBuffer();
-        void createTransformIndexBuffer();
-        void createBindlessTransformBuffer();
+        void updateCameraBuffer(const Camera& camera) const;
 
         void createSplatKeyBuffer(uint32_t frameIndex);
         void createSplatIndexBuffer(uint32_t frameIndex);
@@ -75,12 +74,21 @@ namespace tpd {
         void createTempValBuffers(uint32_t frameIndex);
         void createRangeBuffers(uint32_t width, uint32_t height);
 
+        void createGaussianBuffer(const std::vector<std::byte>& bytes);
+        void createSplatBuffer(uint32_t gaussianCount);
+        void createTilesRenderedBuffer();
+        void createPartitionCountBuffer();
+        void createPartitionDescriptorBuffer(uint32_t gaussianCount);
+
+        void createTransformHandleBuffer(uint32_t entityCount);
+        void createTransformIndexBuffer(const std::vector<uint32_t>& indices);
+        void createBindlessTransformBuffer(uint32_t entityCount);
+
         void setBufferDescriptors(
             vk::Buffer buffer, vk::DeviceSize size,
             vk::DescriptorType descriptorType,
             uint32_t binding, uint32_t set = 0) const;
 
-        void updateCameraBuffer(const Camera& camera) const;
         void recordSplat(vk::CommandBuffer cmd) const noexcept;
         void reallocateBuffers(uint32_t frameIndex);
         void recordBlend(vk::CommandBuffer cmd, uint32_t tilesRendered, uint32_t frameIndex) const noexcept;
@@ -104,8 +112,8 @@ namespace tpd {
         // This is the immutable part of the RasterInfo struct in splat.slang during frame drawing. This separation is
         // due to the fact that the tilesRendered member could change half-way through the pre-frame compute pass.
         struct PointCloud {
-            uint32_t count;
-            uint32_t shDegree;
+            uint32_t count{ 0 };
+            uint32_t shDegree{ 0 };
         };
 
         static constexpr uint32_t WORKGROUP_SIZE = 256; // number of local threads per workgroup in scan passes
@@ -144,8 +152,6 @@ namespace tpd {
         vk::Pipeline _forwardPipeline{};
 
         /*--------------------*/
-
-        static constexpr uint32_t GAUSSIAN_COUNT = 8192;
 
         ShaderLayout<DESCRIPTOR_SET_COUNT> _shaderLayout{};
         std::unique_ptr<TransferWorker> _transferWorker{};
