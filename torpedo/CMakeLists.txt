@@ -1,6 +1,7 @@
 # TORPEDO BACKEND AND TOOLS
 # -------------------------
 find_package(Vulkan 1.4 REQUIRED)
+include(../cmake/Dependencies.cmake)
 
 # Find GLSL and Slang compilers
 message(STATUS "Path to shader compilers:")
