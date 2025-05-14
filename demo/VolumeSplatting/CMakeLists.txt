@@ -15,8 +15,15 @@ target_link_libraries(VolumeSplatting PRIVATE torpedo::extension)
 # ----------------------------------------------------------------
 torpedo_demo_assets_dir(VolumeSplatting VOLUME_SPLATTING ${CMAKE_CURRENT_BINARY_DIR} VOLUME_SPLATTING_ASSETS_DIR)
 file(DOWNLOAD
-    https://github.com/ndming/3d-gaussian-splatting/releases/download/0.0.1/mipnerf360-counter-iter-30000.ply
-    ${VOLUME_SPLATTING_ASSETS_DIR}/counter-iter-30000.ply
-    EXPECTED_MD5 05759CC5811AE8BEA1D099AE040AEDD8
+    https://github.com/ndming/3d-gaussian-splatting/releases/download/0.0.1/mipnerf360-bicycle-iter-30000.ply
+    ${VOLUME_SPLATTING_ASSETS_DIR}/bicycle-iter-30000.ply
+    EXPECTED_MD5 f6d3b2d6133515d49d39a9881f54b6f2
+    SHOW_PROGRESS
+)
+
+file(DOWNLOAD
+    https://github.com/ndming/3d-gaussian-splatting/releases/download/0.0.1/dtu-scan24-iter-30000.ply
+    ${VOLUME_SPLATTING_ASSETS_DIR}/scan24-iter-30000.ply
+    EXPECTED_MD5 9950f0f1904ccc9f0a0915f5e9acae8c
     SHOW_PROGRESS
 )

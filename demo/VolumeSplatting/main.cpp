@@ -11,6 +11,13 @@
 
 #include <filesystem>
 
+static constexpr auto TRANSFORM = tpd::mat4{ 
+    1.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 1.0f, 0.0f, -1.0f,
+    0.0f, 0.0f, 1.0f, -0.5f,
+    0.0f, 0.0f, 0.0f, 1.0f,
+};
+
 int main() {
     tpd::utils::plantConsoleLogger();
     const auto context = tpd::Context<tpd::SurfaceRenderer>::create();
@@ -18,31 +25,26 @@ int main() {
     const auto renderer = context->initRenderer(1280, 720);
     renderer->getWindow()->setTitle("Volume Splatting");
 
-    const auto engine = context->bindEngine<tpd::GaussianEngine>();
-    const auto camera = context->createCamera<tpd::PerspectiveCamera>();
-
-    // Mouse left: orbit, mouse right: pan, mouse wheel: zoom
-    const auto control = renderer->getWindow()->createControl<tpd::OrbitControl>();
-    control->setSensitivity(.5f);
-    control->setRadius(110.f);
-
     // CMake has downloaded a trained point cloud
-    const auto plyFile = std::filesystem::path(VOLUME_SPLATTING_ASSETS_DIR) / "counter-iter-30000.ply";
-    auto points = tpd::GaussianPoint::fromModel(plyFile);
+    const auto plyFile = std::filesystem::path(VOLUME_SPLATTING_ASSETS_DIR) / "bicycle-iter-30000.ply";
+    const auto points = tpd::GaussianPoint::fromModel(plyFile);
 
     auto scene = tpd::Scene{};
-    scene.add(tpd::group(points));
+    const auto pointCloud = scene.add(tpd::group(points));
 
     auto settings = tpd::GaussianEngine::Settings::getDefault();
-    settings.shDegree = 3;
+    settings.shDegree = 0;
 
+    const auto engine = context->bindEngine<tpd::GaussianEngine>();
     engine->compile(scene, settings);
-    points.clear();
 
-    renderer->loop([&](const float deltaTimeMillis) {
-        const auto [eye, tar] = control->getCameraUpdate(deltaTimeMillis);
-        camera->lookAt(eye, tar, tpd::OrbitControl::getCameraUp());
+    const auto& transformHost = engine->getTransformHost();
+    transformHost->transform(pointCloud, TRANSFORM);
 
+    const auto camera = context->createCamera<tpd::PerspectiveCamera>();
+    camera->lookAt({ -2.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, -1.0f, 0.0f });
+
+    renderer->loop([&] {
         engine->preFrameCompute(*camera);
         if (const auto swapImage = renderer->launchFrame(); swapImage) {
             engine->draw(swapImage);
