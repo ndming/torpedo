@@ -3,7 +3,6 @@
 #include "miniply.h"
 
 #include <random>
-#include <ranges>
 #include <fstream>
 
 std::vector<tpd::GaussianPoint> tpd::GaussianPoint::random(
@@ -110,9 +109,10 @@ std::vector<tpd::GaussianPoint> tpd::GaussianPoint::fromModel(const std::filesys
     auto idx = 0;
     for (auto& [position, opacity, quaternion, scale, sh] : points) {
         position = { positionData[idx * 3 + 0], positionData[idx * 3 + 1], positionData[idx * 3 + 2] };
-        opacity = opacityData[idx];
+        opacity = 1.f / (1.f + std::exp(-opacityData[idx]));
         quaternion = { rotationData[idx * 4 + 1], rotationData[idx * 4 + 2], rotationData[idx * 4 + 3], rotationData[idx * 4 + 0] };
-        scale = { scaleData[idx * 3 + 0], scaleData[idx * 3 + 1], scaleData[idx * 3 + 2], 1.0f };
+        quaternion = math::normalize(quaternion);
+        scale = { std::exp(scaleData[idx * 3 + 0]), std::exp(scaleData[idx * 3 + 1]), std::exp(scaleData[idx * 3 + 2]), 1.0f };
         memcpy(sh.data(), featureData + idx * featureCount, sizeof(float) * featureCount);
         idx++;
     }
