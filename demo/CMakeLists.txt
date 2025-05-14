@@ -1,4 +1,5 @@
 # Copy resources to build directory
+# ---------------------------------
 function(torpedo_demo_copy_resource TARGET_NAME RESOURCE_OUTPUT_DIR RESOURCE_FILES)
     foreach(RESOURCE_FILE ${RESOURCE_FILES})
         # Get the file name from the full path
@@ -21,6 +22,7 @@ function(torpedo_demo_copy_resource TARGET_NAME RESOURCE_OUTPUT_DIR RESOURCE_FIL
 endfunction()
 
 # Clang specifics
+# ---------------
 function(torpedo_demo_clang_setup TARGET_NAME)
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         if (TORPEDO_LIBCXX_PATH AND TORPEDO_LIBABI_PATH)
@@ -35,5 +37,20 @@ function(torpedo_demo_clang_setup TARGET_NAME)
     endif()
 endfunction()
 
+# Call this to receive a macro pointing to the the assets directory
+# -----------------------------------------------------------------
+function(torpedo_demo_assets_dir TARGET_NAME MODULE_NAME TARGET_BINARY_DIR OUT_DIR_PATH)
+    if(CMAKE_CONFIGURATION_TYPES)
+        # Multi-configuration generators (Visual Studio, Xcode)
+        set(ASSETS_DIR_VALUE "${TARGET_BINARY_DIR}/${CMAKE_CFG_INTDIR}/assets")
+    else()
+        # Single-configuration generators (Makefiles, Ninja)
+        set(ASSETS_DIR_VALUE "${TARGET_BINARY_DIR}/assets")
+    endif()
+    target_compile_definitions(${TARGET_NAME} PRIVATE ${MODULE_NAME}_ASSETS_DIR=\"${ASSETS_DIR_VALUE}\")
+    set(${OUT_DIR_PATH} "${ASSETS_DIR_VALUE}" PARENT_SCOPE)
+endfunction()
+
 # Demo targets
 add_subdirectory(HelloGaussian)
+add_subdirectory(VolumeSplatting)
