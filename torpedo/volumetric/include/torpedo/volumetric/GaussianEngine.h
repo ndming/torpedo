@@ -195,6 +195,8 @@ namespace tpd {
 
         static constexpr auto RAW_DEPENDENCY = vk::DependencyInfo{ {}, 1, &RAW_BARRIER };
         static constexpr auto WAW_DEPENDENCY = vk::DependencyInfo{ {}, 1, &WAW_BARRIER };
+
+        [[nodiscard]] static constexpr uint32_t getHigherMSB(uint32_t n) noexcept;
     };
 } // namespace tpd
 
@@ -212,4 +214,17 @@ inline std::pmr::memory_resource* tpd::GaussianEngine::getFrameResource() noexce
 
 inline bool tpd::GaussianEngine::asyncCompute() const noexcept {
     return _graphicsFamilyIndex != _computeFamilyIndex;
+}
+
+constexpr uint32_t tpd::GaussianEngine::getHigherMSB(const uint32_t n) noexcept {
+    uint32_t msb= sizeof(n) * 4;
+    auto step = msb;
+    while (step > 1) {
+        step /= 2;
+        if (n >> msb) msb += step;
+        else msb -= step;
+    }
+    if (n >> msb)
+        msb++;
+    return msb;
 }

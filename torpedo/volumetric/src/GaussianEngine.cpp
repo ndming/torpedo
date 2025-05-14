@@ -79,11 +79,13 @@ void tpd::GaussianEngine::onInitialized() {
     _transferWorker = std::make_unique<TransferWorker>(
         _transferFamilyIndex, _graphicsFamilyIndex, _computeFamilyIndex, _physicalDevice, _device, _vmaAllocator);
 
+#ifndef NDEBUG
     const auto func = __FUNCTION__;
     _transferWorker->setStatusUpdateCallback([func](const auto message) {
         // Do this to silent clang-tidy check of bugprone-lambda-function-name
         *plog::get<0>() += plog::Record(plog::debug, func, 81, "", nullptr, 0).ref() << message;
     });
+#endif
 
     _transformHost = std::make_unique<TransformHost>();
 
@@ -754,9 +756,16 @@ void tpd::GaussianEngine::recordBlend(
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _keygenPipeline);
     cmd.dispatch((_pc.count + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
+    const auto [w, h] = _renderer->getFramebufferSize();
+    const auto tilesX = (w + BLOCK_X - 1) / BLOCK_X;
+    const auto tilesY = (h + BLOCK_Y - 1) / BLOCK_Y;
+
+    const auto sortedBits = getHigherMSB(tilesX * tilesY) + 32;
+    const auto passCount = (sortedBits + 1) / 2;
+
     // Radix sort passes
     using enum vk::ShaderStageFlagBits;
-    for (auto radixPass = 0; radixPass < 32; ++radixPass) {
+    for (auto radixPass = 0; radixPass < passCount; ++radixPass) {
         cmd.pushConstants(_gaussianLayout, eCompute, sizeof(PointCloud) + sizeof(uint32_t), sizeof(uint32_t), &radixPass);
 
         // Radix pass writes to the same set of buffers back-to-back
@@ -784,9 +793,6 @@ void tpd::GaussianEngine::recordBlend(
     cmd.pipelineBarrier2(RAW_DEPENDENCY);
 
     // Forward alpha blending pass
-    const auto [w, h] = _renderer->getFramebufferSize();
-    const auto tilesX = (w + BLOCK_X - 1) / BLOCK_X;
-    const auto tilesY = (h + BLOCK_Y - 1) / BLOCK_Y;
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _forwardPipeline);
     cmd.dispatch(tilesX, tilesY, 1);
 }
