@@ -14,6 +14,7 @@ namespace tpd {
         Camera(const mat3& R, const vec3& t) noexcept : _view{ R, t } {}
 
         void lookAt(const vec3& eye, const vec3& center, const vec3& up) noexcept;
+        void lookAt(const mat3& R, const vec3& t) noexcept;
 
         void setNear(float near) noexcept;
         void setFar(float far) noexcept;

@@ -14,3 +14,7 @@ void tpd::Camera::lookAt(const vec3& eye, const vec3& center, const vec3& up) no
         0.f, 0.f, 0.f, 1.f,
     };
 }
+
+void tpd::Camera::lookAt(const mat3& R, const vec3& t) noexcept {
+    _view = mat4{ R, t };
+}
