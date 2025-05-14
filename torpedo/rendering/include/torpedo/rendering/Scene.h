@@ -14,11 +14,6 @@ namespace tpd {
     template<typename T> requires (!std::is_rvalue_reference_v<T>)
     using EntityGroup = std::span<const T>;
 
-    template<typename T>
-    [[nodiscard]] EntityGroup<T> group(const std::vector<T>& elements) {
-        return EntityGroup{ elements.data(), elements.size() };
-    }
-
     class Scene final {
     public:
         template<typename T, typename... Args> requires (std::constructible_from<T, Args...>)
@@ -58,6 +53,13 @@ namespace tpd {
         entt::registry _registry;
     };
 } // namespace tpd
+
+namespace tpd::ent {
+    template<typename T>
+    [[nodiscard]] EntityGroup<T> group(const std::vector<T>& elements) {
+        return EntityGroup{ elements.data(), elements.size() };
+    }
+} // namespace tpd::ent
 
 template<typename T, typename... Args> requires (std::constructible_from<T, Args...>)
 tpd::Entity tpd::Scene::add(Args&&... args) {

@@ -30,7 +30,7 @@ int main() {
     const auto points = tpd::GaussianPoint::fromModel(plyFile);
 
     auto scene = tpd::Scene{};
-    const auto pointCloud = scene.add(tpd::group(points));
+    const auto pointCloud = scene.add(tpd::ent::group(points));
 
     auto settings = tpd::GaussianEngine::Settings::getDefault();
     settings.shDegree = 0;

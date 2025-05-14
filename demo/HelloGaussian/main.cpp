@@ -37,7 +37,7 @@ int main() {
     };
 
     auto scene = tpd::Scene{};
-    scene.add(tpd::group(points));
+    scene.add(tpd::ent::group(points));
     scene.add(std::move(gaussian));
 
     auto settings = tpd::GaussianEngine::Settings::getDefault();
