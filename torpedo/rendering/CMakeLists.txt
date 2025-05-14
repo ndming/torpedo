@@ -9,7 +9,8 @@ set(TORPEDO_RENDERING_SOURCES
         src/LogUtils.cpp
         src/Renderer.cpp
         src/Scene.cpp
-        src/SurfaceRenderer.cpp)
+        src/SurfaceRenderer.cpp
+        src/TransformHost.cpp)
 
 
 # TORPEDO RENDERING MODULE

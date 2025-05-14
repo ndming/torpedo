@@ -2,7 +2,7 @@
 
 #include <torpedo/rendering/Engine.h>
 #include <torpedo/rendering/Camera.h>
-#include <torpedo/rendering/Scene.h>
+#include <torpedo/rendering/TransformHost.h>
 
 #include <torpedo/foundation/ReadbackBuffer.h>
 #include <torpedo/foundation/RingBuffer.h>
@@ -21,6 +21,7 @@ namespace tpd {
         };
 
         void compile(const Scene& scene, const Settings& settings = Settings::getDefault());
+        [[nodiscard]] const std::unique_ptr<TransformHost>& getTransformHost() const noexcept;
 
         void preFrameCompute(const Camera& camera);
         void draw(SwapImage image) const;
@@ -155,6 +156,7 @@ namespace tpd {
 
         ShaderLayout<DESCRIPTOR_SET_COUNT> _shaderLayout{};
         std::unique_ptr<TransferWorker> _transferWorker{};
+        std::unique_ptr<TransformHost> _transformHost{};
 
         StorageBuffer _gaussianBuffer{};
         StorageBuffer _splatBuffer{};
@@ -195,6 +197,10 @@ namespace tpd {
         static constexpr auto WAW_DEPENDENCY = vk::DependencyInfo{ {}, 1, &WAW_BARRIER };
     };
 } // namespace tpd
+
+inline const std::unique_ptr<tpd::TransformHost>& tpd::GaussianEngine::getTransformHost() const noexcept {
+    return _transformHost;
+}
 
 inline const char* tpd::GaussianEngine::getName() const noexcept {
     return "tpd::GaussianEngine";

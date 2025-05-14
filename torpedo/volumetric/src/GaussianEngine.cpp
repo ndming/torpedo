@@ -85,6 +85,8 @@ void tpd::GaussianEngine::onInitialized() {
         *plog::get<0>() += plog::Record(plog::debug, func, 81, "", nullptr, 0).ref() << message;
     });
 
+    _transformHost = std::make_unique<TransformHost>();
+
     // Create queues relevant to Gaussian splatting
     _graphicsQueue = _device.getQueue(_graphicsFamilyIndex, 0);
     _computeQueue = _device.getQueue(_computeFamilyIndex, 0);
@@ -354,6 +356,8 @@ void tpd::GaussianEngine::compile(const Scene& scene, const Settings& settings) 
     createTransformHandleBuffer(entityCount);
     createTransformIndexBuffer(indices);
     createBindlessTransformBuffer(entityCount);
+
+    _transformHost->update(std::move(entityMap), &_bindlessTransformBuffer);
 
     PLOGD << "Scene compiled by tpd::GaussianEngine:";
     PLOGD << " - Gaussian count: " << gaussianCount;
