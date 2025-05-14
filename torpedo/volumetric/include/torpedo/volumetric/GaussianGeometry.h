@@ -3,6 +3,7 @@
 #include <torpedo/math/vec4.h>
 
 #include <array>
+#include <filesystem>
 #include <vector>
 
 namespace tpd {
@@ -24,6 +25,8 @@ namespace tpd {
             float maxScale = 1.0f,
             float minOpacity = 0.1f,
             float maxOpacity = 1.0f);
+
+        [[nodiscard]] static std::vector<GaussianPoint> fromModel(const std::filesystem::path& plyFile);
     };
 
     namespace utils {
