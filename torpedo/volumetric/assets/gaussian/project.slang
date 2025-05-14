@@ -63,12 +63,13 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     let cov2D = projectCovariance(cov3D, viewPos, camera.viewMatrix, focal);
 
     // Apply low-pass filter: every Gaussian should be at least one pixel wide/high, discard 3rd row and column
-    let cov = float3(cov2D[0][0] + 0.3, cov2D[1][0], cov2D[1][1] + 0.3f);
+    let cov = float3(cov2D[0][0] + 0.3f, cov2D[1][0], cov2D[1][1] + 0.3f);
 
     // Invert covariance (EWA algorithm)
     let det = cov.x * cov.z - cov.y * cov.y;
     if (det == 0.0) return; // singular matrix
-    let conic = float3(cov.z, -cov.y, cov.x) / det;
+    let det_inv = 1.0 / det;
+    let conic = float3(cov.z, -cov.y, cov.x) * det_inv;
 
     // Compute extent in screen space (by finding eigenvalues of cov2D)
     let mid = 0.5 * (cov.x + cov.z);

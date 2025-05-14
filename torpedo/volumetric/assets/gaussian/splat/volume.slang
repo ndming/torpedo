@@ -44,7 +44,8 @@ public float3x3 computeCovariance(float4 quaternion, float4 scale) {
 public float2x2 projectCovariance(float3x3 cov3D, float3 viewPos, float4x4 viewMatrix, float2 focal) {
     let W = (float3x3)viewMatrix;
     let J = computeJacobian(viewPos, focal);
-    let cov2D = mul(J, mul(W, mul(cov3D, transpose(W))) * transpose(J)); // J * W * Sigma_3D * W^T * J^T
+    let T = mul(J, W);
+    let cov2D = mul(T, mul(cov3D, transpose(T)));
     // Note that the low-pass filtering is hoisted out of this function, call site should apply it
     return (float2x2)cov2D;
 }
