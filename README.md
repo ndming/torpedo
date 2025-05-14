@@ -1,3 +1,9 @@
+# torpedo
+Extensible rendering infrastructure using the Vulkan API.
+
+## Usage
+See [demo](demo) samples for more details.
+
 ## Build Instructions
 The default [Release build](#release-build) is generally recommended for consuming the library, while the [Debug build](#debug-build)
 is suitable for experiments and extensions.
@@ -58,7 +64,7 @@ Make sure Visual Studio version is `17.9.7` or greater, with the following compo
 - MSVC v143 - VS2022 C++ x86/64 build tools (MSVC `>=19.39`)
 - Windows SDK (10/11)
 
-###### Linux
+###### Linux (experimental)
 ```shell
 conda env create --file env-linux.yml
 conda activate torpedo
@@ -155,3 +161,10 @@ echo 'unset VK_LAYER_PATH' > $CONDA_PREFIX/etc/conda/deactivate.d/torpedo_deacti
 ```
 
 </details>
+
+## External dependencies
+Third-party dependencies used by `torpedo`:
+- [GLFW](https://www.glfw.org/)
+- [EnTT](https://github.com/skypjack/entt)
+- [PLOG](https://github.com/SergiusTheBest/plog)
+- [Vulkan Memory Allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
