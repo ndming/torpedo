@@ -275,9 +275,9 @@ void tpd::Context<R>::destroyEngine(std::unique_ptr<E, Deleter<E>> engine) noexc
 template<tpd::RendererImpl R>
 template<tpd::CameraImpl C>
 std::unique_ptr<C, tpd::Deleter<C>> tpd::Context<R>::createCamera() {
-    if (!_renderer->initialized()) [[unlikely]] {
-        PLOGE << "Context - Please init the renderer before creating any Camera!";
-        throw std::runtime_error("Context - Create Camera before initializing the associated Renderer");
+    if (!_renderer->_engineInitialized) [[unlikely]] {
+        PLOGE << "Context - Please bind and Engine before creating any Camera!";
+        throw std::runtime_error("Context - Create Camera before binding an Engine");
     }
 
     const auto [w, h] = _renderer->getFramebufferSize();
