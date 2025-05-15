@@ -20,14 +20,16 @@ static constexpr auto TRANSFORM = tpd::mat4{
 
 int main() {
     tpd::utils::plantConsoleLogger();
+
+    // CMake has downloaded a trained point cloud
+    tpd::utils::logInfo("Loading point cloud...");
+    const auto plyFile = std::filesystem::path(VOLUME_SPLATTING_ASSETS_DIR) / "bicycle-iter-30000.ply";
+    const auto points = tpd::GaussianPoint::fromModel(plyFile);
+
     const auto context = tpd::Context<tpd::SurfaceRenderer>::create();
 
     const auto renderer = context->initRenderer(1280, 720);
     renderer->getWindow()->setTitle("Volume Splatting");
-
-    // CMake has downloaded a trained point cloud
-    const auto plyFile = std::filesystem::path(VOLUME_SPLATTING_ASSETS_DIR) / "bicycle-iter-30000.ply";
-    const auto points = tpd::GaussianPoint::fromModel(plyFile);
 
     auto scene = tpd::Scene{};
     const auto pointCloud = scene.add(tpd::ent::group(points));
