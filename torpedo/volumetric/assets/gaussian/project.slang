@@ -84,7 +84,7 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     if ((rectMax.x - rectMin.x) * (rectMax.y - rectMin.y) == 0) return; // empty tile
 
     // Compute color from spherical harmonics
-    let direction = mean - getCameraWorldPosition(camera.viewMatrix);
+    let direction = normalize(mean - getCameraWorldPosition(camera.viewMatrix));
     let color = evaluateSphericalHarmonics(gaussians[idx].sh, direction, info.shDegree);
 
     // Store preprocessed Gaussian data as RasterPoint

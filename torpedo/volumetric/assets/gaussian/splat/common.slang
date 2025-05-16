@@ -19,36 +19,35 @@ static const float SH_C3[] = {
     -0.5900435899266435,
 };
 
-static const uint MAX_SH_DEGREE = 3;
-static const uint EXTRA_SH_COEFFS = (MAX_SH_DEGREE + 1) * (MAX_SH_DEGREE + 1) - 1; // Exclude DC component
-
 [[ForceInline]]
 float3 getSHCoeff(float sh[], uint idx) {
-    // Extra features are reshaped from (45,) to (3, EXTRA_SH_COEFFS)
-    return float3(
-        sh[(idx - 1) + 0 * EXTRA_SH_COEFFS + 3],
-        sh[(idx - 1) + 1 * EXTRA_SH_COEFFS + 3],
-        sh[(idx - 1) + 2 * EXTRA_SH_COEFFS + 3]);
+    return float3(sh[idx * 3 + 0], sh[idx * 3 + 1], sh[idx * 3 + 2]);
 }
 
-/// Evaluates the spherical harmonics `sh` using up to `degree` (inclusive) to obtain RGB values at `direction`.
+/// Evaluates the spherical harmonics `sh` using up to `degree` (inclusive) to obtain RGB values at normalized `dir`.
 /// Results are clamped to positive values.
-public float3 evaluateSphericalHarmonics(float sh[], float3 direction, uint degree) {
-    let dir = normalize(direction);
-
+public float3 evaluateSphericalHarmonics(float sh[], float3 dir, uint degree) {
     // Band 0
-    float3 result = SH_C0 * float3(sh[0], sh[1], sh[2]); // DC components are laid out contiguously
+    var result = SH_C0 * float3(sh[0], sh[1], sh[2]); // DC components are laid out contiguously
 
     if (degree > 0) {
         // Band 1
-        float x = dir.x, y = dir.y, z = dir.z;
+        let x = dir.x;
+        let y = dir.y;
+        let z = dir.z;
+
         result = result - SH_C1 * y * getSHCoeff(sh, 1) + SH_C1 * z * getSHCoeff(sh, 2) - SH_C1 * x * getSHCoeff(sh, 3);
 
         if (degree > 1) {
             // Band 2
-            float xx = x * x, yy = y * y, zz = z * z;
-            float xy = x * y, yz = y * z, zx = z * x;
-            result = result + 
+            let xx = x * x;
+            let yy = y * y;
+            let zz = z * z;
+            let xy = x * y;
+            let yz = y * z;
+            let zx = z * x;
+
+            result = result +
                 SH_C2[0] * xy * getSHCoeff(sh, 4) +
                 SH_C2[1] * yz * getSHCoeff(sh, 5) +
                 SH_C2[2] * (2.0 * zz - xx - yy) * getSHCoeff(sh, 6) +
@@ -61,7 +60,7 @@ public float3 evaluateSphericalHarmonics(float sh[], float3 direction, uint degr
                     SH_C3[0] * y * (3.0 * xx - yy) * getSHCoeff(sh, 9) +
                     SH_C3[1] * xy * z * getSHCoeff(sh, 10) +
                     SH_C3[2] * y * (4.0 * zz - xx - yy) * getSHCoeff(sh, 11) +
-                    SH_C3[3] * z * (2.0 * zz - 3.0 * xx - 3.0 * yy) + getSHCoeff(sh, 12) + 
+                    SH_C3[3] * z * (2.0 * zz - 3.0 * xx - 3.0 * yy) + getSHCoeff(sh, 12) +
                     SH_C3[4] * x * (4.0 * zz - xx - yy) * getSHCoeff(sh, 13) +
                     SH_C3[5] * z * (xx - yy) * getSHCoeff(sh, 14) +
                     SH_C3[6] * x * (xx - 3.0 * yy) * getSHCoeff(sh, 15);
