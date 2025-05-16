@@ -19,9 +19,16 @@ static const float SH_C3[] = {
     -0.5900435899266435,
 };
 
+static const uint MAX_SH_DEGREE = 3;
+static const uint EXTRA_SH_COEFFS = (MAX_SH_DEGREE + 1) * (MAX_SH_DEGREE + 1) - 1; // Exclude DC component
+
 [[ForceInline]]
 float3 getSHCoeff(float sh[], uint idx) {
-    return float3(sh[idx * 3 + 0], sh[idx * 3 + 1], sh[idx * 3 + 2]);
+    // Extra features are reshaped from (45,) to (3, EXTRA_SH_COEFFS)
+    return float3(
+        sh[(idx - 1) + 0 * EXTRA_SH_COEFFS + 3],
+        sh[(idx - 1) + 1 * EXTRA_SH_COEFFS + 3],
+        sh[(idx - 1) + 2 * EXTRA_SH_COEFFS + 3]);
 }
 
 /// Evaluates the spherical harmonics `sh` using up to `degree` (inclusive) to obtain RGB values at `direction`.
@@ -30,7 +37,7 @@ public float3 evaluateSphericalHarmonics(float sh[], float3 direction, uint degr
     let dir = normalize(direction);
 
     // Band 0
-    float3 result = SH_C0 * getSHCoeff(sh, 0);
+    float3 result = SH_C0 * float3(sh[0], sh[1], sh[2]); // DC components are laid out contiguously
 
     if (degree > 0) {
         // Band 1
@@ -76,7 +83,7 @@ public uint2 getComputeGrid(uint2 imageSize) {
 public float3 getCameraWorldPosition(float4x4 viewMatrix) {
     // The 4th column of the view matrix is -R^T*t
     let R = transpose((float3x3)viewMatrix);
-    return -mul(R, viewMatrix[3].xyz);
+    return -mul(R, float3(viewMatrix[0].w, viewMatrix[1].w, viewMatrix[2].w));
 }
 
 /// Performs frustum clipping of the given `point` using the provided camera matrices
