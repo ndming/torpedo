@@ -47,7 +47,7 @@ int main() {
     camera->lookAt({ -2.0f, -1.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, -1.0f, 0.0f });
 
     renderer->loop([&] {
-        engine->preFrameCompute(*camera);
+        engine->rasterFrame(*camera);
         if (const auto swapImage = renderer->launchFrame(); swapImage) {
             engine->draw(swapImage);
             renderer->submitFrame(swapImage.index);

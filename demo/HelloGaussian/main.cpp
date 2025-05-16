@@ -21,7 +21,7 @@ int main() {
 
     // Mouse left: orbit, mouse right: pan, mouse wheel: zoom
     const auto control = renderer->getWindow()->createControl<tpd::OrbitControl>();
-    control->setSensitivity(.5f);
+    control->setSensitivity(.3f);
     control->setRadius(8.f);
 
     // Generate random points within a cube of size 10 centered at the origin
@@ -50,9 +50,9 @@ int main() {
         const auto [eye, tar] = control->getCameraUpdate(deltaTimeMillis);
         camera->lookAt(eye, tar, tpd::OrbitControl::getCameraUp());
 
-        engine->preFrameCompute(*camera);
+        engine->rasterFrame(*camera);
         if (const auto swapImage = renderer->launchFrame(); swapImage) {
-            engine->draw(swapImage);
+            engine->draw(swapImage); // mainly to copy rastered image to swap image
             renderer->submitFrame(swapImage.index);
         }
     });
