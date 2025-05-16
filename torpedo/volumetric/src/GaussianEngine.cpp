@@ -103,13 +103,13 @@ void tpd::GaussianEngine::onInitialized() {
     }
 
     createGaussianLayout();
-    _projectPipeline = createPipeline("project.slang", _gaussianLayout);
-    _prefixPipeline = createPipeline("prefix.slang", _gaussianLayout);
-    _keygenPipeline = createPipeline("keygen.slang", _gaussianLayout);
-    _radixPipeline = createPipeline("radix.slang", _gaussianLayout);
+    _projectPipeline  = createPipeline("project.slang",  _gaussianLayout);
+    _prefixPipeline   = createPipeline("prefix.slang",   _gaussianLayout);
+    _keygenPipeline   = createPipeline("keygen.slang",   _gaussianLayout);
+    _radixPipeline    = createPipeline("radix.slang",    _gaussianLayout);
     _coalescePipeline = createPipeline("coalesce.slang", _gaussianLayout);
-    _rangePipeline = createPipeline("range.slang", _gaussianLayout);
-    _forwardPipeline = createPipeline("forward.slang", _gaussianLayout);
+    _rangePipeline    = createPipeline("range.slang",    _gaussianLayout);
+    _blendPipeline    = createPipeline("blend.slang",    _gaussianLayout);
 
     const auto frameCount = _renderer->getInFlightFrameCount();
     const auto [w, h] = _renderer->getFramebufferSize();
@@ -621,7 +621,7 @@ void tpd::GaussianEngine::rasterFrame(const Camera& camera) {
     using enum vk::ImageLayout;
     _frames[frameIndex].outputImage.recordLayoutTransition(preFrameCompute, eUndefined, eGeneral);
 
-    // Splat dispatches these passes: project, prefix
+    // Splat dispatches these passes: project, prefix, keygen
     if (_pc.count > 0) [[likely]] recordSplat(preFrameCompute);
     preFrameCompute.end();
 
@@ -649,7 +649,7 @@ void tpd::GaussianEngine::rasterFrame(const Camera& camera) {
     preFrameCompute.pushConstants(_gaussianLayout, shaderStage, sizeof(PointCloud), sizeof(uint32_t),   &tilesRendered);
     preFrameCompute.bindDescriptorSets(eCompute, _gaussianLayout, 0, _frames[frameIndex].instance.getDescriptorSets(), {});
 
-    // The remaining passes: keygen, radix, range, forward
+    // The remaining passes: radix, range, blend
     recordBlend(preFrameCompute, tilesRendered, frameIndex);
 
     // Transfer ownership to graphics before submitting if working with async compute
@@ -793,14 +793,14 @@ void tpd::GaussianEngine::recordBlend(
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _rangePipeline);
     cmd.dispatch((tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
-    // Make sure range values written by range pass are visible to forward pass
+    // Make sure range values written by range pass are visible to blend pass
     cmd.pipelineBarrier2(RAW_DEPENDENCY);
 
-    // Forward alpha blending pass
+    // Alpha blending pass
     const auto [w, h] = _renderer->getFramebufferSize();
     const auto tilesX = (w + BLOCK_X - 1) / BLOCK_X;
     const auto tilesY = (h + BLOCK_Y - 1) / BLOCK_Y;
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _forwardPipeline);
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _blendPipeline);
     cmd.dispatch(tilesX, tilesY, 1);
 }
 
@@ -859,7 +859,7 @@ void tpd::GaussianEngine::destroy() noexcept {
         _targetViews.clear();
         _frames.clear();
 
-        _device.destroyPipeline(_forwardPipeline);
+        _device.destroyPipeline(_blendPipeline);
         _device.destroyPipeline(_rangePipeline);
         _device.destroyPipeline(_coalescePipeline);
         _device.destroyPipeline(_radixPipeline);

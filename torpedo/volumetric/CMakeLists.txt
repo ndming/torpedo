@@ -29,6 +29,6 @@ set(TORPEDO_VOLUMETRIC_SHADERS
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/radix.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/coalesce.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/range.slang
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/forward.slang)
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/blend.slang)
 torpedo_compile_slang(${TARGET} "${TORPEDO_VOLUMETRIC_ASSETS_DIR}/gaussian" "${TORPEDO_VOLUMETRIC_SHADERS}")
 target_link_libraries(${TARGET} PRIVATE "${TARGET}_spirv_binaries")
