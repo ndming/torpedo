@@ -23,7 +23,7 @@ namespace tpd {
         void compile(const Scene& scene, const Settings& settings = Settings::getDefault());
         [[nodiscard]] const std::unique_ptr<TransformHost>& getTransformHost() const noexcept;
 
-        void preFrameCompute(const Camera& camera);
+        void rasterFrame(const Camera& camera);
         void draw(SwapImage image) const;
 
         ~GaussianEngine() noexcept override { destroy(); }
@@ -64,6 +64,7 @@ namespace tpd {
 
         void createCameraBuffer();
         void updateCameraBuffer(const Camera& camera) const;
+        void updateRadixPassCount(uint32_t width, uint32_t height) noexcept;
 
         void createSplatKeyBuffer(uint32_t frameIndex);
         void createSplatIndexBuffer(uint32_t frameIndex);
@@ -151,6 +152,7 @@ namespace tpd {
         vk::Pipeline _coalescePipeline{};
         vk::Pipeline _rangePipeline{};
         vk::Pipeline _forwardPipeline{};
+        uint32_t _radixPassCount{ 0 };
 
         /*--------------------*/
 

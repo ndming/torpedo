@@ -87,6 +87,7 @@ void tpd::GaussianEngine::onInitialized() {
     });
 #endif
 
+    // Support entity transforms
     _transformHost = std::make_unique<TransformHost>();
 
     // Create queues relevant to Gaussian splatting
@@ -123,6 +124,7 @@ void tpd::GaussianEngine::onInitialized() {
     createRenderTargets(w, h);
     createCameraBuffer();
     createRangeBuffers(w, h);
+    updateRadixPassCount(w, h);
 
     // These buffers are frame-dependent and the vectors should be resized once here
     // since they can be reallocated later and should not be resized again
@@ -135,7 +137,9 @@ void tpd::GaussianEngine::onInitialized() {
     _tempValBuffers.resize(frameCount);
     _blockCountBuffers.resize(frameCount);
     _globalSumBuffers.resize(frameCount);
-
+ 
+    // These buffers are going to be created with size 1 which is going to be updated later during rendering
+    // Though as redundant as it may seem, this avoids crashing when the render is launched with 0 Gaussian points
     for (auto i = 0; i < frameCount; ++i) {
         createSplatKeyBuffer(i);
         createSplatIndexBuffer(i);
@@ -145,19 +149,11 @@ void tpd::GaussianEngine::onInitialized() {
         createTempValBuffers(i);
     }
 
-    createBlockCountBuffers();
-    createGlobalSumBuffers();
-
-    // Create buffers for an empty scene
-    createGaussianBuffer(std::vector<std::byte>(sizeof(GaussianPoint)));
-    createSplatBuffer(1);
+    // These buffers exist independently from the number of Gaussians and tiles renderer
     createTilesRenderedBuffer();
     createPartitionCountBuffer();
-    createPartitionDescriptorBuffer(1);
-
-    createTransformHandleBuffer(1);
-    createTransformIndexBuffer({ 0 });
-    createBindlessTransformBuffer(1);
+    createBlockCountBuffers();
+    createGlobalSumBuffers();
 }
 
 void tpd::GaussianEngine::logDebugInfos() const noexcept {
@@ -200,11 +196,14 @@ void tpd::GaussianEngine::framebufferResizeCallback(void* ptr, const uint32_t wi
 }
 
 void tpd::GaussianEngine::onFramebufferResize(const uint32_t width, const uint32_t height) {
+    PLOGD << "GaussianEngine - Recreating render targets and range buffers";
     cleanupRenderTargets();
     createRenderTargets(width, height);
     createRangeBuffers(width, height);
+    PLOGD << "GaussianEngine - Render targets and range buffers reallocated";
 
-    PLOGD << "GaussianEngine - Recreated render targets and ranges buffer";
+    // Update the total number of radix sort passes needed
+    updateRadixPassCount(width, height);
 }
 
 void tpd::GaussianEngine::createDrawingCommandPool() {
@@ -335,8 +334,28 @@ void tpd::GaussianEngine::updateCameraBuffer(const Camera& camera) const {
     _cameraBuffer.update(0, focalNDC.data(), sizeof(focalNDC), sizeof(mat4) * 2);
 }
 
+void tpd::GaussianEngine::updateRadixPassCount(const uint32_t width, const uint32_t height) noexcept {
+    const auto tilesX = (width  + BLOCK_X - 1) / BLOCK_X;
+    const auto tilesY = (height + BLOCK_Y - 1) / BLOCK_Y;
+    const auto bits = getHigherMSB(tilesX * tilesY) + 32;
+    _radixPassCount = (bits + 1) / 2;
+}
+
 void tpd::GaussianEngine::compile(const Scene& scene, const Settings& settings) {
     const auto gaussianCount = scene.countAll<GaussianPoint>();
+
+    auto entityMap = scene.buildEntityMap<GaussianPoint>();
+    const auto entityCount = entityMap.size();
+
+    if (gaussianCount == 0) {
+        PLOGW << "GaussianEngine - Scene compilation waring: no tpd::GaussianPoint found in the scene";
+        return;
+    } else {
+        PLOGD << "GaussianEngine - Compiling scene with:";
+        PLOGD << " - Gaussian count: " << gaussianCount;
+        PLOGD << " - Entity count: " << entityCount;
+    }
+
     _pc = PointCloud{ gaussianCount, settings.shDegree };
 
     createGaussianBuffer(scene.dataAll<GaussianPoint>());
@@ -352,18 +371,11 @@ void tpd::GaussianEngine::compile(const Scene& scene, const Settings& settings) 
     for (const auto size : scene.groupSizes<GaussianPoint>()) std::ranges::fill_n(std::back_inserter(indices), size, index++);
     for (auto i = 0; i < scene.count<GaussianPoint>(); ++i) indices.push_back(index++);
 
-    auto entityMap = scene.buildEntityMap<GaussianPoint>();
-    const auto entityCount = entityMap.size();
-
     createTransformHandleBuffer(entityCount);
     createTransformIndexBuffer(indices);
     createBindlessTransformBuffer(entityCount);
 
     _transformHost->update(std::move(entityMap), &_bindlessTransformBuffer);
-
-    PLOGD << "Scene compiled by tpd::GaussianEngine:";
-    PLOGD << " - Gaussian count: " << gaussianCount;
-    PLOGD << " - Entity count: " << entityCount;
 }
 
 void tpd::GaussianEngine::createGaussianBuffer(const std::vector<std::byte>& bytes) {
@@ -575,7 +587,7 @@ void tpd::GaussianEngine::createRangeBuffers(const uint32_t width, const uint32_
     }
 }
 
-void tpd::GaussianEngine::preFrameCompute(const Camera& camera) {
+void tpd::GaussianEngine::rasterFrame(const Camera& camera) {
     // Choose the right queue to submit pre-frame work
     const auto preFrameQueue = asyncCompute() ? _computeQueue : _graphicsQueue;
 
@@ -610,7 +622,7 @@ void tpd::GaussianEngine::preFrameCompute(const Camera& camera) {
     _frames[frameIndex].outputImage.recordLayoutTransition(preFrameCompute, eUndefined, eGeneral);
 
     // Splat dispatches these passes: project, prefix
-    recordSplat(preFrameCompute);
+    if (_pc.count > 0) [[likely]] recordSplat(preFrameCompute);
     preFrameCompute.end();
 
     const auto preprocessInfo = vk::CommandBufferSubmitInfo{ preFrameCompute, 0b1 };
@@ -623,7 +635,7 @@ void tpd::GaussianEngine::preFrameCompute(const Camera& camera) {
     _device.resetFences(readBackFence);
 
     // Inspect the number of tiles rendered and reallocate relevant buffers if necessary
-    const auto tilesRendered = _tilesRenderedBuffer.read<uint32_t>();
+    const auto tilesRendered = _pc.count > 0 ? _tilesRenderedBuffer.read<uint32_t>() : 0u;
     if (tilesRendered > _frames[frameIndex].maxTilesRendered) [[unlikely]] {
         _frames[frameIndex].maxTilesRendered = tilesRendered;
         reallocateBuffers(frameIndex);
@@ -731,17 +743,24 @@ void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcep
     // Prefix pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _prefixPipeline);
     cmd.dispatch((_pc.count + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
+
+    // Make sure prefix sums computed by prefix pass are visible
+    cmd.pipelineBarrier2(RAW_DEPENDENCY);
+
+    // Keygen pass
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _keygenPipeline);
+    cmd.dispatch((_pc.count + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 }
 
 void tpd::GaussianEngine::reallocateBuffers(const uint32_t frameIndex) {
+    PLOGD << "GaussianEngine - Frame " << frameIndex << " reallocating with new tiles rendered: " << _frames[frameIndex].maxTilesRendered;
     createSplatKeyBuffer(frameIndex);
     createSplatIndexBuffer(frameIndex);
     createBlockDescriptorBuffers(frameIndex);
     createGlobalPrefixBuffer(frameIndex);
     createTempKeyBuffers(frameIndex);
     createTempValBuffers(frameIndex);
-
-    PLOGD << "GaussianEngine - Frame " << frameIndex << " reallocated with new tiles rendered: " << _frames[frameIndex].maxTilesRendered;
+    PLOGD << "GaussianEngine - Frame " << frameIndex << " done reallocation";
 }
 
 void tpd::GaussianEngine::recordBlend(
@@ -749,26 +768,11 @@ void tpd::GaussianEngine::recordBlend(
     const uint32_t tilesRendered,
     const uint32_t frameIndex) const noexcept 
 {
-    // Even with a fence staying in between, make sure prefix sums computed by prefix pass are visible
-    cmd.pipelineBarrier2(RAW_DEPENDENCY);
-
-    // Keygen pass
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _keygenPipeline);
-    cmd.dispatch((_pc.count + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
-
-    const auto [w, h] = _renderer->getFramebufferSize();
-    const auto tilesX = (w + BLOCK_X - 1) / BLOCK_X;
-    const auto tilesY = (h + BLOCK_Y - 1) / BLOCK_Y;
-
-    const auto sortedBits = getHigherMSB(tilesX * tilesY) + 32;
-    const auto passCount = (sortedBits + 1) / 2;
-
     // Radix sort passes
     using enum vk::ShaderStageFlagBits;
-    for (auto radixPass = 0; radixPass < passCount; ++radixPass) {
+    for (auto radixPass = 0; radixPass < _radixPassCount; ++radixPass) {
         cmd.pushConstants(_gaussianLayout, eCompute, sizeof(PointCloud) + sizeof(uint32_t), sizeof(uint32_t), &radixPass);
 
-        // Radix pass writes to the same set of buffers back-to-back
         cmd.pipelineBarrier2(RAW_DEPENDENCY);
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixPipeline);
         cmd.dispatch((tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
@@ -793,6 +797,9 @@ void tpd::GaussianEngine::recordBlend(
     cmd.pipelineBarrier2(RAW_DEPENDENCY);
 
     // Forward alpha blending pass
+    const auto [w, h] = _renderer->getFramebufferSize();
+    const auto tilesX = (w + BLOCK_X - 1) / BLOCK_X;
+    const auto tilesY = (h + BLOCK_Y - 1) / BLOCK_Y;
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _forwardPipeline);
     cmd.dispatch(tilesX, tilesY, 1);
 }
@@ -812,15 +819,15 @@ void tpd::GaussianEngine::recordTargetCopy(
 void tpd::GaussianEngine::destroy() noexcept {
     if (_initialized) {
         std::ranges::for_each(_frames, [this](Frame& f) { f.rangeBuffer.destroy(_vmaAllocator); });
-        std::ranges::for_each(_tempValBuffers, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
-        std::ranges::for_each(_tempKeyBuffers, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
-        std::ranges::for_each(_globalPrefixBuffers, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
-        std::ranges::for_each(_globalSumBuffers, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
-        std::ranges::for_each(_blockDescriptorBuffer1s, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
-        std::ranges::for_each(_blockDescriptorBuffer0s, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
-        std::ranges::for_each(_blockCountBuffers, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
-        std::ranges::for_each(_splatIndexBuffers, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
-        std::ranges::for_each(_splatKeyBuffers, [this](StorageBuffer& b) { b.destroy(_vmaAllocator); });
+        std::ranges::for_each(_tempValBuffers, [this](auto& b) { b.destroy(_vmaAllocator); });
+        std::ranges::for_each(_tempKeyBuffers, [this](auto& b) { b.destroy(_vmaAllocator); });
+        std::ranges::for_each(_globalPrefixBuffers, [this](auto& b) { b.destroy(_vmaAllocator); });
+        std::ranges::for_each(_globalSumBuffers, [this](auto& b) { b.destroy(_vmaAllocator); });
+        std::ranges::for_each(_blockDescriptorBuffer1s, [this](auto& b) { b.destroy(_vmaAllocator); });
+        std::ranges::for_each(_blockDescriptorBuffer0s, [this](auto& b) { b.destroy(_vmaAllocator); });
+        std::ranges::for_each(_blockCountBuffers, [this](auto& b) { b.destroy(_vmaAllocator); });
+        std::ranges::for_each(_splatIndexBuffers, [this](auto& b) { b.destroy(_vmaAllocator); });
+        std::ranges::for_each(_splatKeyBuffers, [this](auto& b) { b.destroy(_vmaAllocator); });
 
         _globalSumBuffers.clear();
         _blockDescriptorBuffer1s.clear();
