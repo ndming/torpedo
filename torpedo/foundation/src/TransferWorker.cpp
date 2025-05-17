@@ -120,6 +120,9 @@ void tpd::TransferWorker::transfer(
     }
 
     _deletionWorker.start();
+    // Ensure thread-safe access in case the deletion worker is deallocating with the command pool
+    // Actions required external synchronization: buffer allocation/deallocation/record/free
+    std::lock_guard lock(_deletionWorker._commandPoolMutex);
 
     const auto [stagingBuffer, stagingAllocation] = vma::allocateStagingBuffer(_deletionWorker._vmaAllocator, size);
     vma::copyStagingData(_deletionWorker._vmaAllocator, data, size, stagingAllocation);
@@ -168,6 +171,9 @@ void tpd::TransferWorker::transfer(
     }
 
     _deletionWorker.start();
+    // Ensure thread-safe access in case the deletion worker is deallocating with the command pool
+    // Actions required external synchronization: buffer allocation/deallocation/record/free
+    std::lock_guard lock(_deletionWorker._commandPoolMutex);
 
     const auto [stagingBuffer, stagingAllocation] = vma::allocateStagingBuffer(_deletionWorker._vmaAllocator, size);
     vma::copyStagingData(_deletionWorker._vmaAllocator, data, size, stagingAllocation);
@@ -221,6 +227,9 @@ void tpd::TransferWorker::transfer(
     }
 
     _deletionWorker.start();
+    // Ensure thread-safe access in case the deletion worker is deallocating with the command pool
+    // Actions required external synchronization: buffer allocation/deallocation/record/free
+    std::lock_guard lock(_deletionWorker._commandPoolMutex);
 
     const auto [stagingBuffer, stagingAllocation] = vma::allocateStagingBuffer(_deletionWorker._vmaAllocator, size);
     vma::copyStagingData(_deletionWorker._vmaAllocator, data, size, stagingAllocation);
@@ -257,14 +266,11 @@ void tpd::TransferWorker::transfer(
     }
 }
 
-vk::CommandBuffer tpd::TransferWorker::beginTransfer(const uint32_t queueFamily) {
+vk::CommandBuffer tpd::TransferWorker::beginTransfer(const uint32_t queueFamily) const {
     const auto allocInfo = vk::CommandBufferAllocateInfo{}
         .setCommandPool(getPool(queueFamily))
         .setLevel(vk::CommandBufferLevel::ePrimary)
         .setCommandBufferCount(1);
-
-    // Ensure thread-safe access in case the deletion worker is using the command pool
-    std::lock_guard lock(_deletionWorker._commandPoolMutex);
     const auto buffer = _deletionWorker._device.allocateCommandBuffers(allocInfo)[0];
 
     constexpr auto beginInfo = vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit };

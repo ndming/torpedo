@@ -86,7 +86,7 @@ namespace tpd {
     private:
         [[nodiscard]] vk::CommandPool getPool(uint32_t queueFamily) const;
 
-        [[nodiscard]] vk::CommandBuffer beginTransfer(uint32_t queueFamily);
+        [[nodiscard]] vk::CommandBuffer beginTransfer(uint32_t queueFamily) const;
         void endTransfer(vk::CommandBuffer buffer, vk::Fence deletionFence) const;
 
         [[nodiscard]] vk::SemaphoreSubmitInfo createOwnershipSemaphoreInfo() const;
