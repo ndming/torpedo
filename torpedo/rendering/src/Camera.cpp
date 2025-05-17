@@ -5,7 +5,7 @@ void tpd::Camera::lookAt(const vec3& eye, const vec3& center, const vec3& up) no
 
     const auto z = normalize(center - eye); // z forward
     const auto x = normalize(cross(z, up)); // x right
-    const auto y = cross(z, x);             // y down
+    const auto y = normalize(cross(z, x));  // y down
 
     _view = {
         x.x, x.y, x.z, -dot(x, eye),
