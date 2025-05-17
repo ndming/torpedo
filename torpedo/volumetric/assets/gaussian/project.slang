@@ -81,7 +81,8 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     let imgPoint = ndc2pix(projPos.xy, imageSize);
     uint2 rectMin, rectMax;
     getBoundingRect(imgPoint, radius, getComputeGrid(imageSize), rectMin, rectMax);
-    if ((rectMax.x - rectMin.x) * (rectMax.y - rectMin.y) == 0) return; // empty tile
+    let touchedTiles = (rectMax.x - rectMin.x) * (rectMax.y - rectMin.y);
+    if (touchedTiles == 0) return; // empty tile
 
     // Compute color from spherical harmonics
     let direction = normalize(mean - getCameraWorldPosition(camera.viewMatrix));
@@ -91,5 +92,5 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     splats[idx].color = color;
     splats[idx].texel = float4(imgPoint, viewPos.z, radius);
     splats[idx].copac = float4(conic, gaussians[idx].opacity);
-    splats[idx].tiles = (rectMax.x - rectMin.x) * (rectMax.y - rectMin.y);
+    splats[idx].tiles = touchedTiles;
 }
