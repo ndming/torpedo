@@ -336,7 +336,7 @@ void tpd::GaussianEngine::compile(const Scene& scene, const Settings& settings) 
     const auto entityCount = entityMap.size();
 
     if (gaussianCount == 0) {
-        PLOGW << "GaussianEngine - Scene compilation waring: no tpd::GaussianPoint found in the scene";
+        PLOGW << "GaussianEngine - Scene compilation waring: Could NOT find a single tpd::GaussianPoint in the scene!";
         return;
     }
 
@@ -745,13 +745,6 @@ void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcep
     // Prefix pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _prefixPipeline);
     cmd.dispatch((_pc.count + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
-
-    // Make sure prefix sums computed by prefix pass are visible
-    cmd.pipelineBarrier2(RAW_DEPENDENCY);
-
-    // Keygen pass
-    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _keygenPipeline);
-    cmd.dispatch((_pc.count + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 }
 
 void tpd::GaussianEngine::reallocateBuffers(const uint32_t frameIndex) {
@@ -770,6 +763,14 @@ void tpd::GaussianEngine::recordBlend(
     const uint32_t tilesRendered,
     const uint32_t frameIndex) const noexcept 
 {
+    // Make sure prefix sums computed by prefix pass are visible
+    cmd.pipelineBarrier2(RAW_DEPENDENCY);
+
+    // Keygen pass: we could put this in recordSplat and ignore the _pc.count check, but that would cause
+    // glitching when new tiles rendered change because keygen pass writes to key and index buffers
+    cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _keygenPipeline);
+    if (_pc.count > 0) [[likely]] cmd.dispatch((_pc.count + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
+
     // Radix sort passes
     using enum vk::ShaderStageFlagBits;
     for (auto radixPass = 0; radixPass < _radixPassCount; ++radixPass) {
