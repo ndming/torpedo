@@ -70,6 +70,7 @@ namespace tpd {
         [[nodiscard]] operator T() const noexcept { return _resource; } // NOLINT(*-explicit-constructor)
         [[nodiscard]] bool valid() const noexcept { return _allocation != nullptr; }
         [[nodiscard]] std::string toString() const noexcept;
+        [[nodiscard]] VmaAllocation getAllocation() const noexcept { return _allocation; }
 
         void destroy(VmaAllocator allocator) noexcept;
 
