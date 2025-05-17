@@ -90,7 +90,7 @@ namespace tpd {
             vk::DescriptorType descriptorType,
             uint32_t binding, uint32_t set = 0) const;
 
-        void updateCameraBuffer(vk::CommandBuffer cmd, const Camera& camera) const;
+        void updateCameraBuffer(const Camera& camera) const;
         void recordSplat(vk::CommandBuffer cmd) const noexcept;
         void reallocateBuffers(uint32_t frameIndex);
         void recordBlend(vk::CommandBuffer cmd, uint32_t tilesRendered, uint32_t frameIndex) const noexcept;

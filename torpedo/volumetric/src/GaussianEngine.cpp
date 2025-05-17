@@ -588,6 +588,9 @@ void tpd::GaussianEngine::rasterFrame(const Camera& camera) {
     const auto frameIndex = _renderer->getCurrentFrameIndex();
     vmaSetCurrentFrameIndex(_vmaAllocator, frameIndex);
 
+    // Set camera data
+    updateCameraBuffer(camera);
+
     // Wait until the GPU has done with the pre-frame compute buffer for this frame
     using limits = std::numeric_limits<uint64_t>;
     const auto preFrameFence = _frames[frameIndex].preFrameFence;
@@ -611,9 +614,6 @@ void tpd::GaussianEngine::rasterFrame(const Camera& camera) {
     // we don't care about the old content.
     using enum vk::ImageLayout;
     _frames[frameIndex].outputImage.recordLayoutTransition(preFrameCompute, eUndefined, eGeneral);
-
-    // Set camera data
-    updateCameraBuffer(preFrameCompute, camera);
 
     // Splat dispatches these passes: project, prefix, keygen
     if (_pc.count > 0) [[likely]] recordSplat(preFrameCompute);
@@ -724,7 +724,7 @@ void tpd::GaussianEngine::draw(const SwapImage image) const {
     _graphicsQueue.submit2(submitInfo, frameDrawFence);
 }
 
-void tpd::GaussianEngine::updateCameraBuffer(const vk::CommandBuffer cmd, const Camera& camera) const {
+void tpd::GaussianEngine::updateCameraBuffer(const Camera& camera) const {
     auto projection = mat4{ camera.getProjectionData() };
     const auto fx = projection[0, 0];
     const auto fy = projection[1, 1];
