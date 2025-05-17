@@ -453,8 +453,9 @@ void tpd::GaussianEngine::createBindlessTransformBuffer(const uint32_t entityCou
 
     setBufferDescriptors(_bindlessTransformBuffer, size, vk::DescriptorType::eUniformBuffer, 0, 2);
 
-    constexpr auto tf = mat4{ 1.0f };
-    _bindlessTransformBuffer.update(0, &tf, sizeof(mat4));
+    const auto identities = std::vector(entityCount, mat4{ 1.0f });
+    _bindlessTransformBuffer.update(0, identities.data(), sizeof(mat4) * entityCount);
+    vmaFlushAllocation(_vmaAllocator, _bindlessTransformBuffer.getAllocation(), 0, vk::WholeSize);
 }
 
 void tpd::GaussianEngine::setBufferDescriptors(
