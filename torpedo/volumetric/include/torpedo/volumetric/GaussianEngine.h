@@ -4,10 +4,10 @@
 #include <torpedo/rendering/Camera.h>
 #include <torpedo/rendering/TransformHost.h>
 
-#include <torpedo/foundation/ReadbackBuffer.h>
 #include <torpedo/foundation/RingBuffer.h>
 #include <torpedo/foundation/ShaderLayout.h>
 #include <torpedo/foundation/StorageBuffer.h>
+#include <torpedo/foundation/TwoWayBuffer.h>
 #include <torpedo/foundation/Target.h>
 #include <torpedo/foundation/TransferWorker.h>
 
@@ -107,7 +107,7 @@ namespace tpd {
             vk::Fence preFrameFence{};
             vk::Fence readBackFence{};
             uint32_t maxTilesRendered{};
-            StorageBuffer rangeBuffer{}; // put this here so that we can quickly reference it for buffer clearing
+            StorageBuffer rangeBuffer{}; // put this here to remind us that range buffer depends on image size
             Target outputImage{};
         };
 
@@ -141,7 +141,7 @@ namespace tpd {
 
         PointCloud _pc{};
         RingBuffer _cameraBuffer{};
-        ReadbackBuffer _tilesRenderedBuffer{};
+        TwoWayBuffer _tilesRenderedBuffer{};
 
         /*--------------------*/
 

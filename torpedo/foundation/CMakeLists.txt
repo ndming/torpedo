@@ -5,7 +5,6 @@ set(TORPEDO_FOUNDATION_SOURCES
         src/Buffer.cpp
         src/Image.cpp
         src/ImageUtils.cpp
-        src/ReadbackBuffer.cpp
         src/ShaderLayout.cpp
         src/RingBuffer.cpp
         src/ShaderInstance.cpp
@@ -13,6 +12,7 @@ set(TORPEDO_FOUNDATION_SOURCES
         src/Target.cpp
         src/Texture.cpp
         src/TransferWorker.cpp
+        src/TwoWayBuffer.cpp
         src/VmaUsage.cpp)
 
 

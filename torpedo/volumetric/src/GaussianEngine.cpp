@@ -386,12 +386,13 @@ void tpd::GaussianEngine::createSplatBuffer(const uint32_t gaussianCount) {
 }
 
 void tpd::GaussianEngine::createTilesRenderedBuffer() {
-    _tilesRenderedBuffer = ReadbackBuffer::Builder()
+    _tilesRenderedBuffer = TwoWayBuffer::Builder()
         .usage(vk::BufferUsageFlagBits::eStorageBuffer)
         .alloc(sizeof(uint32_t))
         .build(_vmaAllocator);
 
     setBufferDescriptors(_tilesRenderedBuffer, sizeof(uint32_t), vk::DescriptorType::eStorageBuffer, 4);
+    _tilesRenderedBuffer.write(uint32_t{ 0 }); // don't assume the buffer is automatically initialized with 0
 }
 
 void tpd::GaussianEngine::createPartitionCountBuffer() {
