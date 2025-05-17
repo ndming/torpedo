@@ -35,7 +35,7 @@ int main() {
     const auto pointCloud = scene.add(tpd::ent::group(points));
 
     auto settings = tpd::GaussianEngine::Settings::getDefault();
-    settings.shDegree = 0;
+    settings.sphericalHarmonicsDegree = 2;
 
     const auto engine = context->bindEngine<tpd::GaussianEngine>();
     engine->compile(scene, settings);

@@ -15,7 +15,7 @@ namespace tpd {
     class GaussianEngine final : public Engine {
     public:
         struct Settings {
-            uint32_t shDegree{ 3 };
+            uint32_t sphericalHarmonicsDegree{ 3 };
 
             [[nodiscard]] static constexpr Settings getDefault() { return {}; };
         };

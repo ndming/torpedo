@@ -332,19 +332,24 @@ void tpd::GaussianEngine::updateRadixPassCount(const uint32_t width, const uint3
 void tpd::GaussianEngine::compile(const Scene& scene, const Settings& settings) {
     const auto gaussianCount = scene.countAll<GaussianPoint>();
 
-    auto entityMap = scene.buildEntityMap<GaussianPoint>();
-    const auto entityCount = entityMap.size();
-
     if (gaussianCount == 0) {
         PLOGW << "GaussianEngine - Scene compilation waring: Could NOT find a single tpd::GaussianPoint in the scene!";
         return;
     }
+    auto shDegree = settings.sphericalHarmonicsDegree;
+    if (shDegree > 3) {
+        PLOGW << "GaussianEngine - Clamping to the maximum degrees of SH support: up to 3 degrees only";
+        shDegree = 3;
+    }
+
+    auto entityMap = scene.buildEntityMap<GaussianPoint>();
+    const auto entityCount = entityMap.size();
 
     PLOGD << "GaussianEngine - Compiling scene with:";
     PLOGD << " - Gaussian count: " << gaussianCount;
     PLOGD << " - Entity count: " << entityCount;
 
-    _pc = PointCloud{ gaussianCount, settings.shDegree };
+    _pc = PointCloud{ gaussianCount, shDegree };
 
     createGaussianBuffer(scene.dataAll<GaussianPoint>());
     createSplatBuffer(gaussianCount);

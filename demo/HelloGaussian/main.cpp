@@ -41,7 +41,7 @@ int main() {
     scene.add(std::move(gaussian));
 
     auto settings = tpd::GaussianEngine::Settings::getDefault();
-    settings.shDegree = 0;
+    settings.sphericalHarmonicsDegree = 0;
 
     engine->compile(scene, settings);
     points.clear(); // all data has been transferred to the GPU
