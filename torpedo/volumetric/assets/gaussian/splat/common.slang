@@ -19,9 +19,15 @@ static const float SH_C3[] = {
     -0.5900435899266435,
 };
 
+static const uint MAX_SH_DEGREE = 3;
+static const uint EXTRA_SH_COEFFS = (MAX_SH_DEGREE + 1) * (MAX_SH_DEGREE + 1) - 1;
+
 [[ForceInline]]
-float3 getSHCoeff(float sh[], uint idx) {
-    return float3(sh[idx * 3 + 0], sh[idx * 3 + 1], sh[idx * 3 + 2]);
+float3 getFeature(float sh[], uint idx) {
+    return float3(
+        sh[(idx - 1) + 0 * EXTRA_SH_COEFFS + 3],
+        sh[(idx - 1) + 1 * EXTRA_SH_COEFFS + 3],
+        sh[(idx - 1) + 2 * EXTRA_SH_COEFFS + 3]);
 }
 
 /// Evaluates the spherical harmonics `sh` using up to `degree` (inclusive) to obtain RGB values at normalized `dir`.
@@ -36,7 +42,7 @@ public float3 evaluateSphericalHarmonics(float sh[], float3 dir, uint degree) {
         let y = dir.y;
         let z = dir.z;
 
-        result = result - SH_C1 * y * getSHCoeff(sh, 1) + SH_C1 * z * getSHCoeff(sh, 2) - SH_C1 * x * getSHCoeff(sh, 3);
+        result = result - SH_C1 * y * getFeature(sh, 1) + SH_C1 * z * getFeature(sh, 2) - SH_C1 * x * getFeature(sh, 3);
 
         if (degree > 1) {
             // Band 2
@@ -48,22 +54,22 @@ public float3 evaluateSphericalHarmonics(float sh[], float3 dir, uint degree) {
             let zx = z * x;
 
             result = result +
-                SH_C2[0] * xy * getSHCoeff(sh, 4) +
-                SH_C2[1] * yz * getSHCoeff(sh, 5) +
-                SH_C2[2] * (2.0 * zz - xx - yy) * getSHCoeff(sh, 6) +
-                SH_C2[3] * zx * getSHCoeff(sh, 7) +
-                SH_C2[4] * (xx - yy) * getSHCoeff(sh, 8);
+                SH_C2[0] * xy * getFeature(sh, 4) +
+                SH_C2[1] * yz * getFeature(sh, 5) +
+                SH_C2[2] * (2.0 * zz - xx - yy) * getFeature(sh, 6) +
+                SH_C2[3] * zx * getFeature(sh, 7) +
+                SH_C2[4] * (xx - yy) * getFeature(sh, 8);
 
             if (degree > 2) {
                 // Band 3
                 result = result +
-                    SH_C3[0] * y * (3.0 * xx - yy) * getSHCoeff(sh, 9) +
-                    SH_C3[1] * xy * z * getSHCoeff(sh, 10) +
-                    SH_C3[2] * y * (4.0 * zz - xx - yy) * getSHCoeff(sh, 11) +
-                    SH_C3[3] * z * (2.0 * zz - 3.0 * xx - 3.0 * yy) + getSHCoeff(sh, 12) +
-                    SH_C3[4] * x * (4.0 * zz - xx - yy) * getSHCoeff(sh, 13) +
-                    SH_C3[5] * z * (xx - yy) * getSHCoeff(sh, 14) +
-                    SH_C3[6] * x * (xx - 3.0 * yy) * getSHCoeff(sh, 15);
+                    SH_C3[0] * y * (3.0 * xx - yy) * getFeature(sh, 9) +
+                    SH_C3[1] * xy * z * getFeature(sh, 10) +
+                    SH_C3[2] * y * (4.0 * zz - xx - yy) * getFeature(sh, 11) +
+                    SH_C3[3] * z * (2.0 * zz - 3.0 * xx - 3.0 * yy) + getFeature(sh, 12) +
+                    SH_C3[4] * x * (4.0 * zz - xx - yy) * getFeature(sh, 13) +
+                    SH_C3[5] * z * (xx - yy) * getFeature(sh, 14) +
+                    SH_C3[6] * x * (xx - 3.0 * yy) * getFeature(sh, 15);
             }
         }
     }
@@ -107,6 +113,7 @@ public bool passFrustumClipping(float3 point, float4x4 M, float4x4 V, float4x4 P
     // See: https://developer.nvidia.com/content/depth-precision-visualized
     if (clipPos.z < 0 || clipPos.z > clipPos.w) return false; // outside near/far frustum planes
 
-    projPos = clipPos.xyz / clipPos.w; // should we add EPSILON here?
+    let inv_w = 1.0 / clipPos.w; // should we add EPSILON here?
+    projPos = clipPos.xyz * inv_w;
     return true;
 }

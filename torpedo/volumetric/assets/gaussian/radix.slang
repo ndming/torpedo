@@ -59,13 +59,8 @@ static const uint64_t DUMMY = uint64_t::maxValue;
 void main(uint3 localInvocationID : SV_GroupThreadID) {
     let localID = localInvocationID.x; // [0, WORKGROUP_SIZE / 2 - 1]
 
-    // Acquire partition and initialize block descriptors
-    if (localID == 0) {
-        InterlockedAdd(blockCount[0], 1, partition);
-        InterlockedExchange(blockDescriptors0[partition], 0);
-        InterlockedExchange(blockDescriptors1[partition], 0);
-    }
-    // Wait until thread 0 has obtained the partition for this workgroup
+    // Acquire and wait until thread 0 has obtained the partition for this workgroup
+    if (localID == 0) InterlockedAdd(blockCount[0], 1, partition);
     GroupMemoryBarrierWithGroupSync();
 
     // The starting index in the global array for this partition
@@ -192,13 +187,13 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
         offsets[1].data[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = globalPrefix1;
         offsets[0].data[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = globalPrefix0;
 
-        // The last partition writes the total sum of each radix to global sums and resets the atomic counter
+        // The last partition writes the total sum of each radix to global sums
+        // Host will take care of resetting the atomic counter and partition descriptors
         let workgroupCount = (info.tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
         if (partition == workgroupCount - 1) {
             globalSums[0] = s0 + globalPrefix0;
             globalSums[1] = s1 + globalPrefix1;
             globalSums[2] = s2 + globalPrefix2;
-            blockCount[0] = 0u;
         }
     }
 

@@ -373,9 +373,7 @@ void tpd::GaussianEngine::createGaussianBuffer(const std::vector<std::byte>& byt
         .alloc(bytes.size())
         .build(_vmaAllocator);
 
-    constexpr auto dstSync = SyncPoint{ vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead };
-    _transferWorker->transfer(bytes.data(), bytes.size(), _gaussianBuffer, _computeFamilyIndex, dstSync);
-
+    _transferWorker->transfer(bytes.data(), bytes.size(), _gaussianBuffer, _computeFamilyIndex, DST_READ_POINT);
     setBufferDescriptors(_gaussianBuffer, bytes.size(), vk::DescriptorType::eStorageBuffer, 2);
 }
 
@@ -396,14 +394,21 @@ void tpd::GaussianEngine::createTilesRenderedBuffer() {
 }
 
 void tpd::GaussianEngine::createPartitionCountBuffer() {
-    _partitionCountBuffer = StorageBuffer::Builder().alloc(sizeof(uint32_t)).build(_vmaAllocator);
+    _partitionCountBuffer = StorageBuffer::Builder()
+        .usage(vk::BufferUsageFlagBits::eTransferDst)
+        .alloc(sizeof(uint32_t))
+        .build(_vmaAllocator);
     setBufferDescriptors(_partitionCountBuffer, sizeof(uint32_t), vk::DescriptorType::eStorageBuffer, 5);
 }
 
 void tpd::GaussianEngine::createPartitionDescriptorBuffer(const uint32_t gaussianCount) {
     _partitionDescriptorBuffer.destroy(_vmaAllocator);
     const auto size = sizeof(uint64_t) * (gaussianCount + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
-    _partitionDescriptorBuffer = StorageBuffer::Builder().alloc(size).build(_vmaAllocator);
+
+    _partitionDescriptorBuffer = StorageBuffer::Builder()
+        .usage(vk::BufferUsageFlagBits::eTransferDst)
+        .alloc(size)
+        .build(_vmaAllocator);
     setBufferDescriptors(_partitionDescriptorBuffer, size, vk::DescriptorType::eStorageBuffer, 6);
 }
 
@@ -418,9 +423,8 @@ void tpd::GaussianEngine::createTransformHandleBuffer(const uint32_t entityCount
 
     const auto toUvec2 = [](const auto i) { return uvec2{ i, 0 }; };
     const auto handles = std::views::iota(0u, entityCount) | std::views::transform(toUvec2) | std::ranges::to<std::vector>();
-    constexpr auto dstSync = SyncPoint{ vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead };
-    _transferWorker->transfer(handles.data(), size, _transformHandleBuffer, _computeFamilyIndex, dstSync);
 
+    _transferWorker->transfer(handles.data(), size, _transformHandleBuffer, _computeFamilyIndex, DST_READ_POINT);
     setBufferDescriptors(_transformHandleBuffer, sizeof(uvec2), vk::DescriptorType::eStorageBuffer, 0, 1);
 }
 
@@ -433,9 +437,7 @@ void tpd::GaussianEngine::createTransformIndexBuffer(const std::vector<uint32_t>
         .alloc(size)
         .build(_vmaAllocator);
 
-    constexpr auto dstSync = SyncPoint{ vk::PipelineStageFlagBits2::eComputeShader, vk::AccessFlagBits2::eShaderStorageRead };
-    _transferWorker->transfer(indices.data(), size, _transformIndexBuffer, _computeFamilyIndex, dstSync);
-
+    _transferWorker->transfer(indices.data(), size, _transformIndexBuffer, _computeFamilyIndex, DST_READ_POINT);
     setBufferDescriptors(_transformIndexBuffer, size, vk::DescriptorType::eStorageBuffer, 1, 1);
 }
 
@@ -490,7 +492,9 @@ void tpd::GaussianEngine::createSplatIndexBuffer(const uint32_t frameIndex) {
 }
 
 void tpd::GaussianEngine::createBlockCountBuffers() {
-    const auto builder = StorageBuffer::Builder().alloc(sizeof(uint32_t));
+    const auto builder = StorageBuffer::Builder()
+        .usage(vk::BufferUsageFlagBits::eTransferDst)
+        .alloc(sizeof(uint32_t));
 
     for (auto i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
         _blockCountBuffers[i] = builder.build(_vmaAllocator);
@@ -501,7 +505,7 @@ void tpd::GaussianEngine::createBlockCountBuffers() {
 
 void tpd::GaussianEngine::createBlockDescriptorBuffers(const uint32_t frameIndex) {
     const auto size = sizeof(uint64_t) * (_frames[frameIndex].maxTilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
-    const auto builder = StorageBuffer::Builder().alloc(size);
+    const auto builder = StorageBuffer::Builder().usage(vk::BufferUsageFlagBits::eTransferDst).alloc(size);
 
     _blockDescriptorBuffer0s[frameIndex].destroy(_vmaAllocator);
     _blockDescriptorBuffer1s[frameIndex].destroy(_vmaAllocator);
@@ -737,11 +741,17 @@ void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcep
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _projectPipeline);
     cmd.dispatch((_pc.count + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
+    // Reset partition count and partition descriptors
+    // We're going to use the WAT_DEPENDENCY that syncs against the transfer,
+    // so no need for recording dst access point
+    cmd.fillBuffer(_partitionCountBuffer, 0, vk::WholeSize, 0);
+    cmd.fillBuffer(_partitionDescriptorBuffer, 0, vk::WholeSize, 0);
+
     // Make sure splat contents written by project pass are visible (read),
-    // and we're going to modify the tiles members in this buffer (write)
+    // and we're going to modify the tiles members in this buffer (write).
     // Global memory barrier covers all resources, generally considered 
     // more efficient to do a global memory barrier than per-resource barriers
-    cmd.pipelineBarrier2(WAW_DEPENDENCY);
+    cmd.pipelineBarrier2(WAT_DEPENDENCY);
 
     // Prefix pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _prefixPipeline);
@@ -749,7 +759,9 @@ void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcep
 }
 
 void tpd::GaussianEngine::reallocateBuffers(const uint32_t frameIndex) {
-    PLOGD << "GaussianEngine - Frame " << frameIndex << " reallocating with new tiles rendered: " << _frames[frameIndex].maxTilesRendered;
+    const auto newTilesRendered = _frames[frameIndex].maxTilesRendered;
+    PLOGD << "GaussianEngine - Frame " << frameIndex << " reallocating with new tiles rendered: " << newTilesRendered;
+
     createSplatKeyBuffer(frameIndex);
     createSplatIndexBuffer(frameIndex);
     createBlockDescriptorBuffers(frameIndex);
@@ -777,7 +789,12 @@ void tpd::GaussianEngine::recordBlend(
     for (auto radixPass = 0; radixPass < _radixPassCount; ++radixPass) {
         cmd.pushConstants(_gaussianLayout, eCompute, sizeof(PointCloud) + sizeof(uint32_t), sizeof(uint32_t), &radixPass);
 
-        cmd.pipelineBarrier2(RAW_DEPENDENCY);
+        // This going to need radix to sync read/write access against transfer write
+        cmd.fillBuffer(_blockCountBuffers[frameIndex], 0, vk::WholeSize, 0);
+        cmd.fillBuffer(_blockDescriptorBuffer0s[frameIndex], 0, vk::WholeSize, 0);
+        cmd.fillBuffer(_blockDescriptorBuffer1s[frameIndex], 0, vk::WholeSize, 0);
+
+        cmd.pipelineBarrier2(WAT_DEPENDENCY);
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixPipeline);
         cmd.dispatch((tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
@@ -788,10 +805,9 @@ void tpd::GaussianEngine::recordBlend(
 
     // Clear the range buffer before populating it
     cmd.fillBuffer(_frames[frameIndex].rangeBuffer, 0, vk::WholeSize, 0);
-    _frames[frameIndex].rangeBuffer.recordTransferDstPoint(cmd, { PipelineStage::eComputeShader, AccessMask::eShaderStorageWrite });
 
-    // Make sure sorted keys written by radix pass are visible to range pass
-    cmd.pipelineBarrier2(RAW_DEPENDENCY);
+    // Make sure sorted keys are visible and transfer has done clearing the range buffer
+    cmd.pipelineBarrier2(WAT_DEPENDENCY);
 
     // Range pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _rangePipeline);
