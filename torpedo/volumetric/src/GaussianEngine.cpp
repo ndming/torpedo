@@ -88,7 +88,7 @@ void tpd::GaussianEngine::onInitialized() {
 #endif
 
     // Support entity transforms
-    _transformHost = std::make_unique<TransformHost>();
+    _transformHost = std::make_unique<TransformHost>(_vmaAllocator);
 
     // Create queues relevant to Gaussian splatting
     _graphicsQueue = _device.getQueue(_graphicsFamilyIndex, 0);
@@ -138,7 +138,7 @@ void tpd::GaussianEngine::onInitialized() {
     _blockCountBuffers.resize(frameCount);
     _globalSumBuffers.resize(frameCount);
  
-    // These buffers are going to be created with size 1 which is going to be updated later during rendering
+    // These buffers are going to be created with size 1 which is going to be reallocated later during rendering
     // Though as redundant as it may seem, this avoids crashing when the render is launched with 0 Gaussian points
     for (auto i = 0; i < frameCount; ++i) {
         createSplatKeyBuffer(i);
@@ -149,7 +149,7 @@ void tpd::GaussianEngine::onInitialized() {
         createTempValBuffers(i);
     }
 
-    // These buffers exist independently from the number of Gaussians and tiles renderer
+    // These buffers exist independently of the number of Gaussians and tiles renderer
     createTilesRenderedBuffer();
     createPartitionCountBuffer();
     createBlockCountBuffers();
@@ -306,11 +306,6 @@ void tpd::GaussianEngine::createRenderTargets(const uint32_t width, const uint32
     }
 }
 
-void tpd::GaussianEngine::cleanupRenderTargets() noexcept {
-    std::ranges::for_each(_targetViews, [this](const auto it) { _device.destroyImageView(it); });
-    std::ranges::for_each(_frames, [this](Frame& it) { it.outputImage.destroy(_vmaAllocator); });
-}
-
 void tpd::GaussianEngine::createCameraBuffer() {
     constexpr auto size = sizeof(mat4) * 2 + sizeof(vec2);
     _cameraBuffer = RingBuffer::Builder()
@@ -322,16 +317,9 @@ void tpd::GaussianEngine::createCameraBuffer() {
     setBufferDescriptors(_cameraBuffer, size, vk::DescriptorType::eUniformBuffer, 1, 0);
 }
 
-void tpd::GaussianEngine::updateCameraBuffer(const Camera& camera) const {
-    auto projection = mat4{ camera.getProjectionData() };
-    const auto fx = projection[0, 0];
-    const auto fy = projection[1, 1];
-    projection = math::mul(projection, camera.getViewMatrix());
-    const auto focalNDC = std::array{ fx, fy };
-
-    _cameraBuffer.update(0, camera.getViewMatrixData(), sizeof(mat4));
-    _cameraBuffer.update(0, projection.data_ptr(), sizeof(mat4), sizeof(mat4));
-    _cameraBuffer.update(0, focalNDC.data(), sizeof(focalNDC), sizeof(mat4) * 2);
+void tpd::GaussianEngine::cleanupRenderTargets() noexcept {
+    std::ranges::for_each(_targetViews, [this](const auto it) { _device.destroyImageView(it); });
+    std::ranges::for_each(_frames, [this](Frame& it) { it.outputImage.destroy(_vmaAllocator); });
 }
 
 void tpd::GaussianEngine::updateRadixPassCount(const uint32_t width, const uint32_t height) noexcept {
@@ -350,11 +338,11 @@ void tpd::GaussianEngine::compile(const Scene& scene, const Settings& settings) 
     if (gaussianCount == 0) {
         PLOGW << "GaussianEngine - Scene compilation waring: no tpd::GaussianPoint found in the scene";
         return;
-    } else {
-        PLOGD << "GaussianEngine - Compiling scene with:";
-        PLOGD << " - Gaussian count: " << gaussianCount;
-        PLOGD << " - Entity count: " << entityCount;
     }
+
+    PLOGD << "GaussianEngine - Compiling scene with:";
+    PLOGD << " - Gaussian count: " << gaussianCount;
+    PLOGD << " - Entity count: " << entityCount;
 
     _pc = PointCloud{ gaussianCount, settings.shDegree };
 
@@ -594,9 +582,6 @@ void tpd::GaussianEngine::rasterFrame(const Camera& camera) {
     const auto frameIndex = _renderer->getCurrentFrameIndex();
     vmaSetCurrentFrameIndex(_vmaAllocator, frameIndex);
 
-    // Set uniform buffers for camera
-    updateCameraBuffer(camera);
-
     // Wait until the GPU has done with the pre-frame compute buffer for this frame
     using limits = std::numeric_limits<uint64_t>;
     const auto preFrameFence = _frames[frameIndex].preFrameFence;
@@ -621,6 +606,9 @@ void tpd::GaussianEngine::rasterFrame(const Camera& camera) {
     using enum vk::ImageLayout;
     _frames[frameIndex].outputImage.recordLayoutTransition(preFrameCompute, eUndefined, eGeneral);
 
+    // Set camera data
+    updateCameraBuffer(preFrameCompute, camera);
+
     // Splat dispatches these passes: project, prefix, keygen
     if (_pc.count > 0) [[likely]] recordSplat(preFrameCompute);
     preFrameCompute.end();
@@ -635,7 +623,8 @@ void tpd::GaussianEngine::rasterFrame(const Camera& camera) {
     _device.resetFences(readBackFence);
 
     // Inspect the number of tiles rendered and reallocate relevant buffers if necessary
-    const auto tilesRendered = _pc.count > 0 ? _tilesRenderedBuffer.read<uint32_t>() : 0u;
+    vmaInvalidateAllocation(_vmaAllocator, _tilesRenderedBuffer.getAllocation(), 0, vk::WholeSize);
+    const auto tilesRendered = _tilesRenderedBuffer.read<uint32_t>();
     if (tilesRendered > _frames[frameIndex].maxTilesRendered) [[unlikely]] {
         _frames[frameIndex].maxTilesRendered = tilesRendered;
         reallocateBuffers(frameIndex);
@@ -727,6 +716,19 @@ void tpd::GaussianEngine::draw(const SwapImage image) const {
     graphicsDraw.end();
 
     _graphicsQueue.submit2(submitInfo, frameDrawFence);
+}
+
+void tpd::GaussianEngine::updateCameraBuffer(const vk::CommandBuffer cmd, const Camera& camera) const {
+    auto projection = mat4{ camera.getProjectionData() };
+    const auto fx = projection[0, 0];
+    const auto fy = projection[1, 1];
+    projection = math::mul(projection, camera.getViewMatrix());
+    const auto focalNDC = std::array{ fx, fy };
+
+    _cameraBuffer.update(0, camera.getViewMatrixData(), sizeof(mat4));
+    _cameraBuffer.update(0, projection.data_ptr(), sizeof(mat4), sizeof(mat4));
+    _cameraBuffer.update(0, focalNDC.data(), sizeof(focalNDC), sizeof(mat4) * 2);
+    vmaFlushAllocation(_vmaAllocator, _cameraBuffer.getAllocation(), 0, vk::WholeSize);
 }
 
 void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcept {

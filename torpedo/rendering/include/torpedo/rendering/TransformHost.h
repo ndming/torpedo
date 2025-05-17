@@ -9,7 +9,7 @@
 namespace tpd {
     class TransformHost final {
     public:
-        explicit TransformHost(Renderer* renderer = nullptr) : _renderer{ renderer } {}
+        explicit TransformHost(VmaAllocator allocator, Renderer* renderer = nullptr);
 
         TransformHost(const TransformHost&) = delete;
         TransformHost& operator=(const TransformHost&) = delete;
@@ -20,12 +20,16 @@ namespace tpd {
         void transform(Entity entity, const mat4& transform) const;
 
     private:
+        VmaAllocator _allocator;
         Renderer* _renderer;
 
         std::map<Entity, uint32_t> _entityMap{};
         const RingBuffer* _transformBuffer{};
     };
 } // namespace tpd
+
+inline tpd::TransformHost::TransformHost(VmaAllocator allocator, Renderer* renderer)
+    : _allocator{ allocator }, _renderer { renderer } {}
 
 inline void tpd::TransformHost::update(const std::map<Entity, uint32_t>& entityMap, const RingBuffer* buffer) {
     _entityMap = entityMap;
