@@ -29,12 +29,10 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 tileID : SV_GroupID)
     uint2 imageSize; uint mipCount;
     outputImage.GetDimensions(0, imageSize.x, imageSize.y, mipCount);
 
-    // Identify this thread's current tile and pixel coordinates
+    // Identify this thread's pixel coordinates and check if they are inside the image
     let pixel = uint2(tileID.x * BLOCK_X, tileID.y * BLOCK_Y) + localInvocationID.xy;
-    let pixID = pixel.y * imageSize.x + pixel.x;
-
-    // Check if this thread is associated with a valid pixel or outside the image
     let inside = pixel.x < imageSize.x && pixel.y < imageSize.y;
+
     // Done threads can help with fetching, but don't rasterize
     var done = !inside;
 
@@ -52,12 +50,19 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 tileID : SV_GroupID)
 
     var T = 1.0;
     var color = float3(0.0, 0.0, 0.0);
+    var incremented = false;
     for (uint i = 0; i < rounds; i++, remaining -= BLOCK_SIZE) {
-        // End if entire block votes that it is done rasterizing
-        if (done) InterlockedAdd(doneCount, 1u);
+        // Done threads increment the counter, but should only do so once
+        if (done && !incremented) {
+            InterlockedAdd(doneCount, 1u);
+            incremented = true;
+        }
+
+        // End if the entire block votes that it is done rasterizing
         GroupMemoryBarrierWithGroupSync();
         if (doneCount >= BLOCK_SIZE) break;
 
+        // Load BLOCK_SIZE splats into shared memory
         let progress = i * BLOCK_SIZE + localID;
         if (range.x + progress < range.y) {
             let splatIdx = splatIndices[range.x + progress];
@@ -82,6 +87,12 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 tileID : SV_GroupID)
             // Eq. (2) from 3D Gaussian splatting paper
             let alpha = min(0.99, opacity * exp(power));
             if (alpha < 1.0 / 255.0) continue;
+
+            // Stop if this thread has blended enough splats, but it can still help fetching Gaussians
+            if (T * (1 - alpha) < 0.0001f) {
+                done = true;
+                continue;
+            }
 
             // Eq. (3) from 3D Gaussian splatting paper
             color += splats[indices[j]].color * alpha * T;
