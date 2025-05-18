@@ -123,10 +123,12 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
     if (localID == 0) {
         tiles[WORKGROUP_SIZE - 1 + CONFLICT_FREE_OFFSET(WORKGROUP_SIZE - 1)] = exclusivePrefix;
 
-        // The last partition writes the total sum of touched tiles for CPU readback
-        // Host will take care of resetting the atomic counter and partition descriptors
+        // The last partition writes the total sum of touched tiles for CPU readback and resets the atomic counter
         let workgroupCount = (info.pointCount + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
-        if (partition == workgroupCount - 1) tilesRendered[0] = aggregate + exclusivePrefix;
+        if (partition == workgroupCount - 1) {
+            tilesRendered[0] = aggregate + exclusivePrefix;
+            partitionCount[0] = 0u;
+        }
     }
 
     // Traverse down tree & build prefix scan

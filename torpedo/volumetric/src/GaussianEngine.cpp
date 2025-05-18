@@ -327,6 +327,7 @@ void tpd::GaussianEngine::updateRadixPassCount(const uint32_t width, const uint3
     const auto tilesY = (height + BLOCK_Y - 1) / BLOCK_Y;
     const auto bits = getHigherMSB(tilesX * tilesY) + 32;
     _radixPassCount = (bits + 1) / 2;
+    PLOGD << "GaussianEngine - Radix pass count: " << _radixPassCount;
 }
 
 void tpd::GaussianEngine::compile(const Scene& scene, const Settings& settings) {
@@ -396,13 +397,11 @@ void tpd::GaussianEngine::createTilesRenderedBuffer() {
 
     setBufferDescriptors(_tilesRenderedBuffer, sizeof(uint32_t), vk::DescriptorType::eStorageBuffer, 4);
     _tilesRenderedBuffer.write(uint32_t{ 0 }); // don't assume the buffer is automatically initialized with 0
+    vmaFlushAllocation(_vmaAllocator, _tilesRenderedBuffer.getAllocation(), 0, vk::WholeSize);
 }
 
 void tpd::GaussianEngine::createPartitionCountBuffer() {
-    _partitionCountBuffer = StorageBuffer::Builder()
-        .usage(vk::BufferUsageFlagBits::eTransferDst)
-        .alloc(sizeof(uint32_t))
-        .build(_vmaAllocator);
+    _partitionCountBuffer = StorageBuffer::Builder().alloc(sizeof(uint32_t)).build(_vmaAllocator);
     setBufferDescriptors(_partitionCountBuffer, sizeof(uint32_t), vk::DescriptorType::eStorageBuffer, 5);
 }
 
@@ -498,9 +497,7 @@ void tpd::GaussianEngine::createSplatIndexBuffer(const uint32_t frameIndex) {
 }
 
 void tpd::GaussianEngine::createBlockCountBuffers() {
-    const auto builder = StorageBuffer::Builder()
-        .usage(vk::BufferUsageFlagBits::eTransferDst)
-        .alloc(sizeof(uint32_t));
+    const auto builder = StorageBuffer::Builder().alloc(sizeof(uint32_t));
 
     for (auto i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
         _blockCountBuffers[i] = builder.build(_vmaAllocator);
@@ -747,10 +744,7 @@ void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcep
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _projectPipeline);
     cmd.dispatch((_pc.count + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
-    // Reset partition count and partition descriptors
-    // We're going to use the WAT_DEPENDENCY that syncs against the transfer,
-    // so no need for recording dst access point
-    cmd.fillBuffer(_partitionCountBuffer, 0, vk::WholeSize, 0);
+    // Reset partition descriptors
     cmd.fillBuffer(_partitionDescriptorBuffer, 0, vk::WholeSize, 0);
 
     // Make sure splat contents written by project pass are visible (read),
@@ -795,8 +789,7 @@ void tpd::GaussianEngine::recordBlend(
     for (auto radixPass = 0; radixPass < _radixPassCount; ++radixPass) {
         cmd.pushConstants(_gaussianLayout, eCompute, sizeof(PointCloud) + sizeof(uint32_t), sizeof(uint32_t), &radixPass);
 
-        // This going to need radix to sync read/write access against transfer write
-        cmd.fillBuffer(_blockCountBuffers[frameIndex], 0, vk::WholeSize, 0);
+        // These going to need radix to sync read/write access against transfer write
         cmd.fillBuffer(_blockDescriptorBuffer0s[frameIndex], 0, vk::WholeSize, 0);
         cmd.fillBuffer(_blockDescriptorBuffer1s[frameIndex], 0, vk::WholeSize, 0);
 
@@ -812,7 +805,8 @@ void tpd::GaussianEngine::recordBlend(
     // Clear the range buffer before populating it
     cmd.fillBuffer(_frames[frameIndex].rangeBuffer, 0, vk::WholeSize, 0);
 
-    // Make sure sorted keys are visible and transfer has done clearing the range buffer
+    // Make sure sorted keys written by radix pass are visible and
+    // transfer has finished clearing the range buffer
     cmd.pipelineBarrier2(WAT_DEPENDENCY);
 
     // Range pass

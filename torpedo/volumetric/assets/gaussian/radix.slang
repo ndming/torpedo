@@ -187,13 +187,13 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
         offsets[1].data[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = globalPrefix1;
         offsets[0].data[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = globalPrefix0;
 
-        // The last partition writes the total sum of each radix to global sums
-        // Host will take care of resetting the atomic counter and partition descriptors
+        // The last partition writes the total sum of each radix to global sums and resets the atomic counter
         let workgroupCount = (info.tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
         if (partition == workgroupCount - 1) {
             globalSums[0] = s0 + globalPrefix0;
             globalSums[1] = s1 + globalPrefix1;
             globalSums[2] = s2 + globalPrefix2;
+            blockCount[0] = 0u;
         }
     }
 

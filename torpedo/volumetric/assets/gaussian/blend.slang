@@ -83,14 +83,16 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 tileID : SV_GroupID)
             // Eq. (2) from 3D Gaussian splatting paper
             let alpha = min(0.99, opacity * exp(power));
             if (alpha < 1.0 / 255.0) continue;
-            if (T * (1.0 - alpha) < THRESHOLD) {
+
+            let T_test = T * (1.0 - alpha);
+            if (T_test < THRESHOLD) {
                 done = true;
                 continue;
             }
 
             // Eq. (3) from 3D Gaussian splatting paper
             color += splats[indices[j]].color * alpha * T;
-            T *= (1.0 - alpha);
+            T = T_test;
         }
     }
 
