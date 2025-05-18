@@ -409,10 +409,7 @@ void tpd::GaussianEngine::createPartitionDescriptorBuffer(const uint32_t gaussia
     _partitionDescriptorBuffer.destroy(_vmaAllocator);
     const auto size = sizeof(uint64_t) * (gaussianCount + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
 
-    _partitionDescriptorBuffer = StorageBuffer::Builder()
-        .usage(vk::BufferUsageFlagBits::eTransferDst)
-        .alloc(size)
-        .build(_vmaAllocator);
+    _partitionDescriptorBuffer = StorageBuffer::Builder().alloc(size).build(_vmaAllocator);
     setBufferDescriptors(_partitionDescriptorBuffer, size, vk::DescriptorType::eStorageBuffer, 6);
 }
 
@@ -508,7 +505,7 @@ void tpd::GaussianEngine::createBlockCountBuffers() {
 
 void tpd::GaussianEngine::createBlockDescriptorBuffers(const uint32_t frameIndex) {
     const auto size = sizeof(uint64_t) * (_frames[frameIndex].maxTilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
-    const auto builder = StorageBuffer::Builder().usage(vk::BufferUsageFlagBits::eTransferDst).alloc(size);
+    const auto builder = StorageBuffer::Builder().alloc(size);
 
     _blockDescriptorBuffer0s[frameIndex].destroy(_vmaAllocator);
     _blockDescriptorBuffer1s[frameIndex].destroy(_vmaAllocator);
@@ -744,14 +741,11 @@ void tpd::GaussianEngine::recordSplat(const vk::CommandBuffer cmd) const noexcep
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _projectPipeline);
     cmd.dispatch((_pc.count + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
-    // Reset partition descriptors
-    cmd.fillBuffer(_partitionDescriptorBuffer, 0, vk::WholeSize, 0);
-
     // Make sure splat contents written by project pass are visible (read),
     // and we're going to modify the tiles members in this buffer (write).
     // Global memory barrier covers all resources, generally considered 
     // more efficient to do a global memory barrier than per-resource barriers
-    cmd.pipelineBarrier2(WAT_DEPENDENCY);
+    cmd.pipelineBarrier2(WAW_DEPENDENCY);
 
     // Prefix pass
     cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _prefixPipeline);
@@ -789,11 +783,7 @@ void tpd::GaussianEngine::recordBlend(
     for (auto radixPass = 0; radixPass < _radixPassCount; ++radixPass) {
         cmd.pushConstants(_gaussianLayout, eCompute, sizeof(PointCloud) + sizeof(uint32_t), sizeof(uint32_t), &radixPass);
 
-        // These going to need radix to sync read/write access against transfer write
-        cmd.fillBuffer(_blockDescriptorBuffer0s[frameIndex], 0, vk::WholeSize, 0);
-        cmd.fillBuffer(_blockDescriptorBuffer1s[frameIndex], 0, vk::WholeSize, 0);
-
-        cmd.pipelineBarrier2(WAT_DEPENDENCY);
+        cmd.pipelineBarrier2(RAW_DEPENDENCY);
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixPipeline);
         cmd.dispatch((tilesRendered + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 

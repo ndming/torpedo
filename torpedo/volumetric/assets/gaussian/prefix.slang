@@ -44,7 +44,10 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
     // workgroups are not necessarily scheduled in order. An atomic counter is therefore used to 
     // assign monotonically increasing partition IDs to each workgroup. This helps avoid deadlocks 
     // where a workgroup may spin waiting on another workgroup that has not yet been scheduled.
-    if (localID == 0) InterlockedAdd(partitionCount[0], 1, partition);
+    if (localID == 0) {
+        InterlockedAdd(partitionCount[0], 1, partition);
+        InterlockedExchange(partitionDescriptors[partition], 0u); // intialize partition descriptor
+    }
     GroupMemoryBarrierWithGroupSync(); // wait until thread 0 has obtained the partition for this workgroup
 
     // The starting index in the global array for this partition

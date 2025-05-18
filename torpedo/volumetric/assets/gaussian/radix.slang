@@ -59,8 +59,12 @@ static const uint64_t DUMMY = uint64_t::maxValue;
 void main(uint3 localInvocationID : SV_GroupThreadID) {
     let localID = localInvocationID.x; // [0, WORKGROUP_SIZE / 2 - 1]
 
-    // Acquire and wait until thread 0 has obtained the partition for this workgroup
-    if (localID == 0) InterlockedAdd(blockCount[0], 1, partition);
+    // Acquire partition and initialize block descriptors
+    if (localID == 0) {
+        InterlockedAdd(blockCount[0], 1, partition);
+        InterlockedExchange(blockDescriptors0[partition], 0);
+        InterlockedExchange(blockDescriptors1[partition], 0);
+    }
     GroupMemoryBarrierWithGroupSync();
 
     // The starting index in the global array for this partition
