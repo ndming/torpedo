@@ -13,11 +13,11 @@ RWStructuredBuffer<uint> tilesRendered; // readback by CPU
 RWStructuredBuffer<uint> partitionCount; // atomic counter for partitioning items between workgroups
 
 [[vk::binding(6)]]
-RWStructuredBuffer<uint64_t> partitionDescriptors; // fence-free descriptor (flag + value)
+RWStructuredBuffer<uint> partitionDescriptors; // fence-free descriptor (flag + value)
 
 groupshared uint tiles[WORKGROUP_SIZE]; // each workgroup loads global tile values into shared memory for faster access
 groupshared uint partition; // which part of the global array this workgroup is resonsible for
-groupshared uint64_t value; // partition descriptor from other workgroups are read into this variable
+groupshared uint value; // partition descriptor from other workgroups are read into this variable
 
 #define NUM_BANKS 16 // half the SIMD width
 #define LOG_NUM_BANKS 4
@@ -28,7 +28,7 @@ static const uint FLAG_A = 1u; // aggregate available
 static const uint FLAG_P = 2u; // prefix available
 
 // For atomic read of partition descriptor
-static const uint64_t DUMMY = uint64_t::maxValue;
+static const uint DUMMY = uint::maxValue;
 
 // Performs in-place EXCLUSIVE prefix scan over the `tiles` touched by each Gaussian in the `splats` buffer.
 // The total number of touched tiles (global reduction) is written to `tilesRendered` for CPU readback.
@@ -83,11 +83,11 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
     // Step 3 in "Single-pass Parallel Prefix Scan with Decoupled Look-back"
     let aggregate = tiles[WORKGROUP_SIZE - 1 + CONFLICT_FREE_OFFSET(WORKGROUP_SIZE - 1)]; // only valid for thread 0
     if (localID == 0 && partition > 0) {
-        let a = (uint64_t(FLAG_A) << 32) | aggregate;
+        let a = (FLAG_A << 30) | aggregate;
         InterlockedExchange(partitionDescriptors[partition], a);
     } else if (localID == 0) {
         // The first partition updates to prefix-available state using the aggregate
-        let p = (uint64_t(FLAG_P) << 32) | aggregate;
+        let p = (FLAG_P << 30) | aggregate;
         InterlockedExchange(partitionDescriptors[partition], p);
     }
 
@@ -102,10 +102,10 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
             if (localID == 0) InterlockedCompareExchange(partitionDescriptors[lookbackPartition], DUMMY, DUMMY, value);
             GroupMemoryBarrierWithGroupSync(); // wait for thread 0 to atomically obtain the descriptor value
 
-            let flag = uint(value >> 32);
+            let flag = value >> 30;
             if (flag != FLAG_X) {
                 // Accumulate the aggregate/inclusive prefix
-                exclusivePrefix += uint(value & 0xFFFFFFFFu);
+                exclusivePrefix += uint(value & 0x3FFFFFFFu);
                 if (flag == FLAG_A) --lookbackPartition;
                 else break; // FLAG_P
             }
@@ -118,7 +118,7 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
     // Step 5 in "Single-pass Parallel Prefix Scan with Decoupled Look-back"
     if (localID == 0 && partition > 0) {
         let inclusivePrefix = aggregate + exclusivePrefix;
-        let p = (uint64_t(FLAG_P) << 32) | inclusivePrefix;
+        let p = (FLAG_P << 30) | inclusivePrefix;
         InterlockedExchange(partitionDescriptors[partition], p);
     }
 

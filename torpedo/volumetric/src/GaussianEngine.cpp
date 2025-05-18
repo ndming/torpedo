@@ -407,7 +407,7 @@ void tpd::GaussianEngine::createPartitionCountBuffer() {
 
 void tpd::GaussianEngine::createPartitionDescriptorBuffer(const uint32_t gaussianCount) {
     _partitionDescriptorBuffer.destroy(_vmaAllocator);
-    const auto size = sizeof(uint64_t) * (gaussianCount + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
+    const auto size = sizeof(uint32_t) * (gaussianCount + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE;
 
     _partitionDescriptorBuffer = StorageBuffer::Builder().alloc(size).build(_vmaAllocator);
     setBufferDescriptors(_partitionDescriptorBuffer, size, vk::DescriptorType::eStorageBuffer, 6);
