@@ -188,13 +188,6 @@ namespace tpd {
             AccessMask::eShaderStorageRead,  // dst access
         };
 
-        static constexpr auto WAW_BARRIER = vk::MemoryBarrier2{
-            PipelineStage::eComputeShader,
-            AccessMask::eShaderStorageWrite,
-            PipelineStage::eComputeShader,
-            AccessMask::eShaderStorageRead | AccessMask::eShaderStorageWrite,
-        };
-
         static constexpr auto WAT_BARRIER = vk::MemoryBarrier2{
             PipelineStage::eComputeShader | PipelineStage::eTransfer,
             AccessMask::eShaderStorageWrite | AccessMask::eTransferWrite,
@@ -203,7 +196,6 @@ namespace tpd {
         };
 
         static constexpr auto RAW_DEPENDENCY = vk::DependencyInfo{ {}, 1, &RAW_BARRIER };
-        static constexpr auto WAW_DEPENDENCY = vk::DependencyInfo{ {}, 1, &WAW_BARRIER };
         static constexpr auto WAT_DEPENDENCY = vk::DependencyInfo{ {}, 1, &WAT_BARRIER };
         static constexpr auto DST_READ_POINT = SyncPoint{ PipelineStage::eComputeShader, AccessMask::eShaderStorageRead };
 

@@ -13,7 +13,6 @@ StructuredBuffer<uint> splatIndices;
 StructuredBuffer<uint2> ranges;
 
 static const uint BLOCK_SIZE = BLOCK_X * BLOCK_Y;
-static const float THRESHOLD = 1e-36; // stop blending if alpha is below this value (don't know why it must be this low)
 
 groupshared uint indices[BLOCK_SIZE];
 groupshared float2 imagePoints[BLOCK_SIZE];
@@ -84,15 +83,9 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 tileID : SV_GroupID)
             let alpha = min(0.99, opacity * exp(power));
             if (alpha < 1.0 / 255.0) continue;
 
-            let T_test = T * (1.0 - alpha);
-            if (T_test < THRESHOLD) {
-                done = true;
-                continue;
-            }
-
             // Eq. (3) from 3D Gaussian splatting paper
             color += splats[indices[j]].color * alpha * T;
-            T = T_test;
+            T *= (1.0 - alpha);
         }
     }
 
