@@ -151,7 +151,7 @@ namespace tpd {
         vk::Pipeline _radixShufflePipeline{};
         vk::Pipeline _radixPrefixAPipeline{};
         vk::Pipeline _radixPrefixBPipeline{};
-        vk::Pipeline _radixCoalescePipeline{};
+        vk::Pipeline _radixMappingPipeline{};
         vk::Pipeline _rangePipeline{};
         vk::Pipeline _blendPipeline{};
         uint32_t _radixPassCount{ 0 };

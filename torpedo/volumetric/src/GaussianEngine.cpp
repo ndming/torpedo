@@ -104,12 +104,12 @@ void tpd::GaussianEngine::onInitialized() {
 
     createGaussianLayout();
     _projectPipeline = createPipeline("project.slang", _gaussianLayout);
-    _prefixPipeline = createPipeline("prefix.slang", _gaussianLayout);
-    _keygenPipeline = createPipeline("keygen.slang", _gaussianLayout);
+    _prefixPipeline  = createPipeline("prefix.slang", _gaussianLayout);
+    _keygenPipeline  = createPipeline("keygen.slang", _gaussianLayout);
     _radixShufflePipeline = createPipeline("radix-shuffle.slang", _gaussianLayout);
-    _radixPrefixAPipeline = createPipeline("radix-prefix-A.slang", _gaussianLayout);
-    _radixPrefixBPipeline = createPipeline("radix-prefix-B.slang", _gaussianLayout);
-    _radixCoalescePipeline = createPipeline("radix-coalesce.slang", _gaussianLayout);
+    _radixPrefixAPipeline = createPipeline("radix-prefixA.slang", _gaussianLayout);
+    _radixPrefixBPipeline = createPipeline("radix-prefixB.slang", _gaussianLayout);
+    _radixMappingPipeline = createPipeline("radix-mapping.slang", _gaussianLayout);
     _rangePipeline = createPipeline("range.slang", _gaussianLayout);
     _blendPipeline = createPipeline("blend.slang", _gaussianLayout);
 
@@ -815,7 +815,7 @@ void tpd::GaussianEngine::recordBlend(
         cmd.dispatch((blockCount + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
         cmd.pipelineBarrier2(RAW_DEPENDENCY);
-        cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixCoalescePipeline);
+        cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixMappingPipeline);
         cmd.dispatch(blockCount, 1, 1);
     }
 
@@ -905,7 +905,7 @@ void tpd::GaussianEngine::destroy() noexcept {
 
         _device.destroyPipeline(_blendPipeline);
         _device.destroyPipeline(_rangePipeline);
-        _device.destroyPipeline(_radixCoalescePipeline);
+        _device.destroyPipeline(_radixMappingPipeline);
         _device.destroyPipeline(_radixPrefixBPipeline);
         _device.destroyPipeline(_radixPrefixAPipeline);
         _device.destroyPipeline(_radixShufflePipeline);
