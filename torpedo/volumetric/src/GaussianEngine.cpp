@@ -284,7 +284,7 @@ void tpd::GaussianEngine::createFrames() {
         compute = _device.allocateCommandBuffers(asyncCompute()? computeAllocInfo : drawingAllocInfo)[0];
         preFrameFence = _device.createFence(vk::FenceCreateInfo{ vk::FenceCreateFlagBits::eSignaled });
         readBackFence = _device.createFence({});
-        maxTilesRendered = 1; // initiallize to 1 so we can render an empty scene
+        maxTilesRendered = 1; // initialize to 1 so we can render an empty scene
 
         if (asyncCompute()) {
             ownership = _device.createSemaphore({});
@@ -802,18 +802,19 @@ void tpd::GaussianEngine::recordBlend(
     for (auto radixPass = 0; radixPass < _radixPassCount; ++radixPass) {
         cmd.pushConstants(_gaussianLayout, eCompute, sizeof(PointCloud) + sizeof(uint32_t), sizeof(uint32_t), &radixPass);
 
+        // Local shuffling
         cmd.pipelineBarrier2(RAW_DEPENDENCY);
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixShufflePipeline);
         cmd.dispatch(blockCount, 1, 1);
 
+        // The two radix passes are going to read and write to the same buffer set
         cmd.pipelineBarrier2(WAW_DEPENDENCY);
-
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixPrefixAPipeline);
         cmd.dispatch((blockCount + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
-
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixPrefixBPipeline);
         cmd.dispatch((blockCount + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
+        // Coalesce mapping
         cmd.pipelineBarrier2(RAW_DEPENDENCY);
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixMappingPipeline);
         cmd.dispatch(blockCount, 1, 1);

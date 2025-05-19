@@ -31,6 +31,9 @@ static const uint FLAG_P = 2u; // prefix available
 // For atomic read of block descriptors
 static const uint64_t DUMMY = uint64_t::maxValue;
 
+// Scans radix 2 and 3, packed together in globalPrefixes
+// 4-way radix sort: https://www.sci.utah.edu/~csilva/papers/cgf.pdf
+
 [shader("compute")]
 [numthreads(WORKGROUP_SIZE / 2, 1, 1)] // each thread (invocation) processes 2 items
 void main(uint3 localInvocationID : SV_GroupThreadID) {

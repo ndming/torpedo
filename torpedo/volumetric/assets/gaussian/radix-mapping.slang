@@ -25,10 +25,15 @@ StructuredBuffer<uint> tempVals;
 StructuredBuffer<uint> globalSums; // total count of radix 0, 1, and 2
 
 groupshared uint offsets[3]; // load global sums and pre compute offsets for chunk 1, 2, and 3
-groupshared uint beginID[3]; // the local thread ID of the first radix 1, 2, and 3
+groupshared uint globalPrefixes[4]; // unpacked global prefixes
+
+groupshared uint chunkBegin[4]; // the starting position of each chunk
+groupshared uint chunkEnd[4];   // the exclusive ending position of each chunk
 
 groupshared uint64_t keys[WORKGROUP_SIZE]; // for faster access
-groupshared uint globalPrefixes[4]; // unpacked global prefixes
+
+// Performs coalesced mapping from local sorted keys to global keys
+// 4-way radix sort: https://www.sci.utah.edu/~csilva/papers/cgf.pdf
 
 [shader("compute")]
 [numthreads(WORKGROUP_SIZE, 1, 1)]
@@ -39,40 +44,74 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID
 
     // Load global keys to shared memory
     keys[localID] = tempKeys[begin + localID];
+    let shift = 2 * info.radixPass;
+    let key = uint((keys[localID] >> shift) & 0x3ULL);
 
-    // Precompute offsets for chunks of radix 1, 2, and 3
     if (localID == 0) {
+        // Precompute offsets for chunks of radix 1, 2, and 3
         offsets[0] = globalSums[0]; // offset for radix 1
         offsets[1] = globalSums[1];
         offsets[2] = globalSums[2];
         offsets[1] += offsets[0]; // offset for radix 2
         offsets[2] += offsets[1]; // offset for radix 3
-    }
 
-    // Unpack global prefixes for each radix
-    if (localID == 0) {
+        // Unpack global prefixes for each radix
         let pA = globalPrefixA[groupID.x];
         let pB = globalPrefixB[groupID.x];
         globalPrefixes[0] = uint(pA & 0xFFFFFFFFULL);
         globalPrefixes[1] = uint(pA >> 32);
         globalPrefixes[2] = uint(pB & 0xFFFFFFFFULL);
         globalPrefixes[3] = uint(pB >> 32);
+
+        // Initialize chunk boundaries
+        chunkBegin[0] = 0; chunkEnd[0] = 0;
+        chunkBegin[1] = 0; chunkEnd[1] = 0;
+        chunkBegin[2] = 0; chunkEnd[2] = 0;
+        chunkBegin[3] = 0; chunkEnd[3] = 0;
     }
     GroupMemoryBarrierWithGroupSync();
 
-    let shift = 2 * info.radixPass;
-    let key = uint((keys[localID] >> shift) & 0x3ULL);
+    // The last thread in the workgroup is responsible for the last chunk
+    if (localID == WORKGROUP_SIZE - 1 || begin + localID == info.tilesRendered - 1) {
+        chunkEnd[key] = localID + 1;
+    }
+    GroupMemoryBarrierWithGroupSync();
 
-    // Find begin thread ID of radix 1, 2, and 3
+    // Find boundaries of each chunk
     if (localID > 0) {
         let prevKey = uint((keys[localID - 1] >> shift) & 0x3ULL);
-        if (key != prevKey) beginID[key - 1] = localID;
+        if (key != prevKey) {
+            chunkBegin[key] = localID;
+            chunkEnd[prevKey] = localID;
+        }
     }
     GroupMemoryBarrierWithGroupSync();
 
-    let offset = key > 0 ? offsets[key - 1] + localID - beginID[key - 1] : localID;
-    let mapIdx = globalPrefixes[key] + offset;
+    // Copy chunk 0
+    if (localID < chunkEnd[0] - chunkBegin[0]) {
+        let mapIdx = globalPrefixes[0] + localID;
+        splatKeys[mapIdx] = keys[chunkBegin[0] + localID];
+        splatIndices[mapIdx] = tempVals[begin + chunkBegin[0] + localID];
+    }
 
-    splatKeys[mapIdx] = keys[localID];
-    splatIndices[mapIdx] = tempVals[begin + localID];
+    // Copy chunk 1
+    if (localID < chunkEnd[1] - chunkBegin[1]) {
+        let mapIdx = globalPrefixes[1] + localID + offsets[0];
+        splatKeys[mapIdx] = keys[chunkBegin[1] + localID];
+        splatIndices[mapIdx] = tempVals[begin + chunkBegin[1] + localID];
+    }
+
+    // Copy chunk 2
+    if (localID < chunkEnd[2] - chunkBegin[2]) {
+        let mapIdx = globalPrefixes[2] + localID + offsets[1];
+        splatKeys[mapIdx] = keys[chunkBegin[2] + localID];
+        splatIndices[mapIdx] = tempVals[begin + chunkBegin[2] + localID];
+    }
+
+    // Copy chunk 3
+    if (localID < chunkEnd[3] - chunkBegin[3]) {
+        let mapIdx = globalPrefixes[3] + localID + offsets[2];
+        splatKeys[mapIdx] = keys[chunkBegin[3] + localID];
+        splatIndices[mapIdx] = tempVals[begin + chunkBegin[3] + localID];
+    }
 }

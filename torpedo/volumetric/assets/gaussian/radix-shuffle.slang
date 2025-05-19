@@ -31,6 +31,9 @@ groupshared LocalOffset offsets[4];
 #define LOG_NUM_BANKS 4
 #define CONFLICT_FREE_OFFSET(n)((n) >> NUM_BANKS + (n) >> (2 * LOG_NUM_BANKS))
 
+// Performs local shuffling of each radix combination
+// 4-way radix sort: https://www.sci.utah.edu/~csilva/papers/cgf.pdf
+
 [shader("compute")]
 [numthreads(WORKGROUP_SIZE / 2, 1, 1)] // each thread (invocation) processes 2 items
 void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID) {
