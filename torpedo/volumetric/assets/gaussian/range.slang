@@ -6,7 +6,7 @@ uniform RasterInfo info;
 [[vk::binding(7)]]
 StructuredBuffer<uint64_t> splatKeys;
 
-[[vk::binding(16)]]
+[[vk::binding(18)]]
 RWStructuredBuffer<uint2> ranges;
 
 // Based on: https://github.com/graphdeco-inria/gaussian-splatting

@@ -26,8 +26,10 @@ set(TORPEDO_VOLUMETRIC_SHADERS
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/project.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/prefix.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/keygen.slang
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/radix.slang
-        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/coalesce.slang
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/radix-shuffle.slang
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/radix-prefix-A.slang
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/radix-prefix-B.slang
+        ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/radix-coalesce.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/range.slang
         ${CMAKE_CURRENT_SOURCE_DIR}/assets/gaussian/blend.slang)
 torpedo_compile_slang(${TARGET} "${TORPEDO_VOLUMETRIC_ASSETS_DIR}/gaussian" "${TORPEDO_VOLUMETRIC_SHADERS}")
