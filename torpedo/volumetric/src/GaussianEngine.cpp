@@ -534,17 +534,11 @@ void tpd::GaussianEngine::createTempValBuffers(const uint32_t frameIndex) {
 }
 
 void tpd::GaussianEngine::createBlockCountBuffers() {
-    const auto builder = StorageBuffer::Builder().usage(vk::BufferUsageFlagBits::eTransferDst).alloc(sizeof(uint32_t));
-
-    constexpr auto val = uint32_t{ 0 };
-    constexpr auto dst = SyncPoint{ PipelineStage::eComputeShader, AccessMask::eShaderStorageRead | AccessMask::eShaderStorageWrite };
+    const auto builder = StorageBuffer::Builder().alloc(sizeof(uint32_t));
 
     for (auto i = 0; i < _renderer->getInFlightFrameCount(); ++i) {
         _blockCountABuffers[i] = builder.build(_vmaAllocator);
         _blockCountBBuffers[i] = builder.build(_vmaAllocator);
-
-        // _transferWorker->transfer(&val, sizeof(uint32_t), _blockCountABuffers[i], _computeFamilyIndex, dst);
-        // _transferWorker->transfer(&val, sizeof(uint32_t), _blockCountBBuffers[i], _computeFamilyIndex, dst);
 
         const auto infoA = vk::DescriptorBufferInfo{}.setBuffer(_blockCountABuffers[i]).setOffset(0).setRange(sizeof(uint32_t));
         const auto infoB = vk::DescriptorBufferInfo{}.setBuffer(_blockCountBBuffers[i]).setOffset(0).setRange(sizeof(uint32_t));
