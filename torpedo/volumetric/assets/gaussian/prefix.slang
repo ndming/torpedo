@@ -98,7 +98,7 @@ void main(uint3 localInvocationID : SV_GroupThreadID) {
         // Pooling starts from the immediate preceding partition
         var lookbackPartition = partition - 1;
         while (true) {
-            // TODO: have an entire SIMD workgroups inspecting predecessors in parallel (parallelized look-back)
+            // TODO: have an entire thread warp inspecting predecessors in parallel (parallelized look-back)
             if (localID == 0) InterlockedCompareExchange(partitionDescriptors[lookbackPartition], DUMMY, DUMMY, value);
             GroupMemoryBarrierWithGroupSync(); // wait for thread 0 to atomically obtain the descriptor value
 
