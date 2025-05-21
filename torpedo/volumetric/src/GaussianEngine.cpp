@@ -153,7 +153,7 @@ void tpd::GaussianEngine::onInitialized() {
         createBlockDescriptorBuffers(i);
     }
 
-    // These buffers exist independently of the number of Gaussians and tiles renderer
+    // These buffers exist independently of the number of Gaussians and tiles rendered
     createTilesRenderedBuffer();
     createPartitionCountBuffer();
     createBlockCountBuffers();
@@ -632,7 +632,7 @@ void tpd::GaussianEngine::rasterFrame(const Camera& camera) {
     using enum vk::ImageLayout;
     _frames[frameIndex].outputImage.recordLayoutTransition(preFrameCompute, eUndefined, eGeneral);
 
-    // Splat dispatches these passes: project, prefix, keygen
+    // Splat dispatches these passes: project, prefix
     if (_pc.count > 0) [[likely]] recordSplat(preFrameCompute);
     preFrameCompute.end();
 
@@ -661,7 +661,7 @@ void tpd::GaussianEngine::rasterFrame(const Camera& camera) {
     preFrameCompute.pushConstants(_gaussianLayout, shaderStage, sizeof(PointCloud), sizeof(uint32_t),   &tilesRendered);
     preFrameCompute.bindDescriptorSets(eCompute, _gaussianLayout, 0, _frames[frameIndex].instance.getDescriptorSets(), {});
 
-    // The remaining passes: radix, range, blend
+    // The remaining passes: keygen, radix, range, blend
     recordBlend(preFrameCompute, tilesRendered, frameIndex);
 
     // Transfer ownership to graphics before submitting if working with async compute
@@ -807,14 +807,14 @@ void tpd::GaussianEngine::recordBlend(
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixShufflePipeline);
         cmd.dispatch(blockCount, 1, 1);
 
-        // The two radix passes are going to read and write to the same buffer set
+        // These two radix passes are going to read and write to the same buffer set
         cmd.pipelineBarrier2(WAW_DEPENDENCY);
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixPrefixAPipeline);
         cmd.dispatch((blockCount + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixPrefixBPipeline);
         cmd.dispatch((blockCount + WORKGROUP_SIZE - 1) / WORKGROUP_SIZE, 1, 1);
 
-        // Coalesce mapping
+        // Coalesced mapping
         cmd.pipelineBarrier2(RAW_DEPENDENCY);
         cmd.bindPipeline(vk::PipelineBindPoint::eCompute, _radixMappingPipeline);
         cmd.dispatch(blockCount, 1, 1);
