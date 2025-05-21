@@ -30,13 +30,7 @@ StructuredBuffer<uint> transformIndices;
 // Projects Gaussian points to Splat points on image space
 // Based on: https://github.com/graphdeco-inria/gaussian-splatting
 
-[shader("compute")]
-[numthreads(WORKGROUP_SIZE, 1, 1)]
-void main(uint3 globalInvocationID : SV_DispatchThreadID) {
-    // Each thread processes one Gaussian point
-    let idx = globalInvocationID.x;
-    if (idx >= info.pointCount) return;
-
+void project(uint idx) {
     splats[idx].texel.w = 0.0; // reset radius
     splats[idx].tiles = 0;     // reset tile count
 
@@ -93,4 +87,21 @@ void main(uint3 globalInvocationID : SV_DispatchThreadID) {
     splats[idx].texel = float4(imgPoint, viewPos.z, radius);
     splats[idx].copac = float4(conic, gaussians[idx].opacity);
     splats[idx].tiles = touchedTiles;
+}
+
+[SpecializationConstant]
+const uint SUBGROUP_SIZE = 32; // will be set based on GPU capabilities
+
+[shader("compute")]
+[numthreads(SUBGROUP_SIZE, 1, 1)]
+void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID) {
+    let localID = localInvocationID.x;
+    let begin = groupID.x * WORKGROUP_SIZE;
+    let itemsPerThread = WORKGROUP_SIZE / SUBGROUP_SIZE;
+
+    for (uint i = 0; i < itemsPerThread; ++i) {
+        let idx = begin + localID + i * SUBGROUP_SIZE;
+        if (idx >= info.pointCount) break;
+        project(idx);
+    }
 }

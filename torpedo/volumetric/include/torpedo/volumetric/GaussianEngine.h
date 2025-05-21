@@ -55,7 +55,7 @@ namespace tpd {
         void createComputeCommandPool(); // only called if async compute is being used
 
         void createGaussianLayout();
-        [[nodiscard]] vk::Pipeline createPipeline(const std::string& slangFile, vk::PipelineLayout layout) const;
+        [[nodiscard]] vk::Pipeline createPipeline(const std::string& slangFile, vk::PipelineLayout layout, uint32_t subgroupSize) const;
 
         void createFrames();
 

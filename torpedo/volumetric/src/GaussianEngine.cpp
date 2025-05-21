@@ -44,7 +44,7 @@ vk::Device tpd::GaussianEngine::createDevice(
     PLOGD << "Device features requested by " << getName() << " (3):";
     PLOGD << " - Features: shaderInt64";
     PLOGD << " - Vulkan12Features: shaderBufferInt64Atomics, runtimeDescriptorArray";
-    PLOGD << " - Vulkan13Features: synchronization2";
+    PLOGD << " - Vulkan13Features: synchronization2, maintenance4";
 
     return DeviceBuilder()
         .deviceFeatures(&deviceFeatures)
@@ -68,6 +68,7 @@ vk::PhysicalDeviceVulkan12Features tpd::GaussianEngine::getVulkan12Features() {
 vk::PhysicalDeviceVulkan13Features tpd::GaussianEngine::getVulkan13Features() {
     auto features = vk::PhysicalDeviceVulkan13Features();
     features.synchronization2 = true;
+    features.maintenance4 = true;
     return features;
 }
 
@@ -102,16 +103,24 @@ void tpd::GaussianEngine::onInitialized() {
         createComputeCommandPool();
     }
 
+    // Query subgroup size
+    auto subgroupProperties = vk::PhysicalDeviceSubgroupProperties{};
+    auto properties = vk::PhysicalDeviceProperties2{};
+    properties.pNext = &subgroupProperties;
+    _physicalDevice.getProperties2(&properties);
+    const auto subgroupSize = subgroupProperties.subgroupSize;
+    PLOGD << "GaussianEngine - Subgroup size: " << subgroupSize;
+
     createGaussianLayout();
-    _projectPipeline = createPipeline("project.slang", _gaussianLayout);
-    _prefixPipeline  = createPipeline("prefix.slang", _gaussianLayout);
-    _keygenPipeline  = createPipeline("keygen.slang", _gaussianLayout);
-    _radixShufflePipeline = createPipeline("radix-shuffle.slang", _gaussianLayout);
-    _radixPrefixAPipeline = createPipeline("radix-prefixA.slang", _gaussianLayout);
-    _radixPrefixBPipeline = createPipeline("radix-prefixB.slang", _gaussianLayout);
-    _radixMappingPipeline = createPipeline("radix-mapping.slang", _gaussianLayout);
-    _rangePipeline = createPipeline("range.slang", _gaussianLayout);
-    _blendPipeline = createPipeline("blend.slang", _gaussianLayout);
+    _projectPipeline = createPipeline("project.slang", _gaussianLayout, subgroupSize);
+    _prefixPipeline  = createPipeline("prefix.slang", _gaussianLayout, subgroupSize);
+    _keygenPipeline  = createPipeline("keygen.slang", _gaussianLayout, subgroupSize);
+    _radixShufflePipeline = createPipeline("radix-shuffle.slang", _gaussianLayout, subgroupSize);
+    _radixPrefixAPipeline = createPipeline("radix-prefixA.slang", _gaussianLayout, subgroupSize);
+    _radixPrefixBPipeline = createPipeline("radix-prefixB.slang", _gaussianLayout, subgroupSize);
+    _radixMappingPipeline = createPipeline("radix-mapping.slang", _gaussianLayout, subgroupSize);
+    _rangePipeline = createPipeline("range.slang", _gaussianLayout, subgroupSize);
+    _blendPipeline = createPipeline("blend.slang", _gaussianLayout, subgroupSize);
 
     const auto frameCount = _renderer->getInFlightFrameCount();
     const auto [w, h] = _renderer->getFramebufferSize();
@@ -255,14 +264,25 @@ void tpd::GaussianEngine::createGaussianLayout() {
         .build(_device, &_gaussianLayout);
 }
 
-vk::Pipeline tpd::GaussianEngine::createPipeline(const std::string& slangFile, const vk::PipelineLayout layout) const {
+vk::Pipeline tpd::GaussianEngine::createPipeline(
+    const std::string& slangFile,
+    const vk::PipelineLayout layout,
+    const uint32_t subgroupSize) const 
+{
     const auto shaderModule = ShaderModuleBuilder()
         .spirvPath(std::filesystem::path(TORPEDO_VOLUMETRIC_ASSETS_DIR) / "gaussian" / (slangFile + ".spv"))
         .build(_device);
 
+    constexpr auto constantEntry = vk::SpecializationMapEntry{ 0, 0, sizeof(uint32_t) };
+    const auto specializationInfo = vk::SpecializationInfo{}
+        .setMapEntries(constantEntry)
+        .setDataSize(sizeof(uint32_t))
+        .setPData(&subgroupSize);
+
     const auto shaderStage = vk::PipelineShaderStageCreateInfo{}
         .setModule(shaderModule)
         .setStage(vk::ShaderStageFlagBits::eCompute)
+        .setPSpecializationInfo(&specializationInfo)
         .setPName("main");
 
     const auto pipelineInfo = vk::ComputePipelineCreateInfo{}
