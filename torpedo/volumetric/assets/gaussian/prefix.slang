@@ -16,7 +16,7 @@ RWStructuredBuffer<uint> partitionCount; // atomic counter for partitioning item
 RWStructuredBuffer<uint> partitionDescriptors; // fence-free descriptor (flag + value)
 
 groupshared uint tiles[WORKGROUP_SIZE]; // each workgroup loads global tile values into shared memory for faster access
-groupshared uint partition; // which part of the global array this workgroup is resonsible for
+groupshared uint partition; // which part of the global array this workgroup is responsible for
 groupshared uint value; // partition descriptor from other workgroups are read into this variable
 
 #define NUM_BANKS 16 // half the SIMD width
