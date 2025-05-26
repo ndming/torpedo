@@ -44,7 +44,7 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID
 
     // Load global keys to shared memory
     keys[localID] = tempKeys[begin + localID];
-    let shift = 2 * info.radixPass;
+    let shift = 2 * info.sortIteration;
     let key = uint((keys[localID] >> shift) & 0x3ULL);
 
     if (localID == 0) {

@@ -33,6 +33,8 @@ namespace tpd {
             const std::vector<const char*>& deviceExtensions,
             vk::Instance instance, vk::SurfaceKHR surface) const override;
 
+        [[nodiscard]] std::vector<const char*> getDeviceExtensions() const override;
+
         [[nodiscard]] vk::Device createDevice(
             const std::vector<const char*>& deviceExtensions,
             std::initializer_list<uint32_t> queueFamilyIndices) const override;
@@ -50,6 +52,8 @@ namespace tpd {
 
         static void framebufferResizeCallback(void* ptr, uint32_t width, uint32_t height);
         void onFramebufferResize(uint32_t width, uint32_t height);
+        void cleanupRenderTargets() noexcept;
+        void updateSortIterations(uint32_t width, uint32_t height) noexcept;
 
         void createDrawingCommandPool();
         void createComputeCommandPool(); // only called if async compute is being used
@@ -62,17 +66,17 @@ namespace tpd {
         void createRenderTargets(uint32_t width, uint32_t height);
         void createCameraBuffer();
 
-        void cleanupRenderTargets() noexcept;
-        void updateRadixPassCount(uint32_t width, uint32_t height) noexcept;
-
-        void createSplatKeyBuffers(uint32_t frameIndex);
-        void createSplatIndexBuffers(uint32_t frameIndex);
-        void createGlobalPrefixBuffers(uint32_t frameIndex);
-        void createTempKeyBuffers(uint32_t frameIndex);
-        void createTempValBuffers(uint32_t frameIndex);
-        void createBlockCountBuffers();
-        void createBlockDescriptorBuffers(uint32_t frameIndex);
-        void createGlobalSumBuffers();
+        void createSplatKeyBuffer(uint32_t frameIndex);
+        void createSplatIndexBuffer(uint32_t frameIndex);
+        // void createGlobalPrefixBuffers(uint32_t frameIndex);
+        void createTempKeyBuffer(uint32_t frameIndex);
+        void createTempValBuffer(uint32_t frameIndex);
+        // void createBlockCountBuffers();
+        // void createBlockDescriptorBuffers(uint32_t frameIndex);
+        // void createGlobalSumBuffers();
+        void createHistogramBuffer();
+        void createTileCountBuffers();
+        void createTileDescriptorBuffer(uint32_t frameIndex);
         void createRangeBuffers(uint32_t width, uint32_t height);
 
         void createGaussianBuffer(const std::vector<std::byte>& bytes);
@@ -123,6 +127,10 @@ namespace tpd {
         static constexpr uint32_t BLOCK_Y = 16; // tile size in y-dimension
         static constexpr uint32_t SPLAT_SIZE = 48; // check splat.slang
 
+        static constexpr uint32_t TILE_SIZE = 1536;
+        static constexpr uint32_t DIGIT_PLACES = 8;
+        static constexpr uint32_t RADIX_BINS = 256;
+
         /*--------------------*/
 
         std::pmr::unsynchronized_pool_resource _frameResource{};
@@ -148,13 +156,16 @@ namespace tpd {
         vk::Pipeline _projectPipeline{};
         vk::Pipeline _prefixPipeline{};
         vk::Pipeline _keygenPipeline{};
-        vk::Pipeline _radixShufflePipeline{};
-        vk::Pipeline _radixPrefixAPipeline{};
-        vk::Pipeline _radixPrefixBPipeline{};
-        vk::Pipeline _radixMappingPipeline{};
+        // vk::Pipeline _radixShufflePipeline{};
+        // vk::Pipeline _radixPrefixAPipeline{};
+        // vk::Pipeline _radixPrefixBPipeline{};
+        // vk::Pipeline _radixMappingPipeline{};
+        vk::Pipeline _radixUpfrontPipeline{};
+        vk::Pipeline _radixPrefixPipeline{};
+        vk::Pipeline _radixBinningPipeline{};
         vk::Pipeline _rangePipeline{};
         vk::Pipeline _blendPipeline{};
-        uint32_t _radixPassCount{ 0 };
+        uint32_t _sortIterations{ 0 };
 
         /*--------------------*/
 
@@ -174,13 +185,16 @@ namespace tpd {
         std::vector<StorageBuffer> _splatIndexBuffers{};
         std::vector<StorageBuffer> _tempKeyBuffers{};
         std::vector<StorageBuffer> _tempValBuffers{};
-        std::vector<StorageBuffer> _globalPrefixABuffers{};
-        std::vector<StorageBuffer> _globalPrefixBBuffers{};
-        std::vector<StorageBuffer> _blockCountABuffers{};
-        std::vector<StorageBuffer> _blockCountBBuffers{};
-        std::vector<StorageBuffer> _blockDescriptorABuffers{};
-        std::vector<StorageBuffer> _blockDescriptorBBuffers{};
-        std::vector<StorageBuffer> _globalSumBuffers{};
+        // std::vector<StorageBuffer> _globalPrefixABuffers{};
+        // std::vector<StorageBuffer> _globalPrefixBBuffers{};
+        // std::vector<StorageBuffer> _blockCountABuffers{};
+        // std::vector<StorageBuffer> _blockCountBBuffers{};
+        // std::vector<StorageBuffer> _blockDescriptorABuffers{};
+        // std::vector<StorageBuffer> _blockDescriptorBBuffers{};
+        // std::vector<StorageBuffer> _globalSumBuffers{};
+        StorageBuffer _histogramBuffer{};
+        std::vector<StorageBuffer> _tileCountBuffers{};
+        std::vector<StorageBuffer> _tileDescriptorBuffers{};
 
         using PipelineStage = vk::PipelineStageFlagBits2;
         using AccessMask = vk::AccessFlagBits2;

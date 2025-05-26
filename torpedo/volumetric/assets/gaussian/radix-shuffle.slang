@@ -55,7 +55,7 @@ void main(uint3 localInvocationID : SV_GroupThreadID, uint3 groupID : SV_GroupID
     let vB = begin + bj < info.tilesRendered ? splatIndices[begin + bj] : 0;
 
     // Generate mask for each 2-bit radix
-    let shift = 2 * info.radixPass;
+    let shift = 2 * info.sortIteration;
     let keyA = uint((kA >> shift) & 0x3ULL);
     let keyB = uint((kB >> shift) & 0x3ULL);
     offsets[0].data[aj + bankOffsetA] = uint(keyA == 0); offsets[0].data[bj + bankOffsetB] = uint(keyB == 0);

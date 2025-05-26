@@ -12,7 +12,7 @@ public struct RasterInfo {
     public uint pointCount; // number of Gaussian points
     public uint shDegree;   // active SH degree
     public uint tilesRendered; // `numRendered` in the CUDA code
-    public uint radixPass;
+    public uint sortIteration; // current sort iteration
 }
 
 public struct Camera {
