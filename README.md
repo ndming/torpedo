@@ -51,7 +51,7 @@ Clang-build is the only option for conda-managed dependencies where all required
 are included in their respective `.yml` files.
 
 The only exception to the above is the [Slang](https://shader-slang.org/) compiler, for which the prebuilt
-[binaries](https://github.com/shader-slang/slang/releases/tag/vulkan-sdk-1.4.304.1) corresponding to Vulkan `1.4.304` 
+[binaries](https://github.com/shader-slang/slang/releases/tag/vulkan-sdk-1.4.313.0) corresponding to Vulkan `1.4.313` 
 needs to be downloaded and extracted to a location whose path is specified during CMake configuration:
 ```shell
 # During CMake configuration
