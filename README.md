@@ -1,5 +1,5 @@
 # torpedo
-Extensible rendering infrastructure using the Vulkan API, featuring:
+Gaussian rasterizer using the Vulkan API, featuring:
 - [x] Implementation of the real-time [Gaussian renderer](https://github.com/graphdeco-inria/gaussian-splatting) 
 entirely in [Slang](https://shader-slang.org/)
 - [x] Tools, packages, and dependencies management via Conda
